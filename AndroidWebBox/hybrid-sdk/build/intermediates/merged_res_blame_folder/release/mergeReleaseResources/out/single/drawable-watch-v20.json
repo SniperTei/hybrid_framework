@@ -1,0 +1,6 @@
+[
+    {
+        "merged": "com.sniper.hybrid.hybrid-sdk-release-37:/drawable-watch-v20/abc_dialog_material_background.xml",
+        "source": "com.sniper.hybrid.hybrid-sdk-appcompat-1.6.1-10:/drawable-watch-v20/abc_dialog_material_background.xml"
+    }
+]

@@ -1,0 +1,147 @@
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/plugins/VideoPlugin.kt:194: Warning: Implicitly using the default locale is a common source of bugs: Use String.format(Locale, ...) instead [DefaultLocale]
+                        "size_mb" to String.format("%.2f", size / (1024.0 * 1024.0))
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DefaultLocale":
+   Calling String#toLowerCase() or #toUpperCase() without specifying an
+   explicit locale is a common source of bugs. The reason for that is that
+   those methods will use the current locale on the user's device, and even
+   though the code appears to work correctly when you are developing the app,
+   it will fail in some locales. For example, in the Turkish locale, the
+   uppercase replacement for i is not I.
+
+   If you want the methods to just perform ASCII replacement, for example to
+   convert an enum name, call String#toUpperCase(Locale.ROOT) instead. If you
+   really want to use the current locale, call
+   String#toUpperCase(Locale.getDefault()) instead.
+
+   https://developer.android.com/reference/java/util/Locale.html#default_locale
+
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/build.gradle.kts:54: Warning: A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.9.0 is available: 1.10.2 [NewerVersionAvailable]
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/build.gradle.kts:57: Warning: A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.7.3 is available: 1.10.0 [NewerVersionAvailable]
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewerVersionAvailable":
+   This detector checks with a central repository to see if there are newer
+   versions available for the dependencies used by this project. This is
+   similar to the GradleDependency check, which checks for newer versions
+   available in the Android SDK tools and libraries, but this works with any
+   MavenCentral dependency, and connects to the library every time, which
+   makes it more flexible but also much slower.
+
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/JSBridge.kt:24: Warning: Using setJavaScriptEnabled can introduce XSS vulnerabilities into your application, review carefully [SetJavaScriptEnabled]
+        webView.settings.javaScriptEnabled = true
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/WebContainer.kt:64: Warning: Using setJavaScriptEnabled can introduce XSS vulnerabilities into your application, review carefully [SetJavaScriptEnabled]
+            javaScriptEnabled = true
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetJavaScriptEnabled":
+   Your code should not invoke setJavaScriptEnabled if you are not sure that
+   your app really requires JavaScript support.
+
+   https://goo.gle/SetJavaScriptEnabled
+   https://developer.android.com/training/articles/security-tips
+
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/plugins/DevicePlugin.kt:55: Warning: Unnecessary; SDK_INT is always >= 29 [ObsoleteSdkInt]
+            "appVersionCode" to (if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/WebContainer.kt:84: Warning: Unnecessary; SDK_INT is always >= 29 [ObsoleteSdkInt]
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/WebContainer.kt:122: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse(url)))
+                                                                         ~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/WebContainer.kt:122: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse(url)))
+                                                                         ~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/WebContainer.kt:126: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse(url)))
+                                                                           ~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/src/main/java/com/sniper/hybrid/core/WebContainer.kt:126: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse(url)))
+                                                                           ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling
+
+   ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/build.gradle.kts:54: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk/build.gradle.kts:57: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseTomlInstead":
+   If your project is using a libs.versions.toml file, you should place all
+   Gradle dependencies in the TOML file. This lint check looks for version
+   declarations outside of the TOML file and suggests moving them (and in the
+   IDE, provides a quickfix to performing the operation automatically).
+
+0 errors, 13 warnings

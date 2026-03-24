@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iOSWebBox Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .output {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .output:empty::before {
+            content: "等待操作结果...";
+            color: #999;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 iOSWebBox Demo</h1>
+
+        <div class="card">
+            <h2>📱 设备信息</h2>
+            <div class="button-group">
+                <button onclick="getDeviceInfo()">获取设备信息</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📷 多媒体</h2>
+            <div class="button-group">
+                <button onclick="capturePhoto()">拍照</button>
+                <button onclick="pickFromGallery()">选择相册</button>
+                <button onclick="recordVideo()">录制视频</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🌐 网络请求</h2>
+            <div class="button-group">
+                <button onclick="testGetRequest()">GET 请求</button>
+                <button onclick="testPostRequest()">POST 请求</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📋 输出</h2>
+            <div id="status"></div>
+            <div class="output" id="output"></div>
+        </div>
+    </div>
+
+    <script src="../js/hybrid-sdk.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        const statusDiv = document.getElementById('status');
+
+        function showStatus(message, isSuccess) {
+            statusDiv.className = 'status ' + (isSuccess ? 'success' : 'error');
+            statusDiv.textContent = message;
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = '';
+            }, 3000);
+        }
+
+        function log(data) {
+            output.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function getDeviceInfo() {
+            AndroidWebBox.device.getInfo(function(result) {
+                if (result.success) {
+                    log(result.data);
+                    showStatus('获取设备信息成功', true);
+                } else {
+                    log(result.error);
+                    showStatus('获取设备信息失败: ' + result.error.message, false);
+                }
+            });
+        }
+
+        function capturePhoto() {
+            AndroidWebBox.camera.capture({
+                quality: 80
+            }, function(result) {
+                if (result.success) {
+                    log(result.data);
+                    showStatus('拍照成功', true);
+                } else if (result.progress !== undefined) {
+                    log({ progress: result.progress });
+                } else {
+                    log(result.error);
+                    showStatus('拍照失败: ' + result.error.message, false);
+                }
+            });
+        }
+
+        function pickFromGallery() {
+            AndroidWebBox.gallery.pick({
+                maxCount: 3,
+                type: 'image'
+            }, function(result) {
+                if (result.success) {
+                    log(result.data);
+                    showStatus('选择了 ' + result.data.count + ' 个文件', true);
+                } else {
+                    log(result.error);
+                    showStatus('选择失败: ' + result.error.message, false);
+                }
+            });
+        }
+
+        function recordVideo() {
+            AndroidWebBox.video.record({
+                maxDuration: 60
+            }, function(result) {
+                if (result.success) {
+                    log(result.data);
+                    showStatus('录制视频成功', true);
+                } else if (result.progress !== undefined) {
+                    log({ progress: result.progress + '%' });
+                } else {
+                    log(result.error);
+                    showStatus('录制失败: ' + result.error.message, false);
+                }
+            });
+        }
+
+        function testGetRequest() {
+            AndroidWebBox.http.get({
+                url: 'https://httpbin.org/get',
+                headers: {
+                    'User-Agent': 'iOSWebBox/1.0'
+                }
+            }, function(result) {
+                if (result.success) {
+                    log(result.data);
+                    showStatus('GET 请求成功', true);
+                } else {
+                    log(result.error);
+                    showStatus('GET 请求失败: ' + result.error.message, false);
+                }
+            });
+        }
+
+        function testPostRequest() {
+            AndroidWebBox.http.post({
+                url: 'https://httpbin.org/post',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                message: 'Hello from iOSWebBox!',
+                timestamp: Date.now()
+            }, function(result) {
+                if (result.success) {
+                    log(result.data);
+                    showStatus('POST 请求成功', true);
+                } else {
+                    log(result.error);
+                    showStatus('POST 请求失败: ' + result.error.message, false);
+                }
+            });
+        }
+
+        // 页面加载完成后检查SDK是否就绪
+        window.addEventListener('load', function() {
+            if (typeof AndroidWebBox !== 'undefined') {
+                console.log('AndroidWebBox SDK is ready!');
+                showStatus('iOSWebBox SDK 就绪', true);
+            } else {
+                console.error('AndroidWebBox SDK not found!');
+                showStatus('SDK 未加载', false);
+            }
+        });
+    </script>
+</body>
+</html>

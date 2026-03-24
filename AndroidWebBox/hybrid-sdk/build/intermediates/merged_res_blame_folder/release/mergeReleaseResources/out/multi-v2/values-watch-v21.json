@@ -1,0 +1,36 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.sniper.hybrid.hybrid-sdk-release-37:/values-watch-v21/values-watch-v21.xml",
+            "map": [
+                {
+                    "source": "/Users/zhengnan/.gradle/caches/8.13/transforms/43b250d7cc54582ba9eeaf3babe17183/transformed/appcompat-1.6.1/res/values-watch-v21/values-watch-v21.xml",
+                    "from": {
+                        "startLines": "2,6,10",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,271,499",
+                        "endLines": "5,9,13",
+                        "endColumns": "12,12,12",
+                        "endOffsets": "266,494,724"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "com.sniper.hybrid.hybrid-sdk-mergeReleaseResources-35:/values-watch-v21/values-watch-v21.xml",
+            "map": [
+                {
+                    "source": "/Users/zhengnan/.gradle/caches/8.13/transforms/43b250d7cc54582ba9eeaf3babe17183/transformed/appcompat-1.6.1/res/values-watch-v21/values-watch-v21.xml",
+                    "from": {
+                        "startLines": "2,6,10",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,271,499",
+                        "endLines": "5,9,13",
+                        "endColumns": "12,12,12",
+                        "endOffsets": "266,494,724"
+                    }
+                }
+            ]
+        }
+    ]
+}

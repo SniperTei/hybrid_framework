@@ -1,0 +1,19 @@
+<lint-module
+    format="1"
+    dir="/Users/zhengnan/Sniper/Developer/myDemos/AndroidWebBox/hybrid-sdk"
+    name=":hybrid-sdk"
+    type="LIBRARY"
+    maven="AndroidWebBox:hybrid-sdk:unspecified"
+    agpVersion="8.13.2"
+    buildFolder="build"
+    bootClassPath="/Users/zhengnan/Library/Android/sdk/platforms/android-36/android.jar:/Users/zhengnan/Library/Android/sdk/build-tools/35.0.0/core-lambda-stubs.jar"
+    javaSourceLevel="11"
+    compileTarget="android-36"
+    neverShrinking="true">
+  <lintOptions
+      abortOnError="true"
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="debug"/>
+</lint-module>

@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.sniper.hybrid.hybrid-sdk-release-37:/layout-v26/mtrl_calendar_month.xml",
+        "source": "com.sniper.hybrid.hybrid-sdk-material-1.10.0-23:/layout-v26/mtrl_calendar_month.xml"
+    },
+    {
+        "merged": "com.sniper.hybrid.hybrid-sdk-release-37:/layout-v26/abc_screen_toolbar.xml",
+        "source": "com.sniper.hybrid.hybrid-sdk-appcompat-1.6.1-10:/layout-v26/abc_screen_toolbar.xml"
+    }
+]

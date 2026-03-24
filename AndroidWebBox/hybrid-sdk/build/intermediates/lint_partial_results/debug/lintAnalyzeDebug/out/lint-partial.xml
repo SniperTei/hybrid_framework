@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.13.2" type="partial_results">
+    <map id="UnsafeImplicitIntentLaunch">
+            <map id="actionsSent">
+                    <map id="android.intent.action.DIAL (used to start an activity)">
+                        <location id="0"
+                            file="${:hybrid-sdk*debug*MAIN*sourceProvider*0*javaDir*0}/com/sniper/hybrid/core/WebContainer.kt"
+                            line="122"
+                            column="47"
+                            startOffset="3493"
+                            endLine="122"
+                            endColumn="89"
+                            endOffset="3535"/>
+                        <location id="1"
+                            file="${:hybrid-sdk*debug*MAIN*sourceProvider*0*javaDir*0}/com/sniper/hybrid/core/WebContainer.kt"
+                            line="122"
+                            column="47"
+                            startOffset="3493"
+                            endLine="122"
+                            endColumn="89"
+                            endOffset="3535"/>
+                    </map>
+                    <map id="android.intent.action.SENDTO (used to start an activity)">
+                        <location id="0"
+                            file="${:hybrid-sdk*debug*MAIN*sourceProvider*0*javaDir*0}/com/sniper/hybrid/core/WebContainer.kt"
+                            line="126"
+                            column="47"
+                            startOffset="3685"
+                            endLine="126"
+                            endColumn="91"
+                            endOffset="3729"/>
+                        <location id="1"
+                            file="${:hybrid-sdk*debug*MAIN*sourceProvider*0*javaDir*0}/com/sniper/hybrid/core/WebContainer.kt"
+                            line="126"
+                            column="47"
+                            startOffset="3685"
+                            endLine="126"
+                            endColumn="91"
+                            endOffset="3729"/>
+                    </map>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <entry
+            name="model"
+            string=""/>
+    </map>
+
+</incidents>
