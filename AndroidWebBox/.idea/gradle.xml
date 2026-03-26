@@ -11,9 +11,6 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/coconut-core" />
-            <option value="$PROJECT_DIR$/coconut-plugins" />
-            <option value="$PROJECT_DIR$/coconut-sdk" />
           </set>
         </option>
       </GradleProjectSettings>
