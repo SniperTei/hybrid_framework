@@ -62,6 +62,8 @@ dependencies {
 
     // AndroidX Core
     api("androidx.core:core-ktx:1.12.0")
+    api("androidx.appcompat:appcompat:1.6.1")
+    api("androidx.activity:activity-ktx:1.8.2")
     api("androidx.webkit:webkit:1.10.0")
 
     // Testing

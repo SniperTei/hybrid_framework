@@ -17,8 +17,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidWebBox">
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".CoconutWebActivity"
+            android:exported="true"
+            android:label="Coconut SDK 测试">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
