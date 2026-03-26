@@ -7,10 +7,8 @@ import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.component.CoconutPlugin
 import com.sniper.coconut.component.ComponentManager
 import com.sniper.coconut.utils.Logger
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -29,8 +27,6 @@ class CoconutBridgeImpl(
         ignoreUnknownKeys = true
         isLenient = true
     }
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun handleCall(webView: WebView, jsonData: String): String {
         return try {
@@ -57,13 +53,16 @@ class CoconutBridgeImpl(
                 )
             }
 
-            // Handle request asynchronously
-            scope.launch {
-                handleRequest(webView, request)
+            // Handle request synchronously
+            val result = runBlocking(Dispatchers.Main) {
+                handleRequest(request)
             }
 
-            // Return empty response for async handling
-            ""
+            // Return success response
+            json.encodeToString(
+                BridgeResponse.serializer(),
+                BridgeResponse.success(request.id, result)
+            )
 
         } catch (e: Exception) {
             Logger.e("CoconutBridgeImpl", "Error handling call", e)
@@ -74,25 +73,15 @@ class CoconutBridgeImpl(
         }
     }
 
-    private suspend fun handleRequest(webView: WebView, request: BridgeRequest) {
-        try {
-            // Get component for module
-            val component = componentManager.getComponent(request.componentName)
-            if (component == null) {
-                sendError(webView, request.id, ErrorCode.UNKNOWN_COMPONENT, "Component not found: ${request.componentName}")
-                return
-            }
-
-            // Execute component function
-            val result = component.handle(request.functionName, request.params)
-
-            // Send success response
-            sendSuccess(webView, request.id, result)
-
-        } catch (e: Exception) {
-            Logger.e("CoconutBridgeImpl", "Error executing component", e)
-            sendError(webView, request.id, ErrorCode.INTERNAL_ERROR, e.message ?: "Internal error")
+    private suspend fun handleRequest(request: BridgeRequest): JsonElement {
+        // Get component for module
+        val component = componentManager.getComponent(request.componentName)
+        if (component == null) {
+            throw ComponentNotFoundException("Component not found: ${request.componentName}")
         }
+
+        // Execute component function
+        return component.handle(request.functionName, request.params)
     }
 
     private fun sendSuccess(webView: WebView, requestId: String, result: JsonElement?) {
@@ -132,3 +121,8 @@ class CoconutBridgeImpl(
         // Cleanup will be handled by manager
     }
 }
+
+/**
+ * Component not found exception
+ */
+class ComponentNotFoundException(message: String) : Exception(message)
