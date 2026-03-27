@@ -17,6 +17,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AndroidWebBox">
+        <!-- 主 Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -27,6 +28,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Coconut WebView Activity（SDK 提供的 WebView Activity） -->
+        <activity
+            android:name="com.sniper.coconut.web.CoconutWebActivity"
+            android:exported="false"
+            android:label="Coconut WebView" />
     </application>
 
 </manifest>

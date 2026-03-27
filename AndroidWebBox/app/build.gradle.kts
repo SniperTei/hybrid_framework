@@ -36,6 +36,11 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    lint {
+        // Suppress deprecated onBackPressed warning
+        disable += "GestureBackNavigation"
+    }
 }
 
 dependencies {

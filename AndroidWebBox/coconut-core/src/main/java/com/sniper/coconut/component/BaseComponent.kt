@@ -79,7 +79,7 @@ abstract class BaseComponent : CoconutPlugin {
     protected fun getIntParam(params: JsonObject?, key: String, default: Int = 0): Int {
         return params?.get(key)?.let {
             when (it) {
-                is JsonPrimitive -> if (it is JsonPrimitive) it.content.toIntOrNull() ?: default else default
+                is JsonPrimitive -> it.content.toIntOrNull() ?: default
                 else -> default
             }
         } ?: default
@@ -91,7 +91,7 @@ abstract class BaseComponent : CoconutPlugin {
     protected fun getBoolParam(params: JsonObject?, key: String, default: Boolean = false): Boolean {
         return params?.get(key)?.let {
             when (it) {
-                is JsonPrimitive -> if (it is JsonPrimitive) it.content.toBooleanStrictOrNull() ?: default else default
+                is JsonPrimitive -> it.content.toBooleanStrictOrNull() ?: default
                 else -> default
             }
         } ?: default
