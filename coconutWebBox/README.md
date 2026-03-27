@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-服务器会启动在 `http://localhost:5173`
+服务器会启动在 `http://localhost:5174`
 
 ### 2. 在 Android 项目中加载
 
@@ -39,7 +39,7 @@ npm run dev
    ```kotlin
    private fun loadTestPage() {
        // 替换为你的电脑 IP
-       webView.loadUrl("http://192.168.1.100:5173")
+       webView.loadUrl("http://192.168.1.100:5174")
        Logger.d("CoconutWebActivity", "Loading test page from dev server")
    }
    ```
@@ -133,7 +133,7 @@ Coconut.storage.setItem(key, value, callback)
 ```javascript
 server: {
     host: '0.0.0.0', // 允许外部访问
-    port: 5173,
+    port: 5174,
     strictPort: true,
 }
 ```

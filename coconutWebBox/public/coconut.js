@@ -27,6 +27,7 @@
         this.callbacks = {};
         this.timers = {};
         this.environment = this.detectEnvironment();
+        this.env = this.createEnv();
     };
 
     /**
@@ -43,6 +44,95 @@
             return 'ios';
         }
         return 'web';
+    };
+
+    /**
+     * 创建环境信息对象
+     */
+    Coconut.prototype.createEnv = function () {
+        var env = {
+            platform: this.environment,
+            version: this.version,
+            sdkVersion: this.version
+        };
+
+        // 平台标识
+        env.isAndroid = this.environment === 'android';
+        env.isiOS = this.environment === 'ios';
+        env.isWeb = this.environment === 'web';
+        env.isNode = this.environment === 'node';
+        env.isNative = env.isAndroid || env.isiOS;
+
+        // 浏览器环境信息
+        if (typeof window !== 'undefined' && window.navigator) {
+            env.userAgent = window.navigator.userAgent || '';
+            env.language = window.navigator.language || '';
+            env.cookieEnabled = window.navigator.cookieEnabled || false;
+            env.online = window.navigator.onLine || false;
+
+            // 检测是否在 WebView 中
+            var ua = env.userAgent.toLowerCase();
+            env.isWebView = (
+                /android/.test(ua) && /wv/.test(ua) || // Android WebView
+                /iphone|ipad|ipod/.test(ua) && !/safari/.test(ua) || // iOS WebView
+                env.isAndroid || env.isiOS // 通过 CoconutBridge 检测
+            );
+
+            // 浏览器类型检测
+            env.isChrome = /chrome/.test(ua) && !/edge/.test(ua);
+            env.isSafari = /safari/.test(ua) && !/chrome/.test(ua);
+            env.isFirefox = /firefox/.test(ua);
+            env.isEdge = /edge/.test(ua) || /edg/.test(ua);
+            env.isWeChat = /micromessenger/.test(ua);
+            env.isAlipay = /alipay/.test(ua);
+
+            // 操作系统检测
+            env.isWindows = /windows/.test(ua);
+            env.isMac = /macintosh|mac os x/.test(ua);
+            env.isLinux = /linux/.test(ua) && !/android/.test(ua);
+            env.isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+            env.isTablet = /ipad|android(?!.*mobile)|tablet/i.test(ua);
+            env.isDesktop = !env.isMobile && !env.isTablet;
+
+            // iOS 设备类型
+            if (env.isiOS) {
+                env.isIPhone = /iphone/.test(ua);
+                env.isIPad = /ipad/.test(ua);
+                env.isIPod = /ipod/.test(ua);
+            }
+
+            // Android 设备信息
+            if (env.isAndroid) {
+                var match = ua.match(/android\s([0-9\.]+)/);
+                env.androidVersion = match ? match[1] : 'unknown';
+            }
+        }
+
+        // 屏幕信息
+        if (typeof window !== 'undefined' && window.screen) {
+            env.screenWidth = window.screen.width || 0;
+            env.screenHeight = window.screen.height || 0;
+            env.devicePixelRatio = window.devicePixelRatio || 1;
+
+            // 视口信息
+            if (window.innerWidth && window.innerHeight) {
+                env.viewportWidth = window.innerWidth;
+                env.viewportHeight = window.innerHeight;
+            }
+        }
+
+        // 触摸支持
+        if (typeof window !== 'undefined') {
+            env.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        }
+
+        // 存储支持
+        if (typeof window !== 'undefined') {
+            env.localStorage = typeof window.localStorage !== 'undefined';
+            env.sessionStorage = typeof window.sessionStorage !== 'undefined';
+        }
+
+        return env;
     };
 
     /**
@@ -263,6 +353,15 @@
         },
         post: function (url, data, callback) {
             return Coconut.call('network.request', { url: url, method: 'POST', body: data }, callback);
+        },
+        put: function (url, data, callback) {
+            return Coconut.call('network.request', { url: url, method: 'PUT', body: data }, callback);
+        },
+        delete: function (url, callback) {
+            return Coconut.call('network.request', { url: url, method: 'DELETE' }, callback);
+        },
+        patch: function (url, data, callback) {
+            return Coconut.call('network.request', { url: url, method: 'PATCH', body: data }, callback);
         }
     };
 
@@ -281,6 +380,12 @@
         },
         clear: function (callback) {
             return Coconut.call('storage.clear', {}, callback);
+        },
+        getAllKeys: function (callback) {
+            return Coconut.call('storage.getAllKeys', {}, callback);
+        },
+        getLength: function (callback) {
+            return Coconut.call('storage.getLength', {}, callback);
         }
     };
 
