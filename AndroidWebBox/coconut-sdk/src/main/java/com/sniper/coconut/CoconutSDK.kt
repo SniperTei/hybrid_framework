@@ -64,6 +64,8 @@ object CoconutSDK {
         checkInitialized()
         config.apply(block)
         config.apply()
+        // Propagate version to ComponentContext for SystemComponent
+        ComponentManager.getInstance().setSdkVersion(config.sdkVersion)
         Logger.i("CoconutSDK", "CoconutSDK configured")
     }
 
@@ -176,7 +178,7 @@ object CoconutSDK {
      * @return Version string
      */
     fun getVersion(): String {
-        return "1.0.0"
+        return config.sdkVersion
     }
 
     /**

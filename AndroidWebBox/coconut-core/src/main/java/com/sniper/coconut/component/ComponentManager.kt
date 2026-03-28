@@ -256,6 +256,13 @@ class ComponentManager private constructor() {
         coroutineScope = scope
     }
 
+    /**
+     * Set SDK version on shared context
+     */
+    fun setSdkVersion(version: String) {
+        sharedContext.sdkVersion = version
+    }
+
     companion object {
         @Volatile
         private var instance: ComponentManager? = null

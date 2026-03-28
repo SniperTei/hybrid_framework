@@ -19,7 +19,11 @@ data class BridgeRequest(
     val jsonrpc: String = "2.0",
     val method: String,
     val params: JsonObject? = null,
-    val id: String
+    val id: String,
+    val timestamp: Long = 0L,
+    val nonce: String = "",
+    val sign: String = "",
+    val bridgeToken: String = ""
 ) {
     companion object {
         const val JSONRPC_VERSION = "2.0"

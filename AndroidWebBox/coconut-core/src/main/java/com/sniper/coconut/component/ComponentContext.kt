@@ -16,6 +16,13 @@ class ComponentContext(
     val coroutineScope: CoroutineScope
 ) {
     /**
+     * SDK version string, set during SDK configuration
+     */
+    @Volatile
+    var sdkVersion: String = "1.0.0"
+        internal set
+
+    /**
      * Current ComponentHost (set by CoconutWebActivity)
      * Components that need Activity-level features should check this for null
      */

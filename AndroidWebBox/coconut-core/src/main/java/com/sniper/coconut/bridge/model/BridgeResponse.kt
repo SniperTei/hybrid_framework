@@ -129,6 +129,12 @@ object ErrorCode {
     const val COMPONENT_NOT_INITIALIZED = 900008
     const val RATE_LIMIT_EXCEEDED = 900009
 
+    // Security errors
+    const val SIGNATURE_INVALID = 900010
+    const val SIGNATURE_EXPIRED = 900011
+    const val NONCE_REUSED = 900012
+    const val BRIDGE_TOKEN_INVALID = 900013
+
     // Error code descriptions
     fun getDescription(code: Int): String = when (code) {
         PARSE_ERROR -> "Parse error"
@@ -145,6 +151,10 @@ object ErrorCode {
         PARAM_VALIDATION_FAILED -> "Parameter validation failed"
         COMPONENT_NOT_INITIALIZED -> "Component not initialized"
         RATE_LIMIT_EXCEEDED -> "Rate limit exceeded"
+        SIGNATURE_INVALID -> "Signature invalid"
+        SIGNATURE_EXPIRED -> "Signature expired"
+        NONCE_REUSED -> "Nonce reused"
+        BRIDGE_TOKEN_INVALID -> "Bridge token invalid"
         else -> "Unknown error"
     }
 }

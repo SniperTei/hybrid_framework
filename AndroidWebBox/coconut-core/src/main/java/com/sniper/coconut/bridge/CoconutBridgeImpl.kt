@@ -60,10 +60,44 @@ class CoconutBridgeImpl(
 
             Logger.logBridgeCallStart(request.method, request.id)
 
+            // 2.5 Bridge Token validation (JS injection protection)
+            if (!BridgeTokenManager.validateToken(request.bridgeToken)) {
+                Logger.logBridgeCallError(request.method, request.id, ErrorCode.BRIDGE_TOKEN_INVALID, "Invalid bridge token")
+                SecurityAuditLog.record(SecurityAuditLog.EVENT_TOKEN_INVALID, request.method, request.id, "Invalid or missing bridge token")
+                return json.encodeToString(
+                    BridgeResponse.serializer(),
+                    BridgeResponse.error(request.id, ErrorCode.BRIDGE_TOKEN_INVALID, "Invalid bridge token")
+                )
+            }
+
+            // 2.6 Request signature validation
+            val signResult = RequestSignatureValidator.validate(
+                request.method, request.id, request.timestamp, request.nonce,
+                request.params?.toString() ?: "", request.sign
+            )
+            when (signResult) {
+                is RequestSignatureValidator.SignResult.Invalid -> {
+                    Logger.logBridgeCallError(request.method, request.id, signResult.errorCode, signResult.message)
+                    val eventType = when (signResult.errorCode) {
+                        ErrorCode.SIGNATURE_INVALID -> SecurityAuditLog.EVENT_SIGNATURE_INVALID
+                        ErrorCode.SIGNATURE_EXPIRED -> SecurityAuditLog.EVENT_SIGNATURE_EXPIRED
+                        ErrorCode.NONCE_REUSED -> SecurityAuditLog.EVENT_NONCE_REUSED
+                        else -> SecurityAuditLog.EVENT_SIGNATURE_INVALID
+                    }
+                    SecurityAuditLog.record(eventType, request.method, request.id, signResult.message)
+                    return json.encodeToString(
+                        BridgeResponse.serializer(),
+                        BridgeResponse.error(request.id, signResult.errorCode, signResult.message)
+                    )
+                }
+                is RequestSignatureValidator.SignResult.Valid -> { /* pass */ }
+            }
+
             // 3. Domain whitelist check (using cached URL, no WebView access)
             val domainResult = securityValidator.validateDomain(currentUrl)
             if (!domainResult.isValid) {
                 Logger.logBridgeCallError(request.method, request.id, ErrorCode.DOMAIN_NOT_ALLOWED, domainResult.message)
+                SecurityAuditLog.record(SecurityAuditLog.EVENT_DOMAIN_REJECTED, request.method, request.id, domainResult.message)
                 return json.encodeToString(
                     BridgeResponse.serializer(),
                     BridgeResponse.error(request.id, ErrorCode.DOMAIN_NOT_ALLOWED, domainResult.message)
@@ -74,6 +108,7 @@ class CoconutBridgeImpl(
             val rateLimitResult = securityValidator.checkRateLimit(request.method)
             if (!rateLimitResult.isValid) {
                 Logger.logBridgeCallError(request.method, request.id, ErrorCode.RATE_LIMIT_EXCEEDED, rateLimitResult.message)
+                SecurityAuditLog.record(SecurityAuditLog.EVENT_RATE_LIMITED, request.method, request.id, rateLimitResult.message)
                 return json.encodeToString(
                     BridgeResponse.serializer(),
                     BridgeResponse.error(request.id, ErrorCode.RATE_LIMIT_EXCEEDED, rateLimitResult.message)
@@ -84,6 +119,7 @@ class CoconutBridgeImpl(
             val paramsSizeResult = securityValidator.validateParamsSize(jsonData)
             if (!paramsSizeResult.isValid) {
                 Logger.logBridgeCallError(request.method, request.id, ErrorCode.PARAM_VALIDATION_FAILED, paramsSizeResult.message)
+                SecurityAuditLog.record(SecurityAuditLog.EVENT_PARAMS_OVERSIZED, request.method, request.id, paramsSizeResult.message)
                 return json.encodeToString(
                     BridgeResponse.serializer(),
                     BridgeResponse.error(request.id, ErrorCode.PARAM_VALIDATION_FAILED, paramsSizeResult.message)

@@ -88,6 +88,38 @@ class CoconutConfig {
     var enableRateLimit: Boolean = true
         private set
 
+    /**
+     * SDK version string
+     */
+    var sdkVersion: String = "1.0.0"
+        private set
+
+    // ---- Security Enhancement Settings ----
+
+    /**
+     * Enable bridge token validation (JS injection protection)
+     */
+    var enableBridgeToken: Boolean = true
+        private set
+
+    /**
+     * Enable HMAC-SHA256 request signature verification
+     */
+    var enableRequestSigning: Boolean = false
+        private set
+
+    /**
+     * Shared secret for HMAC-SHA256 signing
+     */
+    var bridgeSharedSecret: String = ""
+        private set
+
+    /**
+     * Timestamp tolerance for signature verification (milliseconds)
+     */
+    var signingTimestampToleranceMs: Long = 5 * 60 * 1000L
+        private set
+
     // ---- Convenience Getters ----
 
     /**
@@ -150,6 +182,26 @@ class CoconutConfig {
 
     fun setEnableRateLimit(enable: Boolean) = apply {
         enableRateLimit = enable
+    }
+
+    fun setSdkVersion(version: String) = apply {
+        sdkVersion = version
+    }
+
+    fun setEnableBridgeToken(enable: Boolean) = apply {
+        enableBridgeToken = enable
+    }
+
+    fun setEnableRequestSigning(enable: Boolean) = apply {
+        enableRequestSigning = enable
+    }
+
+    fun setBridgeSharedSecret(secret: String) = apply {
+        bridgeSharedSecret = secret
+    }
+
+    fun setSigningTimestampToleranceMs(toleranceMs: Long) = apply {
+        signingTimestampToleranceMs = toleranceMs
     }
 
     /**

@@ -21,6 +21,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.bridge.CoconutBridgeImpl
+import com.sniper.coconut.bridge.BridgeTokenManager
+import com.sniper.coconut.bridge.RequestSignatureValidator
 import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.component.ComponentHost
 import com.sniper.coconut.component.ComponentManager
@@ -356,6 +358,17 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                 bridge.securityValidator.addAllowedDomain(cfg.allowedDomains.joinToString(","))
             }
             bridge.securityValidator.maxParamsSize = cfg.maxBridgeParamsSize
+
+            // Security enhancement settings
+            BridgeTokenManager.enabled = cfg.enableBridgeToken
+            RequestSignatureValidator.enabled = cfg.enableRequestSigning
+            RequestSignatureValidator.sharedSecret = cfg.bridgeSharedSecret
+            RequestSignatureValidator.timestampToleranceMs = cfg.signingTimestampToleranceMs
+        }
+
+        // Generate bridge token for this session
+        if (BridgeTokenManager.enabled) {
+            BridgeTokenManager.generateToken()
         }
 
         webView.addJavascriptInterface(
@@ -409,9 +422,33 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     // ---- Bridge JS Injection ----
 
     protected open fun injectBridgeJavaScript() {
+        val bridgeToken = if (BridgeTokenManager.enabled) BridgeTokenManager.getToken() else ""
+        val signingEnabled = RequestSignatureValidator.enabled
+        val sharedSecret = if (signingEnabled) RequestSignatureValidator.sharedSecret else ""
+
         val javascript = """
             (function() {
                 if (window.__coconutInitialized) return;
+
+                window.__coconutConfig = {
+                    token: '${bridgeToken}',
+                    signingEnabled: ${signingEnabled},
+                    sharedSecret: '${sharedSecret}'
+                };
+
+                function computeHmac(key, message) {
+                    var encoder = new TextEncoder();
+                    var keyData = encoder.encode(key);
+                    var msgData = encoder.encode(message);
+                    return crypto.subtle.importKey('raw', keyData, {name: 'HMAC', hash: 'SHA-256'}, false, ['sign'])
+                        .then(function(cryptoKey) {
+                            return crypto.subtle.sign('HMAC', cryptoKey, msgData);
+                        })
+                        .then(function(sig) {
+                            var arr = Array.from(new Uint8Array(sig));
+                            return arr.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+                        });
+                }
 
                 window.Coconut = {
                     call: function(method, params, callback, timeout) {
@@ -421,6 +458,11 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                             params: params || {},
                             id: Date.now().toString()
                         };
+
+                        // Attach bridge token
+                        if (window.__coconutConfig && window.__coconutConfig.token) {
+                            request.bridgeToken = window.__coconutConfig.token;
+                        }
 
                         var to = timeout || 30000;
                         var callbackId = 'callback_' + request.id;
@@ -433,33 +475,57 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                             }
                         }, to);
 
-                        if (window.CoconutBridge && window.CoconutBridge.call) {
-                            try {
-                                var responseStr = CoconutBridge.call(JSON.stringify(request));
-                                var response = JSON.parse(responseStr);
-                                clearTimeout(timer);
+                        function doCall(req) {
+                            if (window.CoconutBridge && window.CoconutBridge.call) {
+                                try {
+                                    var responseStr = CoconutBridge.call(JSON.stringify(req));
+                                    var response = JSON.parse(responseStr);
+                                    clearTimeout(timer);
 
-                                if (response.error) {
-                                    if (window[callbackId]) {
-                                        callback(response, true);
-                                        delete window[callbackId];
+                                    if (response.error) {
+                                        if (window[callbackId]) {
+                                            callback(response, true);
+                                            delete window[callbackId];
+                                        }
+                                    } else {
+                                        if (window[callbackId]) {
+                                            callback(response, false);
+                                            delete window[callbackId];
+                                        }
                                     }
-                                } else {
+                                } catch (e) {
+                                    clearTimeout(timer);
                                     if (window[callbackId]) {
-                                        callback(response, false);
+                                        callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'Parse error: ' + e.message } }, true);
                                         delete window[callbackId];
                                     }
                                 }
-                            } catch (e) {
+                            } else {
+                                clearTimeout(timer);
+                                callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'CoconutBridge not found' } }, true);
+                            }
+                        }
+
+                        // Sign request if signing is enabled
+                        if (window.__coconutConfig && window.__coconutConfig.signingEnabled && window.__coconutConfig.sharedSecret) {
+                            var ts = Date.now();
+                            var nonce = ts.toString(36) + '-' + Math.random().toString(36).substr(2, 9);
+                            request.timestamp = ts;
+                            request.nonce = nonce;
+                            var paramsStr = JSON.stringify(request.params || {});
+                            var payload = method + '|' + request.id + '|' + ts + '|' + nonce + '|' + paramsStr;
+                            computeHmac(window.__coconutConfig.sharedSecret, payload).then(function(sig) {
+                                request.sign = sig;
+                                doCall(request);
+                            }).catch(function(e) {
                                 clearTimeout(timer);
                                 if (window[callbackId]) {
-                                    callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'Parse error: ' + e.message } }, true);
+                                    callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'Signing failed: ' + e.message } }, true);
                                     delete window[callbackId];
                                 }
-                            }
+                            });
                         } else {
-                            clearTimeout(timer);
-                            callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'CoconutBridge not found' } }, true);
+                            doCall(request);
                         }
                     },
 
@@ -570,6 +636,7 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     override fun onDestroy() {
         super.onDestroy()
         ComponentManager.getInstance().setHost(null)  // Clear host reference
+        BridgeTokenManager.reset()
         Logger.d(TAG, "onDestroy")
     }
 }

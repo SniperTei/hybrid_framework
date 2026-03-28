@@ -12,6 +12,8 @@ import com.sniper.coconut.resource.ResourceComponent
 import com.sniper.coconut.components.router.RouterComponent
 import com.sniper.coconut.components.stack.StackComponent
 import com.sniper.coconut.components.storage.StorageComponent
+import com.sniper.coconut.components.system.SystemComponent
+import com.sniper.coconut.components.security.SecurityComponent
 import com.sniper.androidwebbox.components.LoginComponent
 import com.sniper.coconut.config.Environment
 import com.sniper.coconut.utils.Logger
@@ -71,6 +73,8 @@ class WebBoxApplication : Application() {
                     StackComponent(),       // 页面栈管理
                     ResourceComponent(),    // 离线资源 & 热更新
                     PerformanceComponent(), // Bridge性能监控
+                    SystemComponent(),      // SDK版本 & 能力查询
+                    SecurityComponent(),    // 安全审计
                     LoginComponent()        // 登录（业务组件）
                 )
 
