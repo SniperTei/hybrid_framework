@@ -21,6 +21,7 @@ import androidx.appcompat.widget.Toolbar
 import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.bridge.CoconutBridgeImpl
 import com.sniper.coconut.bridge.model.ErrorCode
+import com.sniper.coconut.component.ComponentHost
 import com.sniper.coconut.component.ComponentManager
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +51,7 @@ import kotlinx.coroutines.SupervisorJob
  * }
  * ```
  */
-open class CoconutWebActivity : AppCompatActivity() {
+open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
     companion object {
         private const val TAG = "CoconutWebActivity"
@@ -177,6 +178,7 @@ open class CoconutWebActivity : AppCompatActivity() {
 
         // Setup UI and WebView
         setupUI()
+        ComponentManager.getInstance().setHost(this)  // Set this Activity as component host
         setupWebView()
         setupBridge()
         loadUrl(url)
@@ -488,6 +490,16 @@ open class CoconutWebActivity : AppCompatActivity() {
         Logger.e(TAG, "Page error: $url, error: ${error?.description}")
     }
 
+    // ---- ComponentHost implementation ----
+
+    override fun getActivity(): Activity = this
+
+    override fun getHostWebView(): WebView = webView
+
+    override fun runOnMainThread(action: () -> Unit) {
+        runOnUiThread(action)
+    }
+
     // ---- Lifecycle ----
 
     override fun onBackPressed() {
@@ -500,6 +512,7 @@ open class CoconutWebActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        ComponentManager.getInstance().setHost(null)  // Clear host reference
         Logger.d(TAG, "onDestroy")
     }
 }

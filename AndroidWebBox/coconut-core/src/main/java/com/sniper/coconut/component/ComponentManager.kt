@@ -17,6 +17,26 @@ class ComponentManager private constructor() {
     private val components = ConcurrentHashMap<String, CoconutPlugin>()
     private val mutex = Mutex()
 
+    // Shared ComponentContext - host is updated dynamically
+    internal val sharedContext by lazy {
+        ComponentContext(
+            applicationContext = requireNotNull(applicationContext) {
+                "Application context not set"
+            },
+            coroutineScope = requireNotNull(coroutineScope) {
+                "Coroutine scope not set"
+            }
+        )
+    }
+
+    /**
+     * Set the current ComponentHost (called by CoconutWebActivity)
+     * Components access the host through their ComponentContext
+     */
+    fun setHost(host: ComponentHost?) {
+        sharedContext.host = host
+    }
+
     /**
      * Register a component
      *
@@ -35,19 +55,9 @@ class ComponentManager private constructor() {
 
             Logger.d("ComponentManager", "Registering component: ${component.name} v${component.version}")
 
-            // Create component context
-            val context = ComponentContext(
-                applicationContext = requireNotNull(applicationContext) {
-                    "Application context not set. Call setApplicationContext() first."
-                },
-                coroutineScope = requireNotNull(coroutineScope) {
-                    "Coroutine scope not set. Call setCoroutineScope() first."
-                }
-            )
-
-            // Initialize component
+            // Initialize component with shared context
             try {
-                component.init(context)
+                component.init(sharedContext)
                 components[component.name] = component
                 Logger.i("ComponentManager", "✓ Component registered: ${component.name}")
             } catch (e: Exception) {

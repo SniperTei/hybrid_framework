@@ -7,13 +7,35 @@ import kotlinx.coroutines.CoroutineScope
 /**
  * Component Context
  *
- * Provides components with access to system resources and services
+ * Provides components with access to system resources and services.
+ * Created once during component registration and updated dynamically
+ * with the current host (Activity) reference.
  */
 class ComponentContext(
     val applicationContext: Context,
-    val coroutineScope: CoroutineScope,
-    val webView: WebView? = null
+    val coroutineScope: CoroutineScope
 ) {
+    /**
+     * Current ComponentHost (set by CoconutWebActivity)
+     * Components that need Activity-level features should check this for null
+     */
+    @Volatile
+    var host: ComponentHost? = null
+        internal set
+
+    /**
+     * Get current Activity from host
+     * Convenience method for components
+     */
+    val currentActivity: android.app.Activity?
+        get() = host?.getActivity()
+
+    /**
+     * Get current WebView from host
+     */
+    val currentWebView: WebView?
+        get() = host?.getHostWebView()
+
     /**
      * Get component by name
      * Allows components to interact with each other

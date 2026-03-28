@@ -2,8 +2,13 @@ package com.sniper.androidwebbox
 
 import android.app.Application
 import com.sniper.coconut.CoconutSDK
+import com.sniper.coconut.components.clipboard.ClipboardComponent
 import com.sniper.coconut.components.device.DeviceComponent
+import com.sniper.coconut.components.dialog.DialogComponent
 import com.sniper.coconut.components.network.NetworkComponent
+import com.sniper.coconut.components.permission.PermissionComponent
+import com.sniper.coconut.components.router.RouterComponent
+import com.sniper.coconut.components.stack.StackComponent
 import com.sniper.coconut.components.storage.StorageComponent
 import com.sniper.androidwebbox.components.LoginComponent
 import com.sniper.coconut.config.Environment
@@ -54,10 +59,15 @@ class WebBoxApplication : Application() {
         applicationScope.launch {
             try {
                 CoconutSDK.registerComponents(
-                    DeviceComponent(),    // 设备信息组件（SDK 提供）
-                    NetworkComponent(),  // 网络状态组件（SDK 提供）
-                    StorageComponent(),  // 存储组件（SDK 提供）
-                    LoginComponent()     // 登录组件（自定义业务组件）
+                    DeviceComponent(),      // 设备信息
+                    NetworkComponent(),     // 网络状态
+                    StorageComponent(),     // 本地存储
+                    ClipboardComponent(),   // 剪切板读写
+                    DialogComponent(),      // 原生弹窗/Toast
+                    PermissionComponent(),  // 权限管理
+                    RouterComponent(),      // 路由协议
+                    StackComponent(),       // 页面栈管理
+                    LoginComponent()        // 登录（业务组件）
                 )
 
                 val components = CoconutSDK.getRegisteredComponents()
