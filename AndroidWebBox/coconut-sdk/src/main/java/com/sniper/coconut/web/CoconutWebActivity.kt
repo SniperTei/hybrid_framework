@@ -3,48 +3,50 @@ package com.sniper.coconut.web
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.graphics.Color
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebResourceError
-import android.webkit.JavascriptInterface
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.bridge.CoconutBridgeImpl
+import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.component.ComponentManager
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * CoconutWebActivity - Coconut SDK WebView Activity
  *
- * 提供开箱即用的 WebView Activity，支持加载 H5 页面并使用 Coconut 组件
+ * Provides a ready-to-use WebView Activity with:
+ * - Native error page fallback (no white screen)
+ * - Title bar customization (show/hide/custom text)
+ * - Secure WebView settings
+ * - Bridge security validation
+ * - Loading progress indicator
  *
- * 使用方式：
+ * Usage:
  * ```kotlin
- * // 方式1：静态启动（最简单）
+ * // Simple launch
  * CoconutWebActivity.start(context, "https://example.com")
  *
- * // 方式2：带回调
- * CoconutWebActivity.startForResult(activity, url, requestCode)
- *
- * // 方式3：继承定制
- * class MyActivity : CoconutWebActivity() {
- *     override fun onPageFinished(url: String) {
- *         // 自定义逻辑
- *     }
+ * // With configuration
+ * CoconutWebActivity.start(context, url) {
+ *     setTitleBarVisible(true)
+ *     setTitle("My Page")
+ *     setEnableDebug(true)
  * }
  * ```
  */
@@ -55,13 +57,9 @@ open class CoconutWebActivity : AppCompatActivity() {
         private const val EXTRA_URL = "extra_url"
         private const val EXTRA_ENABLE_DEBUG = "extra_enable_debug"
         private const val EXTRA_USER_AGENT = "extra_user_agent"
+        private const val EXTRA_TITLE_BAR_VISIBLE = "extra_title_bar_visible"
+        private const val EXTRA_TITLE_TEXT = "extra_title_text"
 
-        /**
-         * 启动 WebView Activity
-         *
-         * @param context 上下文
-         * @param url 要加载的 URL
-         */
         @JvmStatic
         fun start(context: Context, url: String) {
             val intent = Intent(context, CoconutWebActivity::class.java)
@@ -70,13 +68,6 @@ open class CoconutWebActivity : AppCompatActivity() {
             context.startActivity(intent)
         }
 
-        /**
-         * 启动 WebView Activity（带调试选项）
-         *
-         * @param context 上下文
-         * @param url 要加载的 URL
-         * @param enableDebug 是否启用调试
-         */
         @JvmStatic
         fun start(context: Context, url: String, enableDebug: Boolean) {
             val intent = Intent(context, CoconutWebActivity::class.java)
@@ -86,13 +77,6 @@ open class CoconutWebActivity : AppCompatActivity() {
             context.startActivity(intent)
         }
 
-        /**
-         * 启动 WebView Activity（带自定义 UserAgent）
-         *
-         * @param context 上下文
-         * @param url 要加载的 URL
-         * @param userAgent 自定义 UserAgent
-         */
         @JvmStatic
         fun start(context: Context, url: String, userAgent: String) {
             val intent = Intent(context, CoconutWebActivity::class.java)
@@ -102,63 +86,78 @@ open class CoconutWebActivity : AppCompatActivity() {
             context.startActivity(intent)
         }
 
-        /**
-         * 启动 WebView Activity（完整配置）
-         *
-         * @param context 上下文
-         * @param url 要加载的 URL
-         * @param enableDebug 是否启用调试
-         * @param userAgent 自定义 UserAgent
-         */
         @JvmStatic
         fun start(context: Context, url: String, enableDebug: Boolean = false, userAgent: String? = null) {
             val intent = Intent(context, CoconutWebActivity::class.java)
             intent.putExtra(EXTRA_URL, url)
             intent.putExtra(EXTRA_ENABLE_DEBUG, enableDebug)
-            userAgent?.let {
-                intent.putExtra(EXTRA_USER_AGENT, it)
-            }
+            userAgent?.let { intent.putExtra(EXTRA_USER_AGENT, it) }
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         }
 
-        /**
-         * 启动 WebView Activity（带结果返回）
-         *
-         * @param activity Activity
-         * @param url 要加载的 URL
-         * @param requestCode 请求码
-         */
         @JvmStatic
         fun startForResult(activity: Activity, url: String, requestCode: Int) {
             val intent = Intent(activity, CoconutWebActivity::class.java)
             intent.putExtra(EXTRA_URL, url)
             activity.startActivityForResult(intent, requestCode)
         }
+
+        /**
+         * Start with title bar configuration
+         */
+        @JvmStatic
+        fun start(
+            context: Context,
+            url: String,
+            titleBarVisible: Boolean = true,
+            titleText: String? = null,
+            enableDebug: Boolean = false
+        ) {
+            val intent = Intent(context, CoconutWebActivity::class.java)
+            intent.putExtra(EXTRA_URL, url)
+            intent.putExtra(EXTRA_ENABLE_DEBUG, enableDebug)
+            intent.putExtra(EXTRA_TITLE_BAR_VISIBLE, titleBarVisible)
+            titleText?.let { intent.putExtra(EXTRA_TITLE_TEXT, it) }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
     }
 
+    // ---- Views ----
     protected lateinit var webView: WebView
         private set
+    private var toolbar: Toolbar? = null
+    private var progressBar: ProgressBar? = null
+    private var errorPageView: View? = null
+    private var rootLayout: FrameLayout? = null
 
+    // ---- Bridge ----
     protected lateinit var bridge: CoconutBridgeImpl
         private set
 
+    // ---- State ----
     private var currentUrl: String? = null
+    @Volatile
+    private var cachedPageUrl: String = ""  // Cached on main thread for bridge security check
     private var enableDebug = false
     private var customUserAgent: String? = null
+    private var titleBarVisible = true
+    private var titleText: String? = null
+    private var isLoadingError = false
 
-    // Activity 作用域
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         Logger.i(TAG, "onCreate")
 
-        // 获取配置
+        // Read configuration from intent
         val url = intent.getStringExtra(EXTRA_URL)
         enableDebug = intent.getBooleanExtra(EXTRA_ENABLE_DEBUG, false)
         customUserAgent = intent.getStringExtra(EXTRA_USER_AGENT)
+        titleBarVisible = intent.getBooleanExtra(EXTRA_TITLE_BAR_VISIBLE, true)
+        titleText = intent.getStringExtra(EXTRA_TITLE_TEXT)
 
         if (url.isNullOrEmpty()) {
             Logger.e(TAG, "URL is empty")
@@ -168,7 +167,7 @@ open class CoconutWebActivity : AppCompatActivity() {
 
         currentUrl = url
 
-        // 配置 SDK
+        // Configure SDK
         if (enableDebug) {
             CoconutSDK.configure {
                 setDebugMode(true)
@@ -176,97 +175,164 @@ open class CoconutWebActivity : AppCompatActivity() {
             }
         }
 
-        // 设置 WebView
+        // Setup UI and WebView
+        setupUI()
         setupWebView()
-
-        // 加载 URL
+        setupBridge()
         loadUrl(url)
     }
 
     /**
-     * 设置 WebView
-     * 子类可以重写此方法来自定义 WebView 配置
+     * Setup the root UI layout with optional toolbar and progress bar
+     */
+    protected open fun setupUI() {
+        rootLayout = FrameLayout(this).apply {
+            setBackgroundColor(Color.WHITE)
+        }
+
+        // Title bar
+        if (titleBarVisible) {
+            toolbar = Toolbar(this).apply {
+                setBackgroundColor(Color.parseColor("#FFFFFF"))
+                setTitleTextColor(Color.parseColor("#333333"))
+                titleText?.let { title = it }
+                setNavigationOnClickListener { finish() }
+            }
+        }
+
+        // Progress bar
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            visibility = View.GONE
+        }
+
+        // Root layout
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        toolbar?.let { container.addView(it, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )) }
+
+        // WebView placeholder (will be added in setupWebView)
+        container.addView(rootLayout, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ))
+
+        setContentView(container)
+        Logger.d(TAG, "UI setup complete")
+    }
+
+    /**
+     * Setup WebView with secure defaults
      */
     protected open fun setupWebView() {
         webView = WebView(this)
 
-        val settings = webView.settings
-        settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            setSupportZoom(true)
-            builtInZoomControls = true
-            displayZoomControls = false
-            cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
-        }
+        // Apply secure defaults
+        WebViewSecurityConfig.applySecureDefaults(webView)
 
-        // 设置自定义 UserAgent
+        // Custom user agent
         customUserAgent?.let {
-            settings.userAgentString = it
+            webView.settings.userAgentString = it
         }
 
-        // 设置 WebViewClient
+        // WebViewClient with error handling
         webView.webViewClient = createWebViewClient()
 
-        // 设置为内容视图
-        setContentView(webView)
-
-        // 创建并配置桥接
-        setupBridge()
+        // Add WebView to root layout
+        rootLayout?.addView(webView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
 
         Logger.d(TAG, "WebView setup complete")
     }
 
     /**
-     * 创建 WebViewClient
-     * 子类可以重写此方法来自定义 WebViewClient 行为
+     * Create WebViewClient with error fallback
      */
     protected open fun createWebViewClient(): WebViewClient {
         return object : WebViewClient() {
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                isLoadingError = false
+                url?.let { cachedPageUrl = it }  // Cache URL on main thread
+                hideErrorPage()
+                Logger.d(TAG, "Page started: $url")
+                onPageStartedCallback(url)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 Logger.d(TAG, "Page loaded: $url")
-
-                // 页面加载完成后注入桥接
                 url?.let {
                     injectBridgeJavaScript()
                     onPageFinishedCallback(it)
                 }
             }
 
-            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                super.onPageStarted(view, url, favicon)
-                Logger.d(TAG, "Page started: $url")
-                onPageStartedCallback(url)
-            }
-
-            override fun onLoadResource(view: WebView?, url: String?) {
-                super.onLoadResource(view, url)
-                Logger.d(TAG, "Loading resource: $url")
-            }
-
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
                 super.onReceivedError(view, request, error)
                 val errorUrl = request?.url?.toString() ?: "unknown"
-                Logger.e(TAG, "Page error: $errorUrl, error: ${error?.description}")
+
+                // Only handle main frame errors (not subresources)
+                if (request?.isForMainFrame == true) {
+                    isLoadingError = true
+                    showErrorPage()
+                    Logger.e(TAG, "Main frame error: $errorUrl, error: ${error?.description}")
+                }
+
                 onPageErrorCallback(errorUrl, error)
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: android.webkit.WebResourceResponse?
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                val errorUrl = request?.url?.toString() ?: "unknown"
+
+                if (request?.isForMainFrame == true) {
+                    isLoadingError = true
+                    showErrorPage()
+                    Logger.e(TAG, "HTTP error: $errorUrl, status: ${errorResponse?.statusCode}")
+                }
             }
         }
     }
 
     /**
-     * 创建桥接
-     * 子类可以重写此方法来自定义桥接实现
+     * Setup bridge with security validation
      */
     protected open fun setupBridge() {
         bridge = CoconutBridgeImpl(ComponentManager.getInstance())
+
+        // Apply security config from CoconutConfig
+        val config = if (CoconutSDK.isInitialized()) CoconutSDK.getConfig() else null
+        config?.let { cfg ->
+            // Domain whitelist
+            if (cfg.allowedDomains.isNotEmpty()) {
+                bridge.securityValidator.addAllowedDomain(cfg.allowedDomains.joinToString(","))
+            }
+            bridge.securityValidator.maxParamsSize = cfg.maxBridgeParamsSize
+        }
 
         webView.addJavascriptInterface(
             object {
                 @JavascriptInterface
                 fun call(jsonData: String): String {
-                    return bridge.handleCall(webView, jsonData)
+                    // Pass cached URL to avoid calling webView.url on JavaBridge thread
+                    return bridge.handleCall(webView, jsonData, cachedPageUrl)
                 }
             },
             "CoconutBridge"
@@ -275,14 +341,47 @@ open class CoconutWebActivity : AppCompatActivity() {
         Logger.d(TAG, "Bridge setup complete")
     }
 
+    // ---- Error Page ----
+
     /**
-     * 注入桥接 JavaScript
-     * 子类可以重写此方法来自定义注入的 JavaScript 代码
+     * Show native error page
      */
+    protected open fun showErrorPage() {
+        if (errorPageView != null) {
+            errorPageView?.visibility = View.VISIBLE
+            return
+        }
+
+        errorPageView = ErrorPageHelper.createErrorPage(this) {
+            hideErrorPage()
+            currentUrl?.let { loadUrl(it) }
+        }
+
+        rootLayout?.addView(errorPageView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+
+        webView.visibility = View.GONE
+        Logger.d(TAG, "Error page shown")
+    }
+
+    /**
+     * Hide native error page
+     */
+    protected open fun hideErrorPage() {
+        errorPageView?.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        Logger.d(TAG, "Error page hidden")
+    }
+
+    // ---- Bridge JS Injection ----
+
     protected open fun injectBridgeJavaScript() {
         val javascript = """
             (function() {
-                // 创建全局 Coconut 对象
+                if (window.__coconutInitialized) return;
+
                 window.Coconut = {
                     call: function(method, params, callback, timeout) {
                         var request = {
@@ -292,60 +391,47 @@ open class CoconutWebActivity : AppCompatActivity() {
                             id: Date.now().toString()
                         };
 
-                        // 设置默认超时（如果未指定）
                         var to = timeout || 30000;
-
-                        // 设置回调函数
                         var callbackId = 'callback_' + request.id;
                         window[callbackId] = callback;
 
-                        // 设置超时
                         var timer = setTimeout(function() {
                             if (window[callbackId]) {
-                                callback({ error: 'Timeout after ' + to + 'ms' }, true);
+                                callback({ error: { code: ${ErrorCode.TIMEOUT}, message: 'Timeout after ' + to + 'ms' } }, true);
                                 delete window[callbackId];
                             }
                         }, to);
 
-                        // 调用 Android 桥接
                         if (window.CoconutBridge && window.CoconutBridge.call) {
-                            var responseStr = CoconutBridge.call(JSON.stringify(request));
-
-                            // 立即解析响应
                             try {
+                                var responseStr = CoconutBridge.call(JSON.stringify(request));
                                 var response = JSON.parse(responseStr);
-                                if (response && response.result && response.result.code === '000000') {
-                                    // 成功，清除超时
-                                    clearTimeout(timer);
-                                    if (window[callbackId]) {
-                                        callback(response, false);
-                                        delete window[callbackId];
-                                    }
-                                } else if (response && response.error) {
-                                    // 错误响应
-                                    clearTimeout(timer);
+                                clearTimeout(timer);
+
+                                if (response.error) {
                                     if (window[callbackId]) {
                                         callback(response, true);
                                         delete window[callbackId];
                                     }
+                                } else {
+                                    if (window[callbackId]) {
+                                        callback(response, false);
+                                        delete window[callbackId];
+                                    }
                                 }
                             } catch (e) {
-                                // JSON 解析错误
                                 clearTimeout(timer);
                                 if (window[callbackId]) {
-                                    callback({ error: 'Parse error: ' + e.message }, true);
+                                    callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'Parse error: ' + e.message } }, true);
                                     delete window[callbackId];
                                 }
                             }
                         } else {
                             clearTimeout(timer);
-                            callback({ error: 'CoconutBridge not found' }, true);
+                            callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'CoconutBridge not found' } }, true);
                         }
                     },
 
-                    /**
-                     * 异步调用（带回调）
-                     */
                     callAsync: function(method, params) {
                         return new Promise(function(resolve, reject) {
                             this.call(method, params, function(response, isError) {
@@ -359,9 +445,8 @@ open class CoconutWebActivity : AppCompatActivity() {
                     }
                 };
 
-                console.log('✅ Coconut SDK initialized');
-                console.log('📱 Available methods: Coconut.call()');
-                console.log('📱 Example: Coconut.call("device.getInfo", {}, console.log)');
+                window.__coconutInitialized = true;
+                console.log('Coconut SDK initialized');
             })();
         """.trimIndent()
 
@@ -369,75 +454,42 @@ open class CoconutWebActivity : AppCompatActivity() {
         Logger.d(TAG, "Bridge JavaScript injected")
     }
 
-    /**
-     * 加载 URL
-     *
-     * @param url 要加载的 URL
-     */
+    // ---- Public Methods ----
+
     protected open fun loadUrl(url: String) {
         Logger.d(TAG, "Loading URL: $url")
         webView.loadUrl(url)
     }
 
-    /**
-     * 重新加载当前页面
-     */
     protected open fun reload() {
         currentUrl?.let {
+            hideErrorPage()
             webView.reload()
         }
     }
 
-    /**
-     * 页面加载完成回调
-     * 子类可以重写此方法来处理页面加载完成事件
-     *
-     * @param url 加载完成的 URL
-     */
-    protected open fun onPageFinishedCallback(url: String) {
-        Logger.d(TAG, "Page finished: $url")
-    }
-
-    /**
-     * 页面开始加载回调
-     * 子类可以重写此方法来处理页面开始加载事件
-     *
-     * @param url 开始加载的 URL
-     */
-    protected open fun onPageStartedCallback(url: String?) {
-        Logger.d(TAG, "Page started: $url")
-    }
-
-    /**
-     * 页面加载错误回调
-     * 子类可以重写此方法来处理页面加载错误
-     *
-     * @param url 出错的 URL
-     * @param error 错误信息
-     */
-    protected open fun onPageErrorCallback(url: String, error: android.webkit.WebResourceError?) {
-        Logger.e(TAG, "Page error: $url, error: ${error?.description}")
-    }
-
-    /**
-     * 获取当前 URL
-     *
-     * @return 当前加载的 URL
-     */
-    protected fun getCurrentUrl(): String? = currentUrl
-
-    /**
-     * 评估 JavaScript 代码
-     *
-     * @param script JavaScript 代码
-     */
     fun evaluateJavascript(script: String) {
         webView.evaluateJavascript(script, null)
     }
 
-    /**
-     * 返回上一页
-     */
+    protected fun getCurrentUrl(): String? = currentUrl
+
+    // ---- Callbacks for subclasses ----
+
+    protected open fun onPageFinishedCallback(url: String) {
+        Logger.d(TAG, "Page finished: $url")
+    }
+
+    protected open fun onPageStartedCallback(url: String?) {
+        Logger.d(TAG, "Page started: $url")
+    }
+
+    protected open fun onPageErrorCallback(url: String, error: WebResourceError?) {
+        Logger.e(TAG, "Page error: $url, error: ${error?.description}")
+    }
+
+    // ---- Lifecycle ----
+
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
@@ -449,39 +501,5 @@ open class CoconutWebActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Logger.d(TAG, "onDestroy")
-    }
-
-    /**
-     * 静态工具方法：获取 URL 的 HTML 内容
-     *
-     * @param url URL 地址
-     * @param callback 回调函数
-     */
-    fun fetchUrlContent(url: String, callback: (String?) -> Unit) {
-        activityScope.launch(Dispatchers.IO) {
-            try {
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
-
-                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                    val content = reader.use { it.readText() }
-                    launch(Dispatchers.Main) {
-                        callback(content)
-                    }
-                } else {
-                    launch(Dispatchers.Main) {
-                        callback(null)
-                    }
-                }
-            } catch (e: Exception) {
-                Logger.e(TAG, "Failed to fetch URL content", e)
-                launch(Dispatchers.Main) {
-                    callback(null)
-                }
-            }
-        }
     }
 }

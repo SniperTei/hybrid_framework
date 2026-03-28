@@ -124,4 +124,27 @@ object ErrorCode {
     const val PERMISSION_DENIED = 900003
     const val TIMEOUT = 900004
     const val CANCELLED = 900005
+    const val DOMAIN_NOT_ALLOWED = 900006
+    const val PARAM_VALIDATION_FAILED = 900007
+    const val COMPONENT_NOT_INITIALIZED = 900008
+    const val RATE_LIMIT_EXCEEDED = 900009
+
+    // Error code descriptions
+    fun getDescription(code: Int): String = when (code) {
+        PARSE_ERROR -> "Parse error"
+        INVALID_REQUEST -> "Invalid request"
+        METHOD_NOT_FOUND -> "Method not found"
+        INVALID_PARAMS -> "Invalid params"
+        INTERNAL_ERROR -> "Internal error"
+        UNKNOWN_COMPONENT -> "Unknown component"
+        UNKNOWN_FUNCTION -> "Unknown function"
+        PERMISSION_DENIED -> "Permission denied"
+        TIMEOUT -> "Request timeout"
+        CANCELLED -> "Request cancelled"
+        DOMAIN_NOT_ALLOWED -> "Domain not allowed"
+        PARAM_VALIDATION_FAILED -> "Parameter validation failed"
+        COMPONENT_NOT_INITIALIZED -> "Component not initialized"
+        RATE_LIMIT_EXCEEDED -> "Rate limit exceeded"
+        else -> "Unknown error"
+    }
 }

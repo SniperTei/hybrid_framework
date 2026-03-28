@@ -5,6 +5,8 @@ import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.components.device.DeviceComponent
 import com.sniper.coconut.components.network.NetworkComponent
 import com.sniper.coconut.components.storage.StorageComponent
+import com.sniper.androidwebbox.components.LoginComponent
+import com.sniper.coconut.config.Environment
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,15 +47,17 @@ class WebBoxApplication : Application() {
             setDebugMode(true)           // 启用调试日志
             setTimeout(30000)            // 设置超时时间
             setEnableWebViewDebug(true)  // 启用 WebView 调试
+            setEnvironment(Environment.DEV)  // 设置环境
         }
 
         // 3. 注册组件（在协程中进行）
         applicationScope.launch {
             try {
                 CoconutSDK.registerComponents(
-                    DeviceComponent(),    // 设备信息组件
-                    NetworkComponent(),  // 网络状态组件
-                    StorageComponent()   // 存储组件
+                    DeviceComponent(),    // 设备信息组件（SDK 提供）
+                    NetworkComponent(),  // 网络状态组件（SDK 提供）
+                    StorageComponent(),  // 存储组件（SDK 提供）
+                    LoginComponent()     // 登录组件（自定义业务组件）
                 )
 
                 val components = CoconutSDK.getRegisteredComponents()

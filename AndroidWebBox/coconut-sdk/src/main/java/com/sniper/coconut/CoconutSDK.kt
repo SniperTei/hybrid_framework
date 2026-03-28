@@ -29,7 +29,7 @@ object CoconutSDK {
 
     private var applicationContext: Context? = null
     private var isInitialized = false
-    private val config = CoconutConfig()
+    internal val config = CoconutConfig()
 
     // Coroutine scope for SDK operations
     private val sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -158,6 +158,16 @@ object CoconutSDK {
     fun getResourceManager(): ResourceManager {
         checkInitialized()
         return ResourceManagerImpl.getInstance()
+    }
+
+    /**
+     * Get current config
+     *
+     * @return Current CoconutConfig instance (read-only)
+     */
+    fun getConfig(): CoconutConfig {
+        checkInitialized()
+        return config
     }
 
     /**
