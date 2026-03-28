@@ -90,10 +90,25 @@ class CoconutBridgeImpl(
                 )
             }
 
-            // 6. Execute request
-            val result = runBlocking(Dispatchers.Main) {
-                handleRequest(request)
+            // 6. Execute request with performance tracking
+            var bridgeSuccess = true
+            var durationMs = 0L
+            val result: JsonElement
+            val startMs = System.currentTimeMillis()
+            try {
+                result = runBlocking(Dispatchers.Main) {
+                    handleRequest(request)
+                }
+                durationMs = System.currentTimeMillis() - startMs
+            } catch (e: Exception) {
+                durationMs = System.currentTimeMillis() - startMs
+                bridgeSuccess = false
+                BridgePerformance.record(request.method, durationMs, false)
+                throw e
             }
+
+            // Record performance metrics
+            BridgePerformance.record(request.method, durationMs, bridgeSuccess)
 
             // 7. Return success
             Logger.logBridgeCallSuccess(request.method, request.id)

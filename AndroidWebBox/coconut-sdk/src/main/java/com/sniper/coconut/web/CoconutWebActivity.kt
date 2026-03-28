@@ -10,6 +10,7 @@ import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -23,6 +24,8 @@ import com.sniper.coconut.bridge.CoconutBridgeImpl
 import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.component.ComponentHost
 import com.sniper.coconut.component.ComponentManager
+import com.sniper.coconut.resource.OfflineResourceManager
+import com.sniper.coconut.resource.CoconutResourceHolder
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -259,6 +262,32 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
      */
     protected open fun createWebViewClient(): WebViewClient {
         return object : WebViewClient() {
+
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
+                // Intercept requests for offline resources
+                request?.let { req ->
+                    val url = req.url.toString()
+                    // Only intercept for known H5 resource paths
+                    if (shouldServeOffline(url)) {
+                        val resourcePath = extractResourcePath(url)
+                        if (resourcePath != null) {
+                            val manager = getResourceManger()
+                            if (manager != null && manager.hasResource(resourcePath)) {
+                                val stream = manager.getResourceStream(resourcePath)
+                                if (stream != null) {
+                                    val mime = manager.getMimeType(resourcePath)
+                                    Logger.d(TAG, "Serving offline: $resourcePath ($mime)")
+                                    return WebResourceResponse(mime, "UTF-8", stream)
+                                }
+                            }
+                        }
+                    }
+                }
+                return super.shouldInterceptRequest(view, request)
+            }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
@@ -501,6 +530,34 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     }
 
     // ---- Lifecycle ----
+
+    /**
+     * Whether to serve this URL from offline resources.
+     * Override in subclasses to customize.
+     */
+    protected open fun shouldServeOffline(url: String): Boolean {
+        // By default, only intercept local/coconut:// scheme or matching H5 domain resources
+        return url.startsWith("file:///android_asset/coconut-web/")
+    }
+
+    /**
+     * Extract resource path from URL for offline lookup
+     */
+    protected open fun extractResourcePath(url: String): String? {
+        return when {
+            url.startsWith("file:///android_asset/coconut-web/") ->
+                url.removePrefix("file:///android_asset/coconut-web/")
+            else -> null
+        }
+    }
+
+    private fun getResourceManger(): OfflineResourceManager? {
+        return try {
+            CoconutResourceHolder.get(applicationContext)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     override fun onBackPressed() {
         if (webView.canGoBack()) {

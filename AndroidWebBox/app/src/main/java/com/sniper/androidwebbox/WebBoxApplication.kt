@@ -6,7 +6,9 @@ import com.sniper.coconut.components.clipboard.ClipboardComponent
 import com.sniper.coconut.components.device.DeviceComponent
 import com.sniper.coconut.components.dialog.DialogComponent
 import com.sniper.coconut.components.network.NetworkComponent
+import com.sniper.coconut.components.performance.PerformanceComponent
 import com.sniper.coconut.components.permission.PermissionComponent
+import com.sniper.coconut.resource.ResourceComponent
 import com.sniper.coconut.components.router.RouterComponent
 import com.sniper.coconut.components.stack.StackComponent
 import com.sniper.coconut.components.storage.StorageComponent
@@ -60,13 +62,15 @@ class WebBoxApplication : Application() {
             try {
                 CoconutSDK.registerComponents(
                     DeviceComponent(),      // 设备信息
-                    NetworkComponent(),     // 网络状态
+                    NetworkComponent(),     // 网络状态 & 原生HTTP代理
                     StorageComponent(),     // 本地存储
                     ClipboardComponent(),   // 剪切板读写
                     DialogComponent(),      // 原生弹窗/Toast
                     PermissionComponent(),  // 权限管理
                     RouterComponent(),      // 路由协议
                     StackComponent(),       // 页面栈管理
+                    ResourceComponent(),    // 离线资源 & 热更新
+                    PerformanceComponent(), // Bridge性能监控
                     LoginComponent()        // 登录（业务组件）
                 )
 
