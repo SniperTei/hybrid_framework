@@ -431,124 +431,22 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                 if (window.__coconutInitialized) return;
 
                 window.__coconutConfig = {
-                    token: '${bridgeToken}',
-                    signingEnabled: ${signingEnabled},
-                    sharedSecret: '${sharedSecret}'
+                    token: '$bridgeToken',
+                    signingEnabled: $signingEnabled,
+                    sharedSecret: '$sharedSecret'
                 };
 
-                function computeHmac(key, message) {
-                    var encoder = new TextEncoder();
-                    var keyData = encoder.encode(key);
-                    var msgData = encoder.encode(message);
-                    return crypto.subtle.importKey('raw', keyData, {name: 'HMAC', hash: 'SHA-256'}, false, ['sign'])
-                        .then(function(cryptoKey) {
-                            return crypto.subtle.sign('HMAC', cryptoKey, msgData);
-                        })
-                        .then(function(sig) {
-                            var arr = Array.from(new Uint8Array(sig));
-                            return arr.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
-                        });
+                if (window.Coconut && window.Coconut._loadSecurityConfig) {
+                    window.Coconut._loadSecurityConfig();
                 }
 
-                window.Coconut = {
-                    call: function(method, params, callback, timeout) {
-                        var request = {
-                            jsonrpc: "2.0",
-                            method: method,
-                            params: params || {},
-                            id: Date.now().toString()
-                        };
-
-                        // Attach bridge token
-                        if (window.__coconutConfig && window.__coconutConfig.token) {
-                            request.bridgeToken = window.__coconutConfig.token;
-                        }
-
-                        var to = timeout || 30000;
-                        var callbackId = 'callback_' + request.id;
-                        window[callbackId] = callback;
-
-                        var timer = setTimeout(function() {
-                            if (window[callbackId]) {
-                                callback({ error: { code: ${ErrorCode.TIMEOUT}, message: 'Timeout after ' + to + 'ms' } }, true);
-                                delete window[callbackId];
-                            }
-                        }, to);
-
-                        function doCall(req) {
-                            if (window.CoconutBridge && window.CoconutBridge.call) {
-                                try {
-                                    var responseStr = CoconutBridge.call(JSON.stringify(req));
-                                    var response = JSON.parse(responseStr);
-                                    clearTimeout(timer);
-
-                                    if (response.error) {
-                                        if (window[callbackId]) {
-                                            callback(response, true);
-                                            delete window[callbackId];
-                                        }
-                                    } else {
-                                        if (window[callbackId]) {
-                                            callback(response, false);
-                                            delete window[callbackId];
-                                        }
-                                    }
-                                } catch (e) {
-                                    clearTimeout(timer);
-                                    if (window[callbackId]) {
-                                        callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'Parse error: ' + e.message } }, true);
-                                        delete window[callbackId];
-                                    }
-                                }
-                            } else {
-                                clearTimeout(timer);
-                                callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'CoconutBridge not found' } }, true);
-                            }
-                        }
-
-                        // Sign request if signing is enabled
-                        if (window.__coconutConfig && window.__coconutConfig.signingEnabled && window.__coconutConfig.sharedSecret) {
-                            var ts = Date.now();
-                            var nonce = ts.toString(36) + '-' + Math.random().toString(36).substr(2, 9);
-                            request.timestamp = ts;
-                            request.nonce = nonce;
-                            var paramsStr = JSON.stringify(request.params || {});
-                            var payload = method + '|' + request.id + '|' + ts + '|' + nonce + '|' + paramsStr;
-                            computeHmac(window.__coconutConfig.sharedSecret, payload).then(function(sig) {
-                                request.sign = sig;
-                                doCall(request);
-                            }).catch(function(e) {
-                                clearTimeout(timer);
-                                if (window[callbackId]) {
-                                    callback({ error: { code: ${ErrorCode.INTERNAL_ERROR}, message: 'Signing failed: ' + e.message } }, true);
-                                    delete window[callbackId];
-                                }
-                            });
-                        } else {
-                            doCall(request);
-                        }
-                    },
-
-                    callAsync: function(method, params) {
-                        return new Promise(function(resolve, reject) {
-                            this.call(method, params, function(response, isError) {
-                                if (isError) {
-                                    reject(response);
-                                } else {
-                                    resolve(response);
-                                }
-                            });
-                        }.bind(this));
-                    }
-                };
-
                 window.__coconutInitialized = true;
-                console.log('Coconut SDK initialized');
+                console.log('Coconut SDK security config injected');
             })();
         """.trimIndent()
 
         webView.evaluateJavascript(javascript, null)
-        Logger.d(TAG, "Bridge JavaScript injected")
+        Logger.d(TAG, "Bridge security config injected")
     }
 
     // ---- Public Methods ----

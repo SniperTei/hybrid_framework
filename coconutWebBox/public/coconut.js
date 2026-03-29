@@ -2,8 +2,9 @@
  * 🥥 Coconut SDK - JavaScript Client
  *
  * Coconut SDK 的 JavaScript 客户端，用于与 Android 原生代码交互
+ * 支持 Phase 4 安全特性：Bridge Token 防护 & HMAC-SHA256 请求签名
  *
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 (function (global, factory) {
@@ -19,7 +20,7 @@
      * Coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '1.0.0';
+        this.version = '1.1.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -28,6 +29,7 @@
         this.timers = {};
         this.environment = this.detectEnvironment();
         this.env = this.createEnv();
+        this._securityConfig = null; // Phase 4: 缓存安全配置
     };
 
     /**
@@ -149,7 +151,99 @@
             this.defaultTimeout = options.timeout;
         }
         this.isInitialized = true;
+        this._loadSecurityConfig();
         return this;
+    };
+
+    /**
+     * Phase 4: 加载安全配置
+     * 从 window.__coconutConfig 读取 Android 注入的安全参数
+     */
+    Coconut.prototype._loadSecurityConfig = function () {
+        if (typeof window !== 'undefined' && window.__coconutConfig) {
+            this._securityConfig = window.__coconutConfig;
+            if (this.debug) {
+                this.log('🔒 Security config loaded: token=' +
+                    (this._securityConfig.token ? '***' : 'none') +
+                    ', signing=' + !!this._securityConfig.signingEnabled);
+            }
+        } else {
+            this._securityConfig = null;
+        }
+    };
+
+    /**
+     * Phase 4: 为请求附加安全字段
+     * 返回 Promise，因为 HMAC 计算是异步的
+     */
+    Coconut.prototype._applySecurity = function (request) {
+        var self = this;
+
+        // 延迟加载：首次调用时如果还没拿到 Android 注入的配置，再读一次
+        if (!this._securityConfig && typeof window !== 'undefined' && window.__coconutConfig) {
+            this._loadSecurityConfig();
+        }
+
+        var config = this._securityConfig;
+
+        // 无安全配置时直接返回
+        if (!config) {
+            return Promise.resolve(request);
+        }
+
+        // 1. 附加 bridgeToken
+        if (config.token) {
+            request.bridgeToken = config.token;
+        }
+
+        // 2. 签名未启用，直接返回
+        if (!config.signingEnabled || !config.sharedSecret) {
+            return Promise.resolve(request);
+        }
+
+        // 3. 计算 HMAC-SHA256 签名
+        var ts = Date.now();
+        var nonce = ts.toString(36) + '-' + Math.random().toString(36).substr(2, 9);
+        request.timestamp = ts;
+        request.nonce = nonce;
+
+        var paramsStr = JSON.stringify(request.params || {});
+        var payload = request.method + '|' + request.id + '|' + ts + '|' + nonce + '|' + paramsStr;
+
+        return self._computeHmac(config.sharedSecret, payload).then(function (sig) {
+            request.sign = sig;
+            if (self.debug) {
+                self.log('🔐 Request signed:', request.method);
+            }
+            return request;
+        });
+    };
+
+    /**
+     * Phase 4: HMAC-SHA256 计算（Web Crypto API）
+     */
+    Coconut.prototype._computeHmac = function (key, message) {
+        try {
+            var encoder = new TextEncoder();
+            var keyData = encoder.encode(key);
+            var msgData = encoder.encode(message);
+
+            return crypto.subtle.importKey(
+                'raw', keyData,
+                { name: 'HMAC', hash: 'SHA-256' },
+                false, ['sign']
+            ).then(function (cryptoKey) {
+                return crypto.subtle.sign('HMAC', cryptoKey, msgData);
+            }).then(function (sig) {
+                var arr = Array.from(new Uint8Array(sig));
+                return arr.map(function (b) {
+                    return b.toString(16).padStart(2, '0');
+                }).join('');
+            });
+        } catch (e) {
+            this.error('HMAC computation failed:', e);
+            return Promise.reject(e);
+        }
     };
 
     /**
@@ -179,12 +273,20 @@
             self.cleanupRequest(requestId);
             if (callback) {
                 callback({
-                    error: 'Timeout after ' + to + 'ms'
+                    error: { code: -32603, message: 'Timeout after ' + to + 'ms' }
                 }, true);
             }
         }, to);
 
-        this.sendRequest(request);
+        this._applySecurity(request).then(function (securedRequest) {
+            self._sendBridgeRequest(securedRequest);
+        }).catch(function (error) {
+            self.error('Security apply failed:', error);
+            if (callback) {
+                callback({ error: { code: -32603, message: 'Security error: ' + error.message } }, true);
+                self.cleanupRequest(requestId);
+            }
+        });
 
         if (this.debug) {
             this.log('📤 Call:', method, params);
@@ -208,9 +310,9 @@
     };
 
     /**
-     * 发送请求到原生
+     * 发送请求到原生（纯同步桥调用）
      */
-    Coconut.prototype.sendRequest = function (request) {
+    Coconut.prototype._sendBridgeRequest = function (request) {
         var requestJson = JSON.stringify(request);
 
         try {
@@ -232,7 +334,7 @@
             var errorCallback = this.callbacks[request.id];
             if (errorCallback) {
                 errorCallback({
-                    error: error.message
+                    error: { code: -32603, message: error.message }
                 }, true);
                 this.cleanupRequest(request.id);
             }
@@ -261,6 +363,22 @@
                     model: 'Mock Browser',
                     version: '1.0.0'
                 };
+            } else if (request.method === 'system.getVersion') {
+                mockResponse.result.data = { version: '1.1.0' };
+            } else if (request.method === 'system.getComponentVersion') {
+                mockResponse.result.data = { name: request.params.name, version: '1.0.0' };
+            } else if (request.method === 'system.getAllComponents') {
+                mockResponse.result.data = { components: ['device', 'network', 'storage', 'system', 'security'] };
+            } else if (request.method === 'system.checkCapability') {
+                mockResponse.result.data = { method: request.params.method, supported: true };
+            } else if (request.method === 'security.getAuditLog') {
+                mockResponse.result.data = { entries: [], total: 0 };
+            } else if (request.method === 'security.getAuditSummary') {
+                mockResponse.result.data = { totalCalls: 0, blockedCalls: 0, lastActivity: null };
+            } else if (request.method === 'security.getSecurityConfig') {
+                mockResponse.result.data = { bridgeTokenEnabled: false, signingEnabled: false };
+            } else if (request.method === 'security.clearAuditLog') {
+                mockResponse.result.data = { cleared: true };
             }
 
             self.handleResponse(JSON.stringify(mockResponse));
@@ -386,6 +504,42 @@
         },
         getLength: function (callback) {
             return Coconut.call('storage.getLength', {}, callback);
+        }
+    };
+
+    /**
+     * 快捷方法 - System 组件
+     */
+    Coconut.prototype.system = {
+        getVersion: function (callback) {
+            return Coconut.call('system.getVersion', {}, callback);
+        },
+        getComponentVersion: function (name, callback) {
+            return Coconut.call('system.getComponentVersion', { name: name }, callback);
+        },
+        getAllComponents: function (callback) {
+            return Coconut.call('system.getAllComponents', {}, callback);
+        },
+        checkCapability: function (method, callback) {
+            return Coconut.call('system.checkCapability', { method: method }, callback);
+        }
+    };
+
+    /**
+     * 快捷方法 - Security 组件
+     */
+    Coconut.prototype.security = {
+        getAuditLog: function (options, callback) {
+            return Coconut.call('security.getAuditLog', options || {}, callback);
+        },
+        getAuditSummary: function (callback) {
+            return Coconut.call('security.getAuditSummary', {}, callback);
+        },
+        getSecurityConfig: function (callback) {
+            return Coconut.call('security.getSecurityConfig', {}, callback);
+        },
+        clearAuditLog: function (callback) {
+            return Coconut.call('security.clearAuditLog', {}, callback);
         }
     };
 

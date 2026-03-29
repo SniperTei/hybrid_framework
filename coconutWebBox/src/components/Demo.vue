@@ -70,6 +70,25 @@
           <button class="test-btn" @click="testClearStorage" :disabled="loading">清空存储</button>
         </div>
       </div>
+
+      <div class="test-section">
+        <h3>🔧 System 组件测试</h3>
+        <div class="test-buttons">
+          <button class="test-btn" @click="testSystemGetVersion" :disabled="loading">getVersion</button>
+          <button class="test-btn" @click="testSystemGetAllComponents" :disabled="loading">getAllComponents</button>
+          <button class="test-btn" @click="testSystemCheckCapability" :disabled="loading">checkCapability</button>
+        </div>
+      </div>
+
+      <div class="test-section">
+        <h3>🔒 Security 组件测试</h3>
+        <div class="test-buttons">
+          <button class="test-btn" @click="testSecurityGetAuditLog" :disabled="loading">getAuditLog</button>
+          <button class="test-btn" @click="testSecurityGetAuditSummary" :disabled="loading">getAuditSummary</button>
+          <button class="test-btn" @click="testSecurityGetSecurityConfig" :disabled="loading">getSecurityConfig</button>
+          <button class="test-btn" @click="testSecurityClearAuditLog" :disabled="loading">clearAuditLog</button>
+        </div>
+      </div>
     </div>
 
     <div class="result-container">
@@ -237,6 +256,62 @@ async function testAll() {
     showResult(error, false, '失败')
   }
 }
+
+function testSystemGetVersion() {
+  setLoading('system-version', true)
+  window.Coconut.call('system.getVersion', {}, (response, isError) => {
+    setLoading('system-version', false)
+    showResult(response, !isError, isError ? '失败' : '成功')
+  })
+}
+
+function testSystemGetAllComponents() {
+  setLoading('system-components', true)
+  window.Coconut.call('system.getAllComponents', {}, (response, isError) => {
+    setLoading('system-components', false)
+    showResult(response, !isError, isError ? '失败' : '成功')
+  })
+}
+
+function testSystemCheckCapability() {
+  setLoading('system-capability', true)
+  window.Coconut.call('system.checkCapability', { method: 'network.request' }, (response, isError) => {
+    setLoading('system-capability', false)
+    showResult(response, !isError, isError ? '失败' : '成功')
+  })
+}
+
+function testSecurityGetAuditLog() {
+  setLoading('security-audit-log', true)
+  window.Coconut.call('security.getAuditLog', {}, (response, isError) => {
+    setLoading('security-audit-log', false)
+    showResult(response, !isError, isError ? '失败' : '成功')
+  })
+}
+
+function testSecurityGetAuditSummary() {
+  setLoading('security-audit-summary', true)
+  window.Coconut.call('security.getAuditSummary', {}, (response, isError) => {
+    setLoading('security-audit-summary', false)
+    showResult(response, !isError, isError ? '失败' : '成功')
+  })
+}
+
+function testSecurityGetSecurityConfig() {
+  setLoading('security-config', true)
+  window.Coconut.call('security.getSecurityConfig', {}, (response, isError) => {
+    setLoading('security-config', false)
+    showResult(response, !isError, isError ? '失败' : '成功')
+  })
+}
+
+function testSecurityClearAuditLog() {
+  setLoading('security-clear', true)
+  window.Coconut.call('security.clearAuditLog', {}, (response, isError) => {
+    setLoading('security-clear', false)
+    showResult(response, !isError, isError ? '失败' : '已清空')
+  })
+}
 </script>
 
 <style scoped>
@@ -267,6 +342,10 @@ async function testAll() {
 .test-btn { padding: 10px 16px; background: white; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; font-weight: 500; color: #4a5568; cursor: pointer; transition: all 0.2s; }
 .test-btn:hover:not(:disabled) { background: #667eea; color: white; border-color: #667eea; }
 .test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.test-btn.register-btn { background: #667eea; color: white; border-color: #667eea; }
+.test-btn.register-btn:hover:not(:disabled) { background: #5a67d8; border-color: #5a67d8; }
+.test-btn.login-btn { background: #48bb78; color: white; border-color: #48bb78; }
+.test-btn.login-btn:hover:not(:disabled) { background: #38a169; border-color: #38a169; }
 .result-container { background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
 .result-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #f7fafc; border-bottom: 1px solid #e2e8f0; }
 .result-title { font-weight: 600; color: #2d3748; font-size: 16px; }
