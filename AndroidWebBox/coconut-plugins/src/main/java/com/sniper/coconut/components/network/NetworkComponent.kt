@@ -7,18 +7,10 @@ import com.sniper.coconut.component.BaseComponent
 import com.sniper.coconut.component.ComponentContext
 import com.sniper.coconut.component.ComponentMetadata
 import com.sniper.coconut.utils.Logger
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import java.io.BufferedReader
-import java.io.DataOutputStream
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 
 /**
  * Network Component (Enhanced)
@@ -28,6 +20,10 @@ import java.net.URLEncoder
  * - Native HTTP request proxy for H5 (bypasses CORS)
  * - Cookie sync support
  * - Auto-injected headers (token, version, device info)
+ *
+ * HTTP implementation is auto-selected at runtime:
+ * - OkHttp (preferred) when available in host app classpath
+ * - HttpURLConnection (fallback) when OkHttp is not present
  *
  * H5 Usage:
  *   Coconut.call('network.request', {
@@ -56,8 +52,12 @@ class NetworkComponent : BaseComponent() {
     // Extra headers to auto-inject (e.g. token, version)
     private val extraHeaders = mutableMapOf<String, String>()
 
+    private var httpClient: HttpClient? = null
+
     override suspend fun onInit(ctx: ComponentContext) {
         componentContext = ctx
+        httpClient = HttpClientFactory.create()
+        Logger.d(name, "Using ${httpClient?.javaClass?.simpleName}")
     }
 
     override suspend fun handle(function: String, params: JsonObject?): JsonElement {
@@ -116,73 +116,55 @@ class NetworkComponent : BaseComponent() {
 
     /**
      * Generic HTTP request (H5 calls this to bypass CORS)
-     * params: { url, method, headers, body, timeout, contentType }
+     * Delegates to HttpClient implementation (OkHttp or HttpURLConnection)
      */
-    private suspend fun httpRequest(params: JsonObject?): JsonElement = withContext(Dispatchers.IO) {
+    private suspend fun httpRequest(params: JsonObject?): JsonElement {
         val url = getParam(params, "url")
-        if (url.isEmpty()) return@withContext error("900001", "url is required")
+        if (url.isEmpty()) return error("900001", "url is required")
+
+        val client = httpClient ?: HttpClientFactory.create()
 
         val method = getParam(params, "method", "GET").uppercase()
         val timeout = getIntParam(params, "timeout", 15000)
         val contentType = getParam(params, "contentType", "application/json")
         val body = getParam(params, "body", "")
 
-        try {
-            Logger.d(name, "Native request: $method $url")
-
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.requestMethod = method
-            connection.connectTimeout = timeout
-            connection.readTimeout = timeout
-            connection.instanceFollowRedirects = true
-
-            // Auto-inject extra headers
-            extraHeaders.forEach { (k, v) -> connection.setRequestProperty(k, v) }
-
-            // H5-provided headers
-            params?.get("headers")?.let { headersElem ->
-                if (headersElem is JsonObject) {
-                    headersElem.forEach { (k, v) ->
-                        if (v is JsonPrimitive && v.isString) {
-                            connection.setRequestProperty(k, v.content)
-                        }
+        // Merge extra headers + H5-provided headers
+        val headers = mutableMapOf<String, String>()
+        headers.putAll(extraHeaders)
+        params?.get("headers")?.let { headersElem ->
+            if (headersElem is JsonObject) {
+                headersElem.forEach { (k, v) ->
+                    if (v is JsonPrimitive && v.isString) {
+                        headers[k] = v.content
                     }
                 }
             }
+        }
 
-            // Write body for non-GET
-            if (method != "GET" && body.isNotEmpty()) {
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", contentType)
-                DataOutputStream(connection.outputStream).use { dos ->
-                    dos.writeBytes(body)
-                    dos.flush()
-                }
-            }
+        Logger.d(name, "Native request: $method $url")
 
-            val responseCode = connection.responseCode
-            val responseBody = if (responseCode in 200..299) {
-                BufferedReader(InputStreamReader(connection.inputStream)).readText()
-            } else {
-                try {
-                    BufferedReader(InputStreamReader(connection.errorStream)).readText()
-                } catch (e: Exception) {
-                    ""
-                }
-            }
+        val request = HttpRequest(
+            url = url,
+            method = method,
+            headers = headers,
+            body = body.ifEmpty { null },
+            contentType = contentType,
+            timeout = timeout
+        )
 
-            Logger.d(name, "Native response: $responseCode (${responseBody.length} bytes)")
+        val response = client.execute(request)
 
-            buildJsonObject {
-                put("statusCode", JsonPrimitive(responseCode))
-                put("body", JsonPrimitive(responseBody))
-                put("headers", JsonPrimitive(connection.headerFields.toString()))
-            }.let { success(it) }
-        } catch (e: Exception) {
-            Logger.e(name, "Request failed: $url", e)
+        return if (response.statusCode == -1) {
             buildJsonObject {
                 put("statusCode", JsonPrimitive(-1))
-                put("error", JsonPrimitive(e.message ?: "Request failed"))
+                put("error", JsonPrimitive(response.body))
+            }.let { success(it) }
+        } else {
+            buildJsonObject {
+                put("statusCode", JsonPrimitive(response.statusCode))
+                put("body", JsonPrimitive(response.body))
+                put("headers", JsonPrimitive(response.headers.toString()))
             }.let { success(it) }
         }
     }
@@ -219,5 +201,6 @@ class NetworkComponent : BaseComponent() {
     override suspend fun onCleanup() {
         componentContext = null
         extraHeaders.clear()
+        httpClient = null
     }
 }

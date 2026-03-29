@@ -60,6 +60,9 @@ dependencies {
     // AndroidX Core
     api("androidx.core:core-ktx:1.12.0")
 
+    // OkHttp (compileOnly - auto-detected at runtime when host app provides it)
+    compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
