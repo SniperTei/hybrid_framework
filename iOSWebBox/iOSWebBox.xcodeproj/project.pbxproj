@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7DB7D3452F78FB0000ABE060 /* CoconutSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000022F78B1D300ABE060 /* CoconutSDK */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		7DB7D2AB2F78B1D300ABE060 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7DB7D3452F78FB0000ABE060 /* CoconutSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = iOSWebBox;
 			packageProductDependencies = (
+				AA0000022F78B1D300ABE060 /* CoconutSDK */,
 			);
 			productName = iOSWebBox;
 			productReference = 7DB7D2942F78B1D100ABE060 /* iOSWebBox.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = 7DB7D28B2F78B1D100ABE060;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA0000012F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutSDK" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7DB7D2952F78B1D100ABE060 /* Products */;
 			projectDirPath = "";
@@ -289,6 +298,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 24UF99W49D;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iOSWebBox/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -296,6 +306,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -320,6 +331,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 24UF99W49D;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iOSWebBox/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -327,6 +339,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -583,6 +596,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA0000012F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutSDK" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = CoconutSDK;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA0000022F78B1D300ABE060 /* CoconutSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000012F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutSDK" */;
+			productName = CoconutSDK;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7DB7D28C2F78B1D100ABE060 /* Project object */;
 }

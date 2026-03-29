@@ -58,6 +58,8 @@
           <button class="test-btn" @click="testPostRequest" :disabled="loading">POST 请求</button>
           <button class="test-btn" @click="testPutRequest" :disabled="loading">PUT 请求</button>
           <button class="test-btn" @click="testDeleteRequest" :disabled="loading">DELETE 请求</button>
+          <button class="test-btn register-btn" @click="testRegister" :disabled="loading">用户注册</button>
+          <button class="test-btn login-btn" @click="testLogin" :disabled="loading">用户登录</button>
         </div>
       </div>
 
@@ -192,6 +194,32 @@ function testPostRequest() {
   }, (response, isError) => {
     setLoading('network-post', false)
     showResult({ ...response, _test: 'POST 请求' }, !isError, '完成')
+  })
+}
+
+function testRegister() {
+  setLoading('network-register', true)
+  window.Coconut.call('network.request', {
+    url: 'https://server.handongnei.com/api/user/register',
+    method: 'POST',
+    contentType: 'application/json',
+    body: JSON.stringify({ username: 'zhengnan', password: 'zhengnan' })
+  }, (response, isError) => {
+    setLoading('network-register', false)
+    showResult({ ...response, _test: '用户注册' }, !isError, isError ? '失败' : '完成')
+  })
+}
+
+function testLogin() {
+  setLoading('network-login', true)
+  window.Coconut.call('network.request', {
+    url: 'https://server.handongnei.com/api/user/login/',
+    method: 'POST',
+    contentType: 'application/json',
+    body: JSON.stringify({ account: 'zhengnan', password: 'zhengnan' })
+  }, (response, isError) => {
+    setLoading('network-login', false)
+    showResult({ ...response, _test: '用户登录' }, !isError, isError ? '失败' : '完成')
   })
 }
 

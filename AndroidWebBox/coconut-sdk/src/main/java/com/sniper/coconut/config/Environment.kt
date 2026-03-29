@@ -13,8 +13,8 @@ enum class Environment(
 ) {
     DEV(
         displayName = "Development",
-        defaultH5Domain = "http://10.0.2.2:5174",
-        defaultApiDomain = "http://10.0.2.2:8080"
+        defaultH5Domain = "http://192.168.3.49:5174",
+        defaultApiDomain = "http://192.168.3.49:8080"
     ),
     TEST(
         displayName = "Testing",

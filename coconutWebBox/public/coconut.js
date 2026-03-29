@@ -325,6 +325,13 @@
                 } else {
                     throw new Error('CoconutBridge not found');
                 }
+            } else if (this.environment === 'ios') {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.CoconutBridge) {
+                    window.webkit.messageHandlers.CoconutBridge.postMessage(requestJson);
+                    // Response will come back asynchronously via __coconutIOSCallback
+                } else {
+                    throw new Error('CoconutBridge not found');
+                }
             } else {
                 // Web 环境模拟
                 this.handleWebMock(request);
@@ -545,6 +552,15 @@
 
     // 创建单例
     var CoconutSDK = new Coconut();
+
+    // iOS bridge callback (called by native side via evaluateJavaScript)
+    if (typeof window !== 'undefined') {
+        window.__coconutIOSCallback = function (responseJson) {
+            if (CoconutSDK && CoconutSDK.handleResponse) {
+                CoconutSDK.handleResponse(responseJson);
+            }
+        };
+    }
 
     // 自动初始化
     if (typeof window !== 'undefined') {
