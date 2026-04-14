@@ -109,7 +109,7 @@ Coconut.init({ debug: true })
 // 调用原生方法（回调方式）
 Coconut.call('device.getInfo', {}, function(response, isError) {
     if (isError) {
-        console.error('调用失败:', response.error)
+        console.error('调用失败:', response.code, response.message)
     } else {
         console.log('调用成功:', response.result)
     }

@@ -23,7 +23,6 @@ import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.bridge.CoconutBridgeImpl
 import com.sniper.coconut.bridge.BridgeTokenManager
 import com.sniper.coconut.bridge.RequestSignatureValidator
-import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.component.ComponentHost
 import com.sniper.coconut.component.ComponentManager
 import com.sniper.coconut.resource.OfflineResourceManager

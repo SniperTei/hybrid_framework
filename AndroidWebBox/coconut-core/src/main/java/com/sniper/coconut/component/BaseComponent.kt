@@ -98,37 +98,24 @@ abstract class BaseComponent : CoconutPlugin {
     }
 
     /**
-     * Build success result
-     *
-     * @param data Result data
-     * @return JsonElement with success format
+     * Build success result - returns data directly
+     * code/message is handled by BridgeResponse top level
      */
     protected fun success(data: JsonElement? = null): JsonElement {
-        return buildJsonObject {
-            put("code", JsonPrimitive("000000"))
-            put("message", JsonPrimitive("success"))
-            data?.let { put("data", it) }
-        }
+        return data ?: buildJsonObject {}
     }
 
     /**
-     * Build error result
-     *
-     * @param code Error code (string)
-     * @param message Error message
-     * @return JsonElement with error format
+     * Throw component error to be caught by Bridge layer
      */
     protected fun error(code: String, message: String): JsonElement {
-        return buildJsonObject {
-            put("code", JsonPrimitive(code))
-            put("message", JsonPrimitive(message))
-        }
+        throw ComponentException(code, message)
     }
 
     /**
-     * Build function not supported error
+     * Throw function not supported error
      */
     protected fun functionNotSupportedError(function: String): JsonElement {
-        return error("900002", "Function not supported: $function")
+        throw ComponentException("200002", "Function not supported: $function")
     }
 }

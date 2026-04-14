@@ -127,7 +127,7 @@ object Logger {
     /**
      * Log a bridge call error
      */
-    fun logBridgeCallError(method: String, requestId: String, errorCode: Int, message: String) {
+    fun logBridgeCallError(method: String, requestId: String, errorCode: String, message: String) {
         if (minLevel.ordinal <= Level.WARN.ordinal) {
             val duration = endTimer("Bridge", "bridge_$requestId")
             Log.w(TAG, "[Bridge] ✗ #$requestId $method → [$errorCode] $message (${duration}ms)")

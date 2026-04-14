@@ -47,7 +47,7 @@ class ComponentManager private constructor() {
         mutex.withLock {
             // Check if component already registered
             if (components.containsKey(component.name)) {
-                throw ComponentException("Component '${component.name}' is already registered")
+                throw ComponentException(message = "Component '${component.name}' is already registered")
             }
 
             // Check dependencies
@@ -62,7 +62,7 @@ class ComponentManager private constructor() {
                 Logger.i("ComponentManager", "✓ Component registered: ${component.name}")
             } catch (e: Exception) {
                 Logger.e("ComponentManager", "Failed to initialize component: ${component.name}", e)
-                throw ComponentException("Failed to initialize component '${component.name}': ${e.message}", e)
+                throw ComponentException(message = "Failed to initialize component '${component.name}': ${e.message}", cause = e)
             }
         }
     }
@@ -236,7 +236,7 @@ class ComponentManager private constructor() {
     private suspend fun checkDependencies(component: CoconutPlugin) {
         for (dependency in component.dependencies) {
             if (!components.containsKey(dependency)) {
-                throw ComponentException("Component '${component.name}' depends on '$dependency' which is not registered")
+                throw ComponentException(message = "Component '${component.name}' depends on '$dependency' which is not registered")
             }
         }
     }
@@ -295,4 +295,4 @@ data class ComponentInfo(
 /**
  * Component exception
  */
-class ComponentException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class ComponentException(val code: String = "200001", message: String, cause: Throwable? = null) : Exception(message, cause)

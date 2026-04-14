@@ -273,7 +273,11 @@
             self.cleanupRequest(requestId);
             if (callback) {
                 callback({
-                    error: { code: -32603, message: 'Timeout after ' + to + 'ms' }
+                    jsonrpc: '2.0',
+                    id: requestId,
+                    code: '200004',
+                    message: 'Timeout after ' + to + 'ms',
+                    result: null
                 }, true);
             }
         }, to);
@@ -283,7 +287,7 @@
         }).catch(function (error) {
             self.error('Security apply failed:', error);
             if (callback) {
-                callback({ error: { code: -32603, message: 'Security error: ' + error.message } }, true);
+                callback({ jsonrpc: '2.0', id: requestId, code: '100005', message: 'Security error: ' + error.message, result: null }, true);
                 self.cleanupRequest(requestId);
             }
         });
@@ -341,7 +345,11 @@
             var errorCallback = this.callbacks[request.id];
             if (errorCallback) {
                 errorCallback({
-                    error: { code: -32603, message: error.message }
+                    jsonrpc: '2.0',
+                    id: request.id,
+                    code: '100005',
+                    message: error.message,
+                    result: null
                 }, true);
                 this.cleanupRequest(request.id);
             }
@@ -357,35 +365,33 @@
             var mockResponse = {
                 jsonrpc: '2.0',
                 id: request.id,
-                result: {
-                    code: '000000',
-                    message: 'success (web mock)',
-                    data: {}
-                }
+                code: '000000',
+                message: 'success (web mock)',
+                result: {}
             };
 
             if (request.method === 'device.getInfo') {
-                mockResponse.result.data = {
+                mockResponse.result = {
                     platform: 'web',
                     model: 'Mock Browser',
                     version: '1.0.0'
                 };
             } else if (request.method === 'system.getVersion') {
-                mockResponse.result.data = { version: '1.1.0' };
+                mockResponse.result = { version: '1.1.0' };
             } else if (request.method === 'system.getComponentVersion') {
-                mockResponse.result.data = { name: request.params.name, version: '1.0.0' };
+                mockResponse.result = { name: request.params.name, version: '1.0.0' };
             } else if (request.method === 'system.getAllComponents') {
-                mockResponse.result.data = { components: ['device', 'network', 'storage', 'system', 'security'] };
+                mockResponse.result = { components: ['device', 'network', 'storage', 'system', 'security'] };
             } else if (request.method === 'system.checkCapability') {
-                mockResponse.result.data = { method: request.params.method, supported: true };
+                mockResponse.result = { method: request.params.method, supported: true };
             } else if (request.method === 'security.getAuditLog') {
-                mockResponse.result.data = { entries: [], total: 0 };
+                mockResponse.result = { entries: [], total: 0 };
             } else if (request.method === 'security.getAuditSummary') {
-                mockResponse.result.data = { totalCalls: 0, blockedCalls: 0, lastActivity: null };
+                mockResponse.result = { totalCalls: 0, blockedCalls: 0, lastActivity: null };
             } else if (request.method === 'security.getSecurityConfig') {
-                mockResponse.result.data = { bridgeTokenEnabled: false, signingEnabled: false };
+                mockResponse.result = { bridgeTokenEnabled: false, signingEnabled: false };
             } else if (request.method === 'security.clearAuditLog') {
-                mockResponse.result.data = { cleared: true };
+                mockResponse.result = { cleared: true };
             }
 
             self.handleResponse(JSON.stringify(mockResponse));
@@ -407,12 +413,7 @@
             var callback = this.callbacks[requestId];
 
             if (callback) {
-                var isError = false;
-                if (response.error) {
-                    isError = true;
-                } else if (response.result && response.result.code !== '000000') {
-                    isError = true;
-                }
+                var isError = response.code !== '000000';
 
                 callback(response, isError);
                 this.cleanupRequest(requestId);

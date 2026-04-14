@@ -226,6 +226,11 @@
                 id: Date.now().toString()
             };
 
+            // 附加 Android 注入的 bridgeToken
+            if (window.__coconutConfig && window.__coconutConfig.token) {
+                request.bridgeToken = window.__coconutConfig.token;
+            }
+
             console.log('Calling:', method);
 
             // 调用Android桥接
@@ -233,16 +238,16 @@
                 const responseJson = CoconutBridge.call(JSON.stringify(request));
                 try {
                     const response = JSON.parse(responseJson);
-                    if (response.error) {
+                    if (response.code !== '000000') {
                         callback(response, true);
                     } else {
                         callback(response, false);
                     }
                 } catch (e) {
-                    callback({ error: 'Parse error: ' + e.message }, true);
+                    callback({ jsonrpc: '2.0', id: request.id, code: '100001', message: 'Parse error: ' + e.message, result: null }, true);
                 }
             } else {
-                callback({ error: 'CoconutBridge not found' }, true);
+                callback({ jsonrpc: '2.0', id: request.id, code: '100005', message: 'CoconutBridge not found', result: null }, true);
             }
         }
 

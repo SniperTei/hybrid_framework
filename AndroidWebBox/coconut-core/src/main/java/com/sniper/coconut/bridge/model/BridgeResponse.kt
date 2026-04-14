@@ -5,22 +5,24 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 
 /**
- * JSON-RPC 2.0 Response Model
+ * Bridge Response Model (Flattened)
  *
- * Standard JSON-RPC 2.0 response format:
+ * Flattened response format:
  * {
  *   "jsonrpc": "2.0",
- *   "result": { ... },
- *   "error": null,
- *   "id": "request-id"
+ *   "id": "request-id",
+ *   "code": "000000",
+ *   "message": "success",
+ *   "result": { ... }
  * }
  */
 @Serializable
 data class BridgeResponse(
     val jsonrpc: String = "2.0",
-    val result: JsonElement? = null,
-    val error: BridgeError? = null,
-    val id: String
+    val id: String,
+    val code: String = ErrorCode.SUCCESS,
+    val message: String = "success",
+    val result: JsonElement? = null
 ) {
     companion object {
         const val JSONRPC_VERSION = "2.0"
@@ -31,21 +33,23 @@ data class BridgeResponse(
         fun success(id: String, result: JsonElement? = null): BridgeResponse {
             return BridgeResponse(
                 jsonrpc = JSONRPC_VERSION,
-                result = result ?: JsonNull,
-                error = null,
-                id = id
+                id = id,
+                code = ErrorCode.SUCCESS,
+                message = "success",
+                result = result ?: JsonNull
             )
         }
 
         /**
          * Create error response
          */
-        fun error(id: String, code: Int, message: String, data: JsonElement? = null): BridgeResponse {
+        fun error(id: String, code: String, message: String): BridgeResponse {
             return BridgeResponse(
                 jsonrpc = JSONRPC_VERSION,
-                result = null,
-                error = BridgeError(code, message, data),
-                id = id
+                id = id,
+                code = code,
+                message = message,
+                result = null
             )
         }
 
@@ -89,54 +93,54 @@ data class BridgeResponse(
      * Check if response is successful
      */
     val isSuccess: Boolean
-        get() = error == null
+        get() = code == ErrorCode.SUCCESS
 
     /**
      * Check if response is error
      */
     val isError: Boolean
-        get() = error != null
+        get() = code != ErrorCode.SUCCESS
 }
 
 /**
- * JSON-RPC 2.0 Error Object
- */
-@Serializable
-data class BridgeError(
-    val code: Int,
-    val message: String,
-    val data: JsonElement? = null
-)
-
-/**
- * Standard JSON-RPC 2.0 Error Codes
+ * Standard Error Codes (6-digit strings)
+ *
+ * | Range      | Category     |
+ * |------------|-------------|
+ * | 000000     | Success     |
+ * | 100001-100005 | Standard errors |
+ * | 200001-200009 | Business errors |
+ * | 300001-300004 | Security errors |
  */
 object ErrorCode {
-    const val PARSE_ERROR = -32700
-    const val INVALID_REQUEST = -32600
-    const val METHOD_NOT_FOUND = -32601
-    const val INVALID_PARAMS = -32602
-    const val INTERNAL_ERROR = -32603
+    const val SUCCESS = "000000"
 
-    // Application specific errors (positive numbers)
-    const val UNKNOWN_COMPONENT = 900001
-    const val UNKNOWN_FUNCTION = 900002
-    const val PERMISSION_DENIED = 900003
-    const val TIMEOUT = 900004
-    const val CANCELLED = 900005
-    const val DOMAIN_NOT_ALLOWED = 900006
-    const val PARAM_VALIDATION_FAILED = 900007
-    const val COMPONENT_NOT_INITIALIZED = 900008
-    const val RATE_LIMIT_EXCEEDED = 900009
+    // Standard errors (100001-100005)
+    const val PARSE_ERROR = "100001"
+    const val INVALID_REQUEST = "100002"
+    const val METHOD_NOT_FOUND = "100003"
+    const val INVALID_PARAMS = "100004"
+    const val INTERNAL_ERROR = "100005"
 
-    // Security errors
-    const val SIGNATURE_INVALID = 900010
-    const val SIGNATURE_EXPIRED = 900011
-    const val NONCE_REUSED = 900012
-    const val BRIDGE_TOKEN_INVALID = 900013
+    // Business errors (200001-200009)
+    const val UNKNOWN_COMPONENT = "200001"
+    const val UNKNOWN_FUNCTION = "200002"
+    const val PERMISSION_DENIED = "200003"
+    const val TIMEOUT = "200004"
+    const val CANCELLED = "200005"
+    const val DOMAIN_NOT_ALLOWED = "200006"
+    const val PARAM_VALIDATION_FAILED = "200007"
+    const val COMPONENT_NOT_INITIALIZED = "200008"
+    const val RATE_LIMIT_EXCEEDED = "200009"
+
+    // Security errors (300001-300004)
+    const val SIGNATURE_INVALID = "300001"
+    const val SIGNATURE_EXPIRED = "300002"
+    const val NONCE_REUSED = "300003"
+    const val BRIDGE_TOKEN_INVALID = "300004"
 
     // Error code descriptions
-    fun getDescription(code: Int): String = when (code) {
+    fun getDescription(code: String): String = when (code) {
         PARSE_ERROR -> "Parse error"
         INVALID_REQUEST -> "Invalid request"
         METHOD_NOT_FOUND -> "Method not found"

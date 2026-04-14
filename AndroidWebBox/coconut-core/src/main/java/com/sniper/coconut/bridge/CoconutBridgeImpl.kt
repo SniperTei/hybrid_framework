@@ -2,6 +2,7 @@ package com.sniper.coconut.bridge
 
 import android.webkit.WebView
 import com.sniper.coconut.bridge.model.BridgeRequest
+import com.sniper.coconut.component.ComponentException
 import com.sniper.coconut.bridge.model.BridgeResponse
 import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.component.CoconutPlugin
@@ -29,6 +30,7 @@ class CoconutBridgeImpl(
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        encodeDefaults = true
     }
 
     val securityValidator = BridgeSecurityValidator()
@@ -148,10 +150,12 @@ class CoconutBridgeImpl(
 
             // 7. Return success
             Logger.logBridgeCallSuccess(request.method, request.id)
-            json.encodeToString(
+            val responseJson = json.encodeToString(
                 BridgeResponse.serializer(),
                 BridgeResponse.success(request.id, result)
             )
+            Logger.d(tag, "Response: $responseJson")
+            responseJson
 
         } catch (e: ComponentNotFoundException) {
             val requestMethod = extractMethodFromJson(jsonData)
@@ -160,6 +164,22 @@ class CoconutBridgeImpl(
             json.encodeToString(
                 BridgeResponse.serializer(),
                 BridgeResponse.error(requestId, ErrorCode.UNKNOWN_COMPONENT, e.message ?: "Component not found")
+            )
+        } catch (e: ComponentException) {
+            val requestMethod = extractMethodFromJson(jsonData)
+            val requestId = extractIdFromJson(jsonData)
+            Logger.logBridgeCallError(requestMethod, requestId, e.code, e.message ?: "Component error")
+            json.encodeToString(
+                BridgeResponse.serializer(),
+                BridgeResponse.error(requestId, e.code, e.message ?: "Component error")
+            )
+        } catch (e: ComponentNotInitializedException) {
+            val requestMethod = extractMethodFromJson(jsonData)
+            val requestId = extractIdFromJson(jsonData)
+            Logger.logBridgeCallError(requestMethod, requestId, ErrorCode.COMPONENT_NOT_INITIALIZED, e.message ?: "Component not initialized")
+            json.encodeToString(
+                BridgeResponse.serializer(),
+                BridgeResponse.error(requestId, ErrorCode.COMPONENT_NOT_INITIALIZED, e.message ?: "Component not initialized")
             )
         } catch (e: Exception) {
             Logger.e(tag, "Error handling call", e)
@@ -191,7 +211,7 @@ class CoconutBridgeImpl(
         callJS(webView, "__coconutCallback", mapOf("response" to responseJson))
     }
 
-    private fun sendError(webView: WebView, requestId: String, code: Int, message: String) {
+    private fun sendError(webView: WebView, requestId: String, code: String, message: String) {
         val response = BridgeResponse.error(requestId, code, message)
         val responseJson = json.encodeToString(BridgeResponse.serializer(), response)
         callJS(webView, "__coconutCallback", mapOf("response" to responseJson))

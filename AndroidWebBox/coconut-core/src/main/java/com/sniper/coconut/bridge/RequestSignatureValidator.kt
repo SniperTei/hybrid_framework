@@ -42,7 +42,7 @@ object RequestSignatureValidator {
      */
     sealed class SignResult {
         object Valid : SignResult()
-        data class Invalid(val errorCode: Int, val message: String) : SignResult()
+        data class Invalid(val errorCode: String, val message: String) : SignResult()
     }
 
     /**
