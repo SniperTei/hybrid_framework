@@ -91,7 +91,7 @@ class CoconutConfig {
     /**
      * SDK version string
      */
-    var sdkVersion: String = "1.0.0"
+    var sdkVersion: String = "2.0.0"
         private set
 
     // ---- Security Enhancement Settings ----

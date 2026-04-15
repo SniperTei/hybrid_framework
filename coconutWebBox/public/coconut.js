@@ -20,7 +20,7 @@
      * Coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '1.1.0';
+        this.version = '2.0.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -377,7 +377,7 @@
                     version: '1.0.0'
                 };
             } else if (request.method === 'system.getVersion') {
-                mockResponse.result = { version: '1.1.0' };
+                mockResponse.result = { version: '2.0.0' };
             } else if (request.method === 'system.getComponentVersion') {
                 mockResponse.result = { name: request.params.name, version: '1.0.0' };
             } else if (request.method === 'system.getAllComponents') {
