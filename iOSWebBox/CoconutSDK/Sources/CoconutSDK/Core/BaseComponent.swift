@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 open class BaseComponent: CoconutPlugin {
 
@@ -11,8 +12,8 @@ open class BaseComponent: CoconutPlugin {
     public var isInitialized: Bool { _initialized }
 
     open func onInit(context: ComponentContext) async {}
-    open func handle(function: String, params: [String: Any]?) async -> [String: Any] {
-        return functionNotSupportedError(function)
+    open func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
+        try functionNotSupportedError(function)
     }
     open func onCleanup() async {}
 
@@ -50,6 +51,15 @@ open class BaseComponent: CoconutPlugin {
         return defaultValue
     }
 
+    public func getLongParam(_ params: [String: Any]?, _ key: String, _ defaultValue: Int64 = 0) -> Int64 {
+        guard let value = params?[key] else { return defaultValue }
+        if let int = value as? Int64 { return int }
+        if let int = value as? Int { return Int64(int) }
+        if let str = value as? String, let int = Int64(str) { return int }
+        if let double = value as? Double { return Int64(double) }
+        return defaultValue
+    }
+
     public func getBoolParam(_ params: [String: Any]?, _ key: String, _ defaultValue: Bool = false) -> Bool {
         guard let value = params?[key] else { return defaultValue }
         if let bool = value as? Bool { return bool }
@@ -57,22 +67,19 @@ open class BaseComponent: CoconutPlugin {
         return defaultValue
     }
 
+    /// Build success result - returns data dict directly.
+    /// Bridge layer handles code/message at top level.
     public func success(_ data: [String: Any]? = nil) -> [String: Any] {
-        var result: [String: Any] = [
-            "code": "000000",
-            "message": "success"
-        ]
-        if let data = data {
-            result["data"] = data
-        }
-        return result
+        return data ?? [:]
     }
 
-    public func error(_ code: String, _ message: String) -> [String: Any] {
-        return ["code": code, "message": message]
+    /// Throw component error to be caught by Bridge layer
+    public func error(_ code: String, _ message: String) throws -> Never {
+        throw ComponentException(code: code, message: message)
     }
 
-    public func functionNotSupportedError(_ function: String) -> [String: Any] {
-        return error("900002", "Function not supported: \(function)")
+    /// Throw function not supported error
+    public func functionNotSupportedError(_ function: String) throws -> Never {
+        throw ComponentException(code: ErrorCode.UNKNOWN_FUNCTION, message: "Function not supported: \(function)")
     }
 }

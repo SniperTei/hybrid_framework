@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import WebKit
 
 public class ComponentContext {
 
@@ -16,11 +17,11 @@ public class ComponentContext {
         return host?.getViewController()
     }
 
-    public var currentWebView: Any? {
-        return host?.getWebView()
+    public var currentWebView: WKWebView? {
+        return host?.getWebView() as? WKWebView
     }
 
-    public func getComponent(name: String) async -> CoconutPlugin? {
-        return await ComponentManager.shared.getComponent(name: name)
+    public func getComponent(name: String) -> CoconutPlugin? {
+        return ComponentManager.shared.getComponent(name: name)
     }
 }

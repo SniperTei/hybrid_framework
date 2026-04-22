@@ -4,6 +4,7 @@ import WebKit
 public class CoconutBridge: NSObject, WKScriptMessageHandler {
 
     private let tag = "CoconutBridge"
+    let securityValidator = BridgeSecurityValidator()
 
     public override init() {
         super.init()
@@ -42,37 +43,133 @@ public class CoconutBridge: NSObject, WKScriptMessageHandler {
     }
 
     private func handleCall(_ jsonData: String, currentUrl: String) async -> String {
+        // 1. Parse request
         guard let data = jsonData.data(using: .utf8),
               let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let method = request["method"] as? String,
               let id = request["id"] as? String else {
-            return errorResponse(id: "", code: -32700, message: "Parse error")
+            return BridgeResponse.parseError(id: "").toJSON()
         }
 
+        // Validate method format
         let methodPattern = "^[a-zA-Z][a-zA-Z0-9_]*\\.[a-zA-Z][a-zA-Z0-9_]*$"
         if method.range(of: methodPattern, options: .regularExpression) == nil {
-            return errorResponse(id: id, code: -32600, message: "Invalid method format: \(method)")
+            return BridgeResponse.invalidRequest(id: id, message: "Invalid method format: \(method)").toJSON()
         }
 
         Logger.shared.d(tag, "→ #\(id) \(method)")
 
-        let parts = method.components(separatedBy: ".")
-        let componentName = parts[0]
-        let functionName = parts[1]
         let params = request["params"] as? [String: Any]
+        let bridgeToken = request["bridgeToken"] as? String ?? ""
+        let timestamp = request["timestamp"] as? Int64 ?? 0
+        let nonce = request["nonce"] as? String ?? ""
+        let sign = request["sign"] as? String ?? ""
 
-        guard let component = ComponentManager.shared.getComponent(name: componentName) else {
-            return errorResponse(id: id, code: 900001, message: "Component not found: \(componentName)")
+        // 2. Bridge Token validation
+        if !BridgeTokenManager.shared.validateToken(bridgeToken) {
+            SecurityAuditLog.shared.record(
+                eventType: SecurityAuditLog.EVENT_TOKEN_INVALID,
+                method: method, requestId: id,
+                detail: "Invalid or missing bridge token"
+            )
+            return BridgeResponse.error(id: id, code: ErrorCode.BRIDGE_TOKEN_INVALID, message: "Invalid bridge token").toJSON()
         }
 
-        guard component.isInitialized else {
-            return errorResponse(id: id, code: 900008, message: "Component not initialized: \(componentName)")
+        // 3. Request signature validation
+        let paramsJson = params != nil ? (try? String(data: JSONSerialization.data(withJSONObject: params!), encoding: .utf8)) ?? "" : ""
+        let signResult = RequestSignatureValidator.shared.validate(
+            method: method, id: id, timestamp: timestamp,
+            nonce: nonce, paramsJson: paramsJson, sign: sign
+        )
+        switch signResult {
+        case .invalid(let errorCode, let message):
+            let eventType: String
+            switch errorCode {
+            case ErrorCode.SIGNATURE_INVALID: eventType = SecurityAuditLog.EVENT_SIGNATURE_INVALID
+            case ErrorCode.SIGNATURE_EXPIRED: eventType = SecurityAuditLog.EVENT_SIGNATURE_EXPIRED
+            case ErrorCode.NONCE_REUSED: eventType = SecurityAuditLog.EVENT_NONCE_REUSED
+            default: eventType = SecurityAuditLog.EVENT_SIGNATURE_INVALID
+            }
+            SecurityAuditLog.shared.record(eventType: eventType, method: method, requestId: id, detail: message)
+            return BridgeResponse.error(id: id, code: errorCode, message: message).toJSON()
+        case .valid:
+            break
         }
 
-        let result = await component.handle(function: functionName, params: params)
+        // 4. Domain whitelist check
+        let domainResult = securityValidator.validateDomain(currentUrl)
+        if !domainResult.isValid {
+            SecurityAuditLog.shared.record(
+                eventType: SecurityAuditLog.EVENT_DOMAIN_REJECTED,
+                method: method, requestId: id, detail: domainResult.message
+            )
+            return BridgeResponse.error(id: id, code: ErrorCode.DOMAIN_NOT_ALLOWED, message: domainResult.message).toJSON()
+        }
 
-        Logger.shared.d(tag, "✓ #\(id) \(method)")
-        return successResponse(id: id, result: result)
+        // 5. Rate limit check
+        let rateLimitResult = securityValidator.checkRateLimit(method)
+        if !rateLimitResult.isValid {
+            SecurityAuditLog.shared.record(
+                eventType: SecurityAuditLog.EVENT_RATE_LIMITED,
+                method: method, requestId: id, detail: rateLimitResult.message
+            )
+            return BridgeResponse.error(id: id, code: ErrorCode.RATE_LIMIT_EXCEEDED, message: rateLimitResult.message).toJSON()
+        }
+
+        // 6. Params size check
+        let paramsSizeResult = securityValidator.validateParamsSize(jsonData)
+        if !paramsSizeResult.isValid {
+            SecurityAuditLog.shared.record(
+                eventType: SecurityAuditLog.EVENT_PARAMS_OVERSIZED,
+                method: method, requestId: id, detail: paramsSizeResult.message
+            )
+            return BridgeResponse.error(id: id, code: ErrorCode.PARAM_VALIDATION_FAILED, message: paramsSizeResult.message).toJSON()
+        }
+
+        // 7. Dispatch to component with performance tracking
+        let startTime = CFAbsoluteTimeGetCurrent()
+        var bridgeSuccess = true
+
+        do {
+            let parts = method.components(separatedBy: ".")
+            let componentName = parts[0]
+            let functionName = parts[1]
+
+            guard let component = ComponentManager.shared.getComponent(name: componentName) else {
+                throw ComponentNotFoundException("Component not found: \(componentName)")
+            }
+            guard component.isInitialized else {
+                throw ComponentNotInitializedException("Component not initialized: \(componentName)")
+            }
+
+            let result = try await component.handle(function: functionName, params: params)
+
+            let durationMs = Int64((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+            BridgePerformance.shared.record(method: method, durationMs: durationMs, success: true)
+
+            Logger.shared.d(tag, "✓ #\(id) \(method)")
+            return BridgeResponse.success(id: id, result: result).toJSON()
+
+        } catch let e as ComponentNotFoundException {
+            let durationMs = Int64((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+            BridgePerformance.shared.record(method: method, durationMs: durationMs, success: false)
+            return BridgeResponse.error(id: id, code: ErrorCode.UNKNOWN_COMPONENT, message: e.message).toJSON()
+
+        } catch let e as ComponentNotInitializedException {
+            let durationMs = Int64((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+            BridgePerformance.shared.record(method: method, durationMs: durationMs, success: false)
+            return BridgeResponse.error(id: id, code: ErrorCode.COMPONENT_NOT_INITIALIZED, message: e.message).toJSON()
+
+        } catch let e as ComponentException {
+            let durationMs = Int64((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+            BridgePerformance.shared.record(method: method, durationMs: durationMs, success: false)
+            return BridgeResponse.error(id: id, code: e.code, message: e.message).toJSON()
+
+        } catch {
+            let durationMs = Int64((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+            BridgePerformance.shared.record(method: method, durationMs: durationMs, success: false)
+            return BridgeResponse.internalError(id: id, message: error.localizedDescription).toJSON()
+        }
     }
 
     private func sendResponse(webView: WKWebView?, responseJson: String) {
@@ -90,28 +187,17 @@ public class CoconutBridge: NSObject, WKScriptMessageHandler {
         }
     }
 
-    private func successResponse(id: String, result: [String: Any]) -> String {
-        return jsonString(from: [
-            "jsonrpc": "2.0",
-            "result": result,
-            "error": NSNull(),
-            "id": id
-        ])
+    func extractMethodFromJson(_ jsonData: String) -> String {
+        guard let range = jsonData.range(of: "\"method\":\"") else { return "unknown" }
+        let rest = jsonData[range.upperBound...]
+        guard let end = rest.firstIndex(of: "\"") else { return "unknown" }
+        return String(rest[..<end])
     }
 
-    private func errorResponse(id: String, code: Int, message: String) -> String {
-        return jsonString(from: [
-            "jsonrpc": "2.0",
-            "result": NSNull(),
-            "error": ["code": code, "message": message],
-            "id": id
-        ])
-    }
-
-    private func jsonString(from dict: [String: Any]) -> String {
-        guard let data = try? JSONSerialization.data(withJSONObject: dict) else {
-            return "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32603,\"message\":\"JSON error\"},\"id\":\"\"}"
-        }
-        return String(data: data, encoding: .utf8) ?? "{}"
+    func extractIdFromJson(_ jsonData: String) -> String {
+        guard let range = jsonData.range(of: "\"id\":\"") else { return "" }
+        let rest = jsonData[range.upperBound...]
+        guard let end = rest.firstIndex(of: "\"") else { return "" }
+        return String(rest[..<end])
     }
 }

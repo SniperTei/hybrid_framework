@@ -9,7 +9,7 @@ public protocol CoconutPlugin: AnyObject {
     var isInitialized: Bool { get }
 
     func initComponent(context: ComponentContext) async throws
-    func handle(function: String, params: [String: Any]?) async -> [String: Any]
+    func handle(function: String, params: [String: Any]?) async throws -> [String: Any]
     func cleanup() async
 }
 

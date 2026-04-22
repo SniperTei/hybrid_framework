@@ -12,13 +12,13 @@ public class SystemComponent: BaseComponent {
         componentContext = context
     }
 
-    override public func handle(function: String, params: [String: Any]?) async -> [String: Any] {
+    override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {
         case "getVersion": return getVersion()
-        case "getComponentVersion": return getComponentVersion(params)
+        case "getComponentVersion": return try getComponentVersion(params)
         case "getAllComponents": return getAllComponents()
-        case "checkCapability": return checkCapability(params)
-        default: return functionNotSupportedError(function)
+        case "checkCapability": return try checkCapability(params)
+        default: try functionNotSupportedError(function)
         }
     }
 
@@ -30,12 +30,12 @@ public class SystemComponent: BaseComponent {
         ])
     }
 
-    private func getComponentVersion(_ params: [String: Any]?) -> [String: Any] {
+    private func getComponentVersion(_ params: [String: Any]?) throws -> [String: Any] {
         let name = getParam(params, "name")
-        if name.isEmpty { return error("900002", "Parameter 'name' is required") }
+        if name.isEmpty { try error("200007", "Parameter 'name' is required") }
 
         guard let info = ComponentManager.shared.getComponentInfo(name: name) else {
-            return error("900001", "Component not found: \(name)")
+            try error(ErrorCode.UNKNOWN_COMPONENT, "Component not found: \(name)")
         }
 
         return success([
@@ -59,9 +59,9 @@ public class SystemComponent: BaseComponent {
         return success(["count": list.count, "components": list])
     }
 
-    private func checkCapability(_ params: [String: Any]?) -> [String: Any] {
+    private func checkCapability(_ params: [String: Any]?) throws -> [String: Any] {
         let method = getParam(params, "method")
-        if method.isEmpty { return error("900002", "Parameter 'method' is required") }
+        if method.isEmpty { try error("200007", "Parameter 'method' is required") }
 
         let componentName = method.components(separatedBy: ".").first ?? ""
         let component = ComponentManager.shared.getComponent(name: componentName)

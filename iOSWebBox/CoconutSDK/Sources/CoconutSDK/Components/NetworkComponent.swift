@@ -9,15 +9,15 @@ public class NetworkComponent: BaseComponent {
 
     private var extraHeaders: [String: String] = [:]
 
-    override public func handle(function: String, params: [String: Any]?) async -> [String: Any] {
+    override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {
         case "getType": return getNetworkType()
         case "getState": return getNetworkState()
         case "isConnected": return isConnected()
-        case "request": return await httpRequest(params)
-        case "get": return await httpGet(params)
-        case "post": return await httpPost(params)
-        default: return functionNotSupportedError(function)
+        case "request": return try await httpRequest(params)
+        case "get": return try await httpGet(params)
+        case "post": return try await httpPost(params)
+        default: try functionNotSupportedError(function)
         }
     }
 
@@ -54,9 +54,9 @@ public class NetworkComponent: BaseComponent {
         return success(["isConnected": NetworkMonitor.shared.isConnected])
     }
 
-    private func httpRequest(_ params: [String: Any]?) async -> [String: Any] {
+    private func httpRequest(_ params: [String: Any]?) async throws -> [String: Any] {
         let url = getParam(params, "url")
-        if url.isEmpty { return error("900001", "url is required") }
+        if url.isEmpty { try error("200007", "url is required") }
 
         let method = getParam(params, "method", "GET").uppercased()
         let timeout = getIntParam(params, "timeout", 15000)
@@ -74,7 +74,7 @@ public class NetworkComponent: BaseComponent {
 
         do {
             guard let requestUrl = URL(string: url) else {
-                return error("900001", "Invalid URL: \(url)")
+                try error("200007", "Invalid URL: \(url)")
             }
 
             var request = URLRequest(url: requestUrl)
@@ -120,16 +120,16 @@ public class NetworkComponent: BaseComponent {
         }
     }
 
-    private func httpGet(_ params: [String: Any]?) async -> [String: Any] {
+    private func httpGet(_ params: [String: Any]?) async throws -> [String: Any] {
         var merged = params ?? [:]
         merged["method"] = "GET"
-        return await httpRequest(merged)
+        return try await httpRequest(merged)
     }
 
-    private func httpPost(_ params: [String: Any]?) async -> [String: Any] {
+    private func httpPost(_ params: [String: Any]?) async throws -> [String: Any] {
         var merged = params ?? [:]
         merged["method"] = "POST"
-        return await httpRequest(merged)
+        return try await httpRequest(merged)
     }
 
     public func addExtraHeader(_ key: String, _ value: String) {

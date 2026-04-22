@@ -10,6 +10,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     private var progressView: UIProgressView!
     private var currentUrl: String?
     private var containerView: UIView!
+    private var errorLabel: UILabel?
 
     public var enableDebug: Bool = false
 
@@ -20,6 +21,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         setupUI()
         setupWebView()
         setupBridge()
+        applySecurityConfig()
 
         ComponentManager.shared.setHost(self)
 
@@ -65,9 +67,16 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         config.preferences.javaScriptEnabled = true
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
 
+        // Secure WebView settings
+        if #available(iOS 14.0, *) {
+            config.defaultWebpagePreferences.allowsContentJavaScript = true
+        }
+
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
+        webView.isOpaque = false
+        webView.backgroundColor = .white
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
 
         containerView.addSubview(webView)
@@ -87,15 +96,35 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         Logger.shared.d(tag, "Bridge setup complete")
     }
 
+    // MARK: - Security Config
+
+    private func applySecurityConfig() {
+        let config = CoconutConfig.shared
+
+        // Apply domain whitelist to bridge security validator
+        if !config.allowedDomains.isEmpty {
+            bridge.securityValidator.setAllowedDomains(config.allowedDomains)
+        }
+        bridge.securityValidator.maxParamsSize = config.maxBridgeParamsSize
+        bridge.securityValidator.rateLimitPerMethod = config.rateLimitPerMethod
+        bridge.securityValidator.rateLimitWindowMs = config.rateLimitWindowMs
+
+        Logger.shared.d(tag, "Security config applied: token=\(config.enableBridgeToken), signing=\(config.enableRequestSigning)")
+    }
+
     // MARK: - Bridge JS Injection
 
     private func injectBridgeJavaScript() {
+        let token = BridgeTokenManager.shared.getToken()
+        let signingEnabled = RequestSignatureValidator.shared.enabled
+        let config = CoconutConfig.shared
+
         let js = """
         (function() {
             if (window.__coconutInitialized) return;
             window.__coconutConfig = {
-                token: '',
-                signingEnabled: false,
+                token: '\(token)',
+                signingEnabled: \(signingEnabled),
                 sharedSecret: ''
             };
             if (window.Coconut && window.Coconut._loadSecurityConfig) {
@@ -106,13 +135,14 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         })();
         """
         webView.evaluateJavaScript(js)
-        Logger.shared.d(tag, "Bridge security config injected")
+        Logger.shared.d(tag, "Bridge security config injected (token: \(token.prefix(8))...)")
     }
 
     // MARK: - Public Methods
 
     public func loadUrl(_ url: String) {
         currentUrl = url
+        hideErrorPage()
         guard let url = URL(string: url) else {
             Logger.shared.e(tag, "Invalid URL: \(url)")
             return
@@ -131,6 +161,50 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         }
     }
 
+    // MARK: - Error Page
+
+    private func showErrorPage() {
+        guard errorLabel == nil else { return }
+
+        let label = UILabel()
+        label.text = "页面加载失败\n请检查网络连接"
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.textColor = .gray
+        label.font = .systemFont(ofSize: 16)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: containerView.centerYAnchor)
+        ])
+
+        let retryButton = UIButton(type: .system)
+        retryButton.setTitle("重试", for: .normal)
+        retryButton.translatesAutoresizingMaskIntoConstraints = false
+        retryButton.addTarget(self, action: #selector(retryLoad), for: .touchUpInside)
+        containerView.addSubview(retryButton)
+        NSLayoutConstraint.activate([
+            retryButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            retryButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 16)
+        ])
+
+        errorLabel = label
+    }
+
+    private func hideErrorPage() {
+        errorLabel?.superview?.viewWithTag(-999)?.removeFromSuperview()
+        errorLabel?.removeFromSuperview()
+        errorLabel = nil
+    }
+
+    @objc private func retryLoad() {
+        if let url = currentUrl {
+            hideErrorPage()
+            loadUrl(url)
+        }
+    }
+
     // MARK: - KVO
 
     public override func observeValue(
@@ -143,6 +217,15 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             let progress = Float(webView.estimatedProgress)
             progressView.progress = progress
             progressView.isHidden = progress >= 1.0
+        }
+    }
+
+    // MARK: - Back Button Handling
+
+    public override func didMove(toParent parent: UIViewController?) {
+        super.didMove(toParent: parent)
+        if parent == nil {
+            // VC is being popped - check if WebView can go back first
         }
     }
 
@@ -159,6 +242,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     deinit {
         webView?.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
         ComponentManager.shared.setHost(nil)
+        BridgeTokenManager.shared.reset()
     }
 }
 
@@ -169,6 +253,7 @@ extension CoconutWebViewController: WKNavigationDelegate {
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         progressView.isHidden = false
         progressView.progress = 0
+        hideErrorPage()
         Logger.shared.d(tag, "Page started: \(webView.url?.absoluteString ?? "")")
     }
 
@@ -187,20 +272,5 @@ extension CoconutWebViewController: WKNavigationDelegate {
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         Logger.shared.e(tag, "Provisional navigation failed", error)
         showErrorPage()
-    }
-
-    private func showErrorPage() {
-        let label = UILabel()
-        label.text = "页面加载失败\n请检查网络连接"
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.textColor = .gray
-        label.font = .systemFont(ofSize: 16)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: containerView.centerYAnchor)
-        ])
     }
 }

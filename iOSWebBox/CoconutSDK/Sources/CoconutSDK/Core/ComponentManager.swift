@@ -118,7 +118,14 @@ public class ComponentManager {
             NetworkComponent(),
             StorageComponent(),
             SystemComponent(),
-            SecurityComponent()
+            SecurityComponent(),
+            DialogComponent(),
+            PermissionComponent(),
+            ResourceComponent(),
+            RouterComponent(),
+            PerformanceComponent(),
+            ClipboardComponent(),
+            StackComponent()
         ]
         await inject(defaultComponents)
     }

@@ -7,13 +7,13 @@ public class DeviceComponent: BaseComponent {
     override public var version: String { "1.0.0" }
     override public var pluginDescription: String { "Device and system information component" }
 
-    override public func handle(function: String, params: [String: Any]?) async -> [String: Any] {
+    override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {
         case "getInfo": return getDeviceInfo()
         case "getSystemInfo": return getSystemInfo()
         case "getAppInfo": return getAppInfo()
         case "getAll": return getAllInfo()
-        default: return functionNotSupportedError(function)
+        default: try functionNotSupportedError(function)
         }
     }
 
@@ -58,9 +58,12 @@ public class DeviceComponent: BaseComponent {
 
     private func getAllInfo() -> [String: Any] {
         var allData: [String: Any] = [:]
-        if let d = getDeviceInfo()["data"] as? [String: Any] { allData.merge(d) { $1 } }
-        if let s = getSystemInfo()["data"] as? [String: Any] { allData["system"] = s }
-        if let a = getAppInfo()["data"] as? [String: Any] { allData["app"] = a }
+        let deviceInfo = getDeviceInfo()
+        let systemInfo = getSystemInfo()
+        let appInfo = getAppInfo()
+        allData.merge(deviceInfo) { $1 }
+        allData["system"] = systemInfo
+        allData["app"] = appInfo
         return success(allData)
     }
 }

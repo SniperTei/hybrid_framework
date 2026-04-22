@@ -10,36 +10,36 @@ public class StorageComponent: BaseComponent {
         return UserDefaults(suiteName: "CoconutStorage")
     }
 
-    override public func handle(function: String, params: [String: Any]?) async -> [String: Any] {
+    override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {
-        case "setItem": return setItem(params)
-        case "getItem": return getItem(params)
-        case "removeItem": return removeItem(params)
+        case "setItem": return try setItem(params)
+        case "getItem": return try getItem(params)
+        case "removeItem": return try removeItem(params)
         case "clear": return clear()
         case "getAllKeys": return getAllKeys()
         case "getSize": return getSize()
-        default: return functionNotSupportedError(function)
+        default: try functionNotSupportedError(function)
         }
     }
 
-    private func setItem(_ params: [String: Any]?) -> [String: Any] {
+    private func setItem(_ params: [String: Any]?) throws -> [String: Any] {
         let key = getParam(params, "key")
         let value = getParam(params, "value")
-        if key.isEmpty { return error("900001", "Key cannot be empty") }
+        if key.isEmpty { try error("200007", "Key cannot be empty") }
         defaults?.set(value, forKey: key)
         return success(["success": true])
     }
 
-    private func getItem(_ params: [String: Any]?) -> [String: Any] {
+    private func getItem(_ params: [String: Any]?) throws -> [String: Any] {
         let key = getParam(params, "key")
-        if key.isEmpty { return error("900001", "Key cannot be empty") }
+        if key.isEmpty { try error("200007", "Key cannot be empty") }
         let value = defaults?.string(forKey: key)
         return success(["value": value ?? "", "exists": value != nil])
     }
 
-    private func removeItem(_ params: [String: Any]?) -> [String: Any] {
+    private func removeItem(_ params: [String: Any]?) throws -> [String: Any] {
         let key = getParam(params, "key")
-        if key.isEmpty { return error("900001", "Key cannot be empty") }
+        if key.isEmpty { try error("200007", "Key cannot be empty") }
         defaults?.removeObject(forKey: key)
         return success(["success": true])
     }
