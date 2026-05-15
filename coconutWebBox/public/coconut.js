@@ -39,6 +39,9 @@
         if (typeof window === 'undefined' || !window.document) {
             return 'node';
         }
+        if (window.CoconutHarmonyBridge && window.CoconutHarmonyBridge.call) {
+            return 'harmony';
+        }
         if (window.CoconutBridge) {
             return 'android';
         }
@@ -61,9 +64,10 @@
         // 平台标识
         env.isAndroid = this.environment === 'android';
         env.isiOS = this.environment === 'ios';
+        env.isHarmony = this.environment === 'harmony';
         env.isWeb = this.environment === 'web';
         env.isNode = this.environment === 'node';
-        env.isNative = env.isAndroid || env.isiOS;
+        env.isNative = env.isAndroid || env.isiOS || env.isHarmony;
 
         // 浏览器环境信息
         if (typeof window !== 'undefined' && window.navigator) {
@@ -336,6 +340,15 @@
                 } else {
                     throw new Error('CoconutBridge not found');
                 }
+            } else if (this.environment === 'harmony') {
+                // HarmonyOS async bridge (similar to iOS)
+                window.__coconutHarmonyCallback = function (responseJson) {
+                    if (CoconutSDK && CoconutSDK.handleResponse) {
+                        CoconutSDK.handleResponse(responseJson);
+                    }
+                    delete window.__coconutHarmonyCallback;
+                };
+                window.CoconutHarmonyBridge.call(requestJson);
             } else {
                 // Web 环境模拟
                 this.handleWebMock(request);

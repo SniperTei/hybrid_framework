@@ -1,0 +1,48 @@
+// CoconutSDK - Module Exports
+export { CoconutSDK } from './src/main/CoconutSDK'
+export { CoconutConfig } from './src/main/ets/config/CoconutConfig'
+export { Environment, EnvironmentConfig } from './src/main/ets/config/Environment'
+export { Logger } from './src/main/ets/utils/Logger'
+
+// Bridge
+export { CoconutBridgeImpl } from './src/main/ets/bridge/CoconutBridgeImpl'
+export { BridgeTokenManager } from './src/main/ets/bridge/BridgeTokenManager'
+export { RequestSignatureValidator, SignResult } from './src/main/ets/bridge/RequestSignatureValidator'
+export { BridgeSecurityValidator } from './src/main/ets/bridge/BridgeSecurityValidator'
+export { SecurityAuditLog, AuditEntry } from './src/main/ets/bridge/SecurityAuditLog'
+export { BridgePerformance, CallRecord, MethodStats } from './src/main/ets/bridge/BridgePerformance'
+
+// Bridge Models
+export { BridgeRequest, ValidationResult } from './src/main/ets/bridge/model/BridgeRequest'
+export { BridgeResponse } from './src/main/ets/bridge/model/BridgeResponse'
+export { ErrorCode } from './src/main/ets/bridge/model/ErrorCode'
+export { SecurityResult } from './src/main/ets/bridge/model/SecurityResult'
+
+// Component Layer
+export { CoconutPlugin } from './src/main/ets/component/CoconutPlugin'
+export { BaseComponent } from './src/main/ets/component/BaseComponent'
+export { ComponentManager, ComponentInfo } from './src/main/ets/component/ComponentManager'
+export { ComponentContext } from './src/main/ets/component/ComponentContext'
+export { ComponentHost } from './src/main/ets/component/ComponentHost'
+export { ComponentException, ComponentNotFoundException, ComponentNotInitializedException } from './src/main/ets/component/ComponentException'
+
+// Web Container
+export { CoconutWebPage } from './src/main/ets/web/CoconutWebPage'
+export { WebViewHelper } from './src/main/ets/web/WebViewHelper'
+
+// UI Components
+export { VerifyDialog, VerifyDialogConfig } from './src/main/ets/ui/VerifyDialog'
+
+// Components
+export { DeviceComponent } from './src/main/ets/components/DeviceComponent'
+export { StorageComponent } from './src/main/ets/components/StorageComponent'
+export { SystemComponent } from './src/main/ets/components/SystemComponent'
+export { NetworkComponent } from './src/main/ets/components/NetworkComponent'
+export { DialogComponent } from './src/main/ets/components/DialogComponent'
+export { SecurityComponent } from './src/main/ets/components/SecurityComponent'
+export { PerformanceComponent } from './src/main/ets/components/PerformanceComponent'
+export { PermissionComponent } from './src/main/ets/components/PermissionComponent'
+export { RouterComponent } from './src/main/ets/components/RouterComponent'
+export { StackComponent } from './src/main/ets/components/StackComponent'
+export { ClipboardComponent } from './src/main/ets/components/ClipboardComponent'
+export { ResourceComponent } from './src/main/ets/components/ResourceComponent'

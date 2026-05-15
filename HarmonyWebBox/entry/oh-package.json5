@@ -1,0 +1,12 @@
+{
+  "name": "entry",
+  "version": "2.0.0",
+  "description": "Coconut Hybrid Framework - HarmonyOS Entry",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@coconut/sdk": "file:../CoconutSDK"
+  }
+}
+

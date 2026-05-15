@@ -1,0 +1,9 @@
+{
+  "name": "@coconut/sdk",
+  "version": "2.0.0",
+  "description": "Coconut Hybrid Framework SDK for HarmonyOS",
+  "main": "Index.ets",
+  "author": "",
+  "license": "",
+  "dependencies": {}
+}
