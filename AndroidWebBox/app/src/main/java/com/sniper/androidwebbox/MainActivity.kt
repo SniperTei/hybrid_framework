@@ -49,7 +49,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openLocalTestPage() {
-        val url = "file:///android_asset/index.html"
+        val url = "file:///android_asset/coconut_index.html"
         Logger.d("MainActivity", "Opening local test page: $url")
         CoconutWebActivity.start(this, url)
         Toast.makeText(this, "Opening local test page...", Toast.LENGTH_SHORT).show()

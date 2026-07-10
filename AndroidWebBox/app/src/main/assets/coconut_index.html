@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coconut Bridge 测试页</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+      padding: 20px 16px 48px;
+      background: #f5f6f8;
+      color: #1f2329;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .hint { font-size: 13px; color: #8a8f99; margin-bottom: 12px; line-height: 1.5; }
+
+    .platform {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #eef4ff; color: #3370ff; border: 1px solid #cfe0ff;
+      padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .platform.web { background: #fff3e8; color: #ff7d00; border-color: #ffd6a8; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    section { margin-bottom: 20px; }
+    section > h2 {
+      font-size: 13px; color: #8a8f99; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+    }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      flex: 1; min-width: calc(50% - 5px); height: 46px;
+      font-size: 15px; border: none; border-radius: 10px;
+      color: #fff; cursor: pointer; transition: opacity .15s;
+    }
+    button:active { opacity: .8; }
+    .btn-a { background: #3370ff; }
+    .btn-b { background: #00b42c; }
+    .btn-r { background: #ff7d00; }
+    .btn-d { background: #722ed1; }
+    .btn-c { background: #f53f3f; }
+    .btn-g { background: #0fc6c2; }
+
+    .panel {
+      background: #fff; border-radius: 10px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .panel h3 { font-size: 13px; color: #8a8f99; margin-bottom: 8px; font-weight: 600; }
+    .panel pre {
+      font-size: 12px; white-space: pre-wrap; word-break: break-all;
+      background: #f7f8fa; padding: 10px; border-radius: 6px; min-height: 24px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; color: #1f2329;
+    }
+    .panel pre.ok    { color: #00b42c; }
+    .panel pre.err   { color: #f53f3f; }
+    .panel pre.muted { color: #8a8f99; }
+  </style>
+</head>
+<body>
+  <h1>🥥 Coconut Bridge 测试</h1>
+  <p class="hint">同一份 HTML 在 iOS / Android / Harmony 三端通用。下方会自动识别当前平台，并通过对应协议与原生通信。</p>
+
+  <div id="platform" class="platform"><span class="dot"></span><span id="platformName">检测中…</span></div>
+
+  <section>
+    <h2>基础组件（三端通用）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onCall('device.getInfo')">设备信息</button>
+      <button class="btn-a" onclick="onCall('device.getSystemInfo')">系统信息</button>
+      <button class="btn-a" onclick="onCall('device.getAll')">完整信息</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button class="btn-b" onclick="onWrite('A')">写入 A</button>
+      <button class="btn-b" onclick="onWrite('B')">写入 B</button>
+      <button class="btn-r" onclick="onRead()">读取</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button class="btn-g" onclick="onCall('clipboard.getText')">剪贴板</button>
+      <button class="btn-d" onclick="onCall('dialog.alert', {title:'提示',message:'原生 alert',buttonText:'好'})">Alert</button>
+      <button class="btn-d" onclick="onCall('dialog.confirm', {title:'确认',message:'确定继续吗？'})">Confirm</button>
+      <button class="btn-d" onclick="onCall('dialog.toast', {message:'Hello from H5 👋'})">Toast</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button class="btn-c" onclick="onCall('permission.check', {permission:'camera'})">相机权限</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>扩展组件（iOS / Harmony 支持，Android 暂无）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onCall('camera.takePhoto')">拍照</button>
+      <button class="btn-a" onclick="onCall('camera.scanQRCode')">扫码</button>
+      <button class="btn-a" onclick="onCall('camera.showDialog', {title:'自定义弹窗',message:'从 H5 调起的原生弹窗'})">原生弹窗</button>
+      <button class="btn-b" onclick="onCall('mytest.ping')">MyTest Ping</button>
+      <button class="btn-b" onclick="onCall('mytest.echo', {message:'hello'})">MyTest Echo</button>
+    </div>
+  </section>
+
+  <div class="panel">
+    <h3>最近一次请求（H5 → 原生）</h3>
+    <pre id="reqView" class="muted">—</pre>
+  </div>
+  <div class="panel">
+    <h3>原生返回的响应（原生 → H5）</h3>
+    <pre id="respView" class="muted">—</pre>
+  </div>
+
+  <script>
+    /**
+     * Coconut Bridge 统一测试客户端
+     * ------------------------------------------------------------------
+     * 一份 JS，三端通用。启动时按下列顺序探测原生注入对象：
+     *   1. window.CoconutHarmonyBridge.call   → harmony（异步）
+     *   2. window.CoconutBridge               → android（同步：调用即返回结果）
+     *   3. window.webkit.messageHandlers.CoconutBridge → ios（异步）
+     *   4. 都没有                              → web（本地 mock）
+     *
+     * 注意：客户端对象命名为 BridgeTest，绝不能叫 CoconutBridge，
+     * 否则在 Android 上会覆盖原生注入的 window.CoconutBridge。
+     *
+     * 三种协议：
+     *   - android: window.CoconutBridge.call(请求JSON) → 同步返回响应JSON字符串
+     *   - ios:      window.webkit.messageHandlers.CoconutBridge.postMessage(请求JSON)
+     *               响应异步回到 window.__coconutIOSCallback(响应JSON)
+     *   - harmony:  window.CoconutHarmonyBridge.call(请求JSON)
+     *               响应异步回到 window.__coconutHarmonyCallback(响应JSON)
+     */
+    var BridgeTest = {
+      _seq: 0,
+      _pending: {},
+      env: 'web',
+
+      detect: function () {
+        if (window.CoconutHarmonyBridge && typeof window.CoconutHarmonyBridge.call === 'function') return 'harmony';
+        if (window.CoconutBridge) return 'android';
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.CoconutBridge) return 'ios';
+        return 'web';
+      },
+
+      call: function (method, params) {
+        var self = this;
+        return new Promise(function (resolve) {
+          var id = 'req_' + (++self._seq);
+          self._pending[id] = resolve;
+
+          // bridgeToken 由原生在页面加载后注入到 window.__coconutConfig
+          var token = '';
+          try { if (window.__coconutConfig && window.__coconutConfig.token) token = window.__coconutConfig.token; } catch (e) {}
+
+          var request = {
+            jsonrpc: '2.0',
+            method: method,
+            params: params || {},
+            id: id,
+            bridgeToken: token
+          };
+          setRequestView(request);
+
+          var requestJson = JSON.stringify(request);
+          try {
+            if (self.env === 'android') {
+              // 同步协议：调用即拿到响应
+              var respJson = window.CoconutBridge.call(requestJson);
+              if (respJson) {
+                self._handleResponse(respJson);
+              } else {
+                self._fail(id, '100005', '空响应（CoconutBridge.call 未返回内容）');
+              }
+            } else if (self.env === 'ios') {
+              // 异步协议：postMessage 发出，响应经 __coconutIOSCallback 回来
+              window.webkit.messageHandlers.CoconutBridge.postMessage(requestJson);
+            } else if (self.env === 'harmony') {
+              // 异步协议：CoconutHarmonyBridge.call 发出，响应经 __coconutHarmonyCallback 回来
+              window.CoconutHarmonyBridge.call(requestJson);
+            } else {
+              // web mock：模拟一次成功响应
+              setTimeout(function () {
+                self._handleResponse(JSON.stringify({
+                  jsonrpc: '2.0', id: id, code: '000000', message: 'success (web mock)',
+                  result: JSON.stringify({ mocked: true, method: method, params: params || {} })
+                }));
+              }, 100);
+            }
+          } catch (e) {
+            self._fail(id, '100005', 'Bridge 调用异常: ' + (e && e.message ? e.message : e));
+          }
+        });
+      },
+
+      _handleResponse: function (responseJson) {
+        var resp;
+        try {
+          resp = JSON.parse(responseJson);
+        } catch (e) {
+          setResponseView({ error: '响应解析失败', raw: responseJson }, true);
+          return;
+        }
+        setResponseView(resp, resp.code !== '000000');
+        var cb = this._pending[resp.id];
+        if (cb) { cb(resp); delete this._pending[resp.id]; }
+      },
+
+      _fail: function (id, code, message) {
+        var resp = { jsonrpc: '2.0', id: id, code: code, message: message, result: null };
+        setResponseView(resp, true);
+        var cb = this._pending[id];
+        if (cb) { cb(resp); delete this._pending[id]; }
+      }
+    };
+
+    // 注册异步回调入口（ios / harmony 各一个；web/android 不会被调用）
+    window.__coconutIOSCallback = function (json) { BridgeTest._handleResponse(json); };
+    window.__coconutHarmonyCallback = function (json) { BridgeTest._handleResponse(json); };
+
+    // ---------- 启动：探测平台 ----------
+    BridgeTest.env = BridgeTest.detect();
+    (function renderPlatform() {
+      var map = {
+        harmony: 'HarmonyOS NEXT',
+        android: 'Android',
+        ios: 'iOS',
+        web: 'Web（未检测到 Bridge）'
+      };
+      var el = document.getElementById('platform');
+      var name = document.getElementById('platformName');
+      name.textContent = '当前平台：' + (map[BridgeTest.env] || BridgeTest.env);
+      if (BridgeTest.env === 'web') el.className = 'platform web';
+    })();
+
+    // ---------- 视图辅助 ----------
+    function setRequestView(request) {
+      var v = document.getElementById('reqView');
+      v.textContent = JSON.stringify(request, null, 2);
+      v.className = '';
+    }
+    function setResponseView(resp, isError) {
+      // result 字段本身是 JSON 字符串，解析后展示更易读
+      var display = resp;
+      try {
+        if (resp && typeof resp.result === 'string' && resp.result.length > 0) {
+          display = {
+            id: resp.id,
+            code: resp.code,
+            message: resp.message,
+            result: JSON.parse(resp.result)
+          };
+        }
+      } catch (e) { /* 保留原始 resp */ }
+      var v = document.getElementById('respView');
+      v.textContent = JSON.stringify(display, null, 2);
+      v.className = isError ? 'err' : 'ok';
+    }
+
+    // ---------- 按钮回调 ----------
+    function onCall(method, params) {
+      BridgeTest.call(method, params).then(function (resp) {
+        if (resp.code === '000000') {
+          console.log('[OK]', method, resp.result);
+        } else {
+          console.warn('[ERR]', method, resp.code, resp.message);
+        }
+      });
+    }
+    function onWrite(value) {
+      BridgeTest.call('storage.setItem', { key: 'demo', value: value })
+        .then(function (resp) { console.log('写入', value, resp.code === '000000' ? '成功' : '失败'); });
+    }
+    function onRead() {
+      BridgeTest.call('storage.getItem', { key: 'demo' }).then(function (resp) {
+        if (resp.code === '000000') {
+          try { console.log('读到:', JSON.parse(resp.result).value); } catch (e) {}
+        }
+      });
+    }
+  </script>
+</body>
+</html>

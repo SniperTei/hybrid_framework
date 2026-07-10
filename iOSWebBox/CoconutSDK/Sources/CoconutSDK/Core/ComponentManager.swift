@@ -125,7 +125,9 @@ public class ComponentManager {
             RouterComponent(),
             PerformanceComponent(),
             ClipboardComponent(),
-            StackComponent()
+            StackComponent(),
+            CameraComponent(),
+            MyTestComponent()
         ]
         await inject(defaultComponents)
     }
