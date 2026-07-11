@@ -120,7 +120,7 @@ class NetworkComponent : BaseComponent() {
      */
     private suspend fun httpRequest(params: JsonObject?): JsonElement {
         val url = getParam(params, "url")
-        if (url.isEmpty()) return error("900001", "url is required")
+        if (url.isEmpty()) return paramValidationError("url is required")
 
         val client = httpClient ?: HttpClientFactory.create()
 

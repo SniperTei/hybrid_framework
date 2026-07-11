@@ -39,28 +39,22 @@
 
 ---
 
-## 2. ⚠️ 错误码命名空间（重大分歧）
+## 2. ✅ 错误码命名空间（已统一）
 
-三端错误码**两套命名空间**，互不兼容：
+三端 `ErrorCode` 常量定义**本就一致**（100xxx 标准 / 200xxx 业务 / 300xxx 安全）。
+分歧出在**组件实现层**：Android/Harmony 的组件曾硬编码 `9xxxxx` 魔法字符串绕过 ErrorCode 常量，iOS 则一直用规范的 `200xxx/100xxx`。
 
-| 平台 | 参数校验 | 函数未实现 | 上下文不可用 | 组件未找到 |
-|---|---|---|---|---|
-| **iOS** | `200007` | `200002` | — | `200001` |
-| **Android** | `900001` | `900002` | `900010` | `900001` |
-| **Harmony** | `900001` | `900002` | `900010` | `900001` |
+**已完成**：Android/Harmony 组件层的 `9xxxxx` 全部替换为标准码。
 
-**标准决策**：统一采用 **Android/Harmony 的 9xxxxx 段**（已两端对齐，iOS 改造工作量小）。
-具体规范见 ErrorCode 对照：
+| 含义 | 标准码 | 三端现状 |
+|---|---|---|
+| 参数校验失败 | `200007` (PARAM_VALIDATION_FAILED) | ✅ 已统一 |
+| 函数/方法未实现 | `200002` (UNKNOWN_FUNCTION) | ✅ 已统一 |
+| 组件未找到 | `200001` (UNKNOWN_COMPONENT) | ✅ 已统一 |
+| 上下文不可用 / 运行时失败 | `100005` (INTERNAL_ERROR) | ✅ 已统一（原 `900010`/`900020`/`900030`/`900040` 全折叠） |
+| 权限拒绝 | `200003` | ✅ |
 
-| 含义 | 标准码 |
-|---|---|
-| 参数校验失败 | `900001` |
-| 函数/方法未实现 | `900002` |
-| 上下文/Activity 不可用 | `900010` |
-| 相机相关 | `900020`/`900030`/`900040` |
-| 权限拒绝 | `200003`（保留业务语义码） |
-
-> iOS 当前用的是 Bridge 层的 `ErrorCode.*`（200xxx/100xxx），需统一到 9xxxxx。
+> 实现差异（非契约差异）：Android 组件调 `paramValidationError()`/`internalError()` 助手；Harmony 组件走 `this.error('200007', ...)` 码值替换（因 Harmony 的 `error()` 返回字符串而非 throw，不适合用 throwing 助手）。H5 侧看到的码值三端一致。
 
 ---
 
@@ -328,7 +322,7 @@
 
 ### P0 — 命名空间级分歧（影响所有调用）
 
-1. **错误码统一到 9xxxxx 段**：iOS 改造 `ErrorCode.*` → 9xxxxx。
+1. ✅ **错误码统一**（已完成）：Android/Harmony 组件层的 `9xxxxx` 全部替换为标准码（`200007` 参数校验 / `200001` 组件未找到 / `100005` 内部错误）。
 2. **dialog 三处命名统一**：`toast`(非 showToast) / `confirmText`(非 okText) / `duration` 数字秒 / 返回 `success`(非 shown)。
 3. **performance 方法名统一**：Harmony `getStats/getHistory/resetStats` → `getMetrics/getMethodStats/getSlowCalls/reset`。
 

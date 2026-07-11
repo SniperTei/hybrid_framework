@@ -58,11 +58,11 @@ class SystemComponent : BaseComponent() {
     private suspend fun getComponentVersion(params: JsonObject?): JsonElement {
         val name = getParam(params, "name")
         if (name.isEmpty()) {
-            return error("900002", "Parameter 'name' is required")
+            return paramValidationError("Parameter 'name' is required")
         }
 
         val info = ComponentManager.getInstance().getComponentInfo(name)
-            ?: return error("900001", "Component not found: $name")
+            ?: return error("200001", "Component not found: $name")
 
         return buildJsonObject {
             put("name", JsonPrimitive(info.name))
@@ -92,7 +92,7 @@ class SystemComponent : BaseComponent() {
     private suspend fun checkCapability(params: JsonObject?): JsonElement {
         val method = getParam(params, "method")
         if (method.isEmpty()) {
-            return error("900002", "Parameter 'method' is required")
+            return paramValidationError("Parameter 'method' is required")
         }
 
         val componentName = method.substringBefore(".")

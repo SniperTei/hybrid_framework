@@ -57,7 +57,7 @@ class StorageComponent : BaseComponent() {
         val value = getParam(params, "value")
 
         if (key.isEmpty()) {
-            return error("900001", "Key cannot be empty")
+            return paramValidationError("Key cannot be empty")
         }
 
         preferences?.edit()?.putString(key, value)?.apply()
@@ -75,7 +75,7 @@ class StorageComponent : BaseComponent() {
         val key = getParam(params, "key")
 
         if (key.isEmpty()) {
-            return error("900001", "Key cannot be empty")
+            return paramValidationError("Key cannot be empty")
         }
 
         val value = preferences?.getString(key, null)
@@ -94,7 +94,7 @@ class StorageComponent : BaseComponent() {
         val key = getParam(params, "key")
 
         if (key.isEmpty()) {
-            return error("900001", "Key cannot be empty")
+            return paramValidationError("Key cannot be empty")
         }
 
         preferences?.edit()?.remove(key)?.apply()

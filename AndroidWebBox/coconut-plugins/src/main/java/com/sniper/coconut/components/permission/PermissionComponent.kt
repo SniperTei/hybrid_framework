@@ -57,10 +57,10 @@ class PermissionComponent : BaseComponent() {
     private fun checkPermission(params: JsonObject?): JsonElement {
         val permission = getParam(params, "permission")
         if (permission.isEmpty()) {
-            return error("900001", "Permission name required")
+            return paramValidationError("Permission name required")
         }
 
-        val context = componentContext?.applicationContext ?: return error("900010", "Context not available")
+        val context = componentContext?.applicationContext ?: return internalError("Context not available")
         val granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
         return buildJsonObject {
@@ -79,12 +79,12 @@ class PermissionComponent : BaseComponent() {
     private fun requestPermission(params: JsonObject?): JsonElement {
         val permission = getParam(params, "permission")
         if (permission.isEmpty()) {
-            return error("900001", "Permission name required")
+            return paramValidationError("Permission name required")
         }
 
         val activity = componentContext?.currentActivity
         if (activity == null || activity.isFinishing) {
-            return error("900010", "Activity not available")
+            return internalError("Activity not available")
         }
 
         // Already granted?
@@ -114,7 +114,7 @@ class PermissionComponent : BaseComponent() {
     private fun openSettings(): JsonElement {
         val activity = componentContext?.currentActivity
         if (activity == null || activity.isFinishing) {
-            return error("900010", "Activity not available")
+            return internalError("Activity not available")
         }
 
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

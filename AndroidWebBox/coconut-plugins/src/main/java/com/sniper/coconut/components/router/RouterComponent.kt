@@ -66,11 +66,11 @@ class RouterComponent : BaseComponent() {
     private fun open(params: JsonObject?): JsonElement {
         val url = getParam(params, "url")
         if (url.isEmpty()) {
-            return error("900001", "URL is required")
+            return paramValidationError("URL is required")
         }
 
         val isNewWindow = getBoolParam(params, "isNewWindow", false)
-        val context = componentContext?.applicationContext ?: return error("900010", "Context not available")
+        val context = componentContext?.applicationContext ?: return internalError("Context not available")
 
         Logger.d(name, "Routing to: $url (newWindow: $isNewWindow)")
 
@@ -78,7 +78,7 @@ class RouterComponent : BaseComponent() {
             url.startsWith(SCHEME_COCONUT_NATIVE) -> handleNativeRoute(url, context)
             url.startsWith(SCHEME_COCONUT_H5) -> handleH5Route(url, isNewWindow)
             url.startsWith("http://") || url.startsWith("https://") -> handleHttpRoute(url, isNewWindow)
-            else -> error("900001", "Unsupported URL scheme: $url")
+            else -> paramValidationError("Unsupported URL scheme: $url")
         }
     }
 

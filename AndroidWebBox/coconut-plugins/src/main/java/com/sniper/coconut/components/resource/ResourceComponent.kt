@@ -48,7 +48,7 @@ class ResourceComponent : BaseComponent() {
 
     private fun getVersion(params: JsonObject?): JsonElement {
         val moduleId = getParam(params, "moduleId", "main")
-        val manager = getManager() ?: return error("900010", "ResourceManager not available")
+        val manager = getManager() ?: return internalError("ResourceManager not available")
         val version = manager.getLocalVersion(moduleId)
         return buildJsonObject {
             put("moduleId", JsonPrimitive(moduleId))
@@ -57,7 +57,7 @@ class ResourceComponent : BaseComponent() {
     }
 
     private fun getAllVersions(): JsonElement {
-        val manager = getManager() ?: return error("900010", "ResourceManager not available")
+        val manager = getManager() ?: return internalError("ResourceManager not available")
         val versions = manager.getAllVersions()
         return buildJsonObject {
             put("versions", kotlinx.serialization.json.buildJsonObject {
@@ -70,9 +70,9 @@ class ResourceComponent : BaseComponent() {
         val moduleId = getParam(params, "moduleId", "main")
         val remoteVersion = getParam(params, "remoteVersion")
         if (remoteVersion.isEmpty()) {
-            return error("900001", "remoteVersion is required")
+            return paramValidationError("remoteVersion is required")
         }
-        val manager = getManager() ?: return error("900010", "ResourceManager not available")
+        val manager = getManager() ?: return internalError("ResourceManager not available")
         val needsUpdate = manager.needsUpdate(moduleId, remoteVersion)
         return buildJsonObject {
             put("moduleId", JsonPrimitive(moduleId))
@@ -89,10 +89,10 @@ class ResourceComponent : BaseComponent() {
         val md5 = getParam(params, "md5")
 
         if (downloadUrl.isEmpty()) {
-            return error("900001", "downloadUrl is required")
+            return paramValidationError("downloadUrl is required")
         }
 
-        val manager = getManager() ?: return error("900010", "ResourceManager not available")
+        val manager = getManager() ?: return internalError("ResourceManager not available")
         val updateInfo = OfflineResourceManager.UpdateInfo(
             moduleId = moduleId,
             version = version,

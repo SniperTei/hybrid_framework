@@ -62,10 +62,10 @@ class StackComponent : BaseComponent() {
     private fun push(params: JsonObject?): JsonElement {
         val url = getParam(params, "url")
         if (url.isEmpty()) {
-            return error("900001", "URL is required")
+            return paramValidationError("URL is required")
         }
 
-        val webView = getWebView() ?: return error("900010", "WebView not available")
+        val webView = getWebView() ?: return internalError("WebView not available")
         webView.post { webView.loadUrl(url) }
 
         Logger.d(name, "Push: $url")
@@ -79,7 +79,7 @@ class StackComponent : BaseComponent() {
      * Pop (go back one page)
      */
     private fun pop(): JsonElement {
-        val webView = getWebView() ?: return error("900010", "WebView not available")
+        val webView = getWebView() ?: return internalError("WebView not available")
 
         if (webView.canGoBack()) {
             webView.post { webView.goBack() }
@@ -102,10 +102,10 @@ class StackComponent : BaseComponent() {
     private fun replace(params: JsonObject?): JsonElement {
         val url = getParam(params, "url")
         if (url.isEmpty()) {
-            return error("900001", "URL is required")
+            return paramValidationError("URL is required")
         }
 
-        val webView = getWebView() ?: return error("900010", "WebView not available")
+        val webView = getWebView() ?: return internalError("WebView not available")
 
         // Use JS to replace (location.replace) so it doesn't add to history
         webView.post {
@@ -124,7 +124,7 @@ class StackComponent : BaseComponent() {
      * params: { "index": 0 } or { "url": "..." }
      */
     private fun backTo(params: JsonObject?): JsonElement {
-        val webView = getWebView() ?: return error("900010", "WebView not available")
+        val webView = getWebView() ?: return internalError("WebView not available")
 
         val targetIndex = getIntParam(params, "index", -1)
         val targetUrl = getParam(params, "url")
@@ -140,7 +140,7 @@ class StackComponent : BaseComponent() {
                     webView.post { webView.goBackOrForward(-stepsBack) }
                     Logger.d(name, "BackTo index: $targetIndex (${stepsBack} steps)")
                 } else {
-                    return error("900001", "Invalid stack index: $targetIndex (current: $currentIndex)")
+                    return paramValidationError("Invalid stack index: $targetIndex (current: $currentIndex)")
                 }
             }
             targetUrl.isNotEmpty() -> {
@@ -157,11 +157,11 @@ class StackComponent : BaseComponent() {
                     }
                 }
                 if (!found) {
-                    return error("900001", "URL not found in stack: $targetUrl")
+                    return paramValidationError("URL not found in stack: $targetUrl")
                 }
             }
             else -> {
-                return error("900001", "index or url parameter required")
+                return paramValidationError("index or url parameter required")
             }
         }
 
@@ -175,7 +175,7 @@ class StackComponent : BaseComponent() {
      * Get current stack size
      */
     private fun getSize(): JsonElement {
-        val webView = getWebView() ?: return error("900010", "WebView not available")
+        val webView = getWebView() ?: return internalError("WebView not available")
         val backList = webView.copyBackForwardList()
 
         return buildJsonObject {
@@ -188,7 +188,7 @@ class StackComponent : BaseComponent() {
      * Get full page stack info
      */
     private fun getStack(): JsonElement {
-        val webView = getWebView() ?: return error("900010", "WebView not available")
+        val webView = getWebView() ?: return internalError("WebView not available")
         val backList = webView.copyBackForwardList()
 
         val pages = (0 until backList.size).mapNotNull { i ->

@@ -61,7 +61,7 @@ class DialogComponent : BaseComponent() {
     private suspend fun alert(params: JsonObject?): JsonElement = suspendCancellableCoroutine { cont ->
         val activity = getActivity()
         if (activity == null || activity.isFinishing) {
-            cont.resume(error("900010", "Activity not available"))
+            cont.resume(internalError("Activity not available"))
             return@suspendCancellableCoroutine
         }
 
@@ -93,7 +93,7 @@ class DialogComponent : BaseComponent() {
     private suspend fun confirm(params: JsonObject?): JsonElement = suspendCancellableCoroutine { cont ->
         val activity = getActivity()
         if (activity == null || activity.isFinishing) {
-            cont.resume(error("900010", "Activity not available"))
+            cont.resume(internalError("Activity not available"))
             return@suspendCancellableCoroutine
         }
 
@@ -133,7 +133,7 @@ class DialogComponent : BaseComponent() {
         val message = getParam(params, "message", "")
         val duration = getParam(params, "duration", "short")
         if (message.isEmpty()) {
-            return error("900001", "Message cannot be empty")
+            return paramValidationError("Message cannot be empty")
         }
 
         val activity = getActivity()
@@ -161,7 +161,7 @@ class DialogComponent : BaseComponent() {
     private fun showLoading(params: JsonObject?): JsonElement {
         val activity = getActivity()
         if (activity == null || activity.isFinishing) {
-            return error("900010", "Activity not available")
+            return internalError("Activity not available")
         }
 
         val title = getParam(params, "title", "")

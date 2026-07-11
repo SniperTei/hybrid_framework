@@ -118,4 +118,12 @@ abstract class BaseComponent : CoconutPlugin {
     protected fun functionNotSupportedError(function: String): JsonElement {
         throw ComponentException("200002", "Function not supported: $function")
     }
+
+    protected fun paramValidationError(message: String): JsonElement {
+        throw ComponentException("200007", message)
+    }
+
+    protected fun internalError(message: String): JsonElement {
+        throw ComponentException("100005", message)
+    }
 }

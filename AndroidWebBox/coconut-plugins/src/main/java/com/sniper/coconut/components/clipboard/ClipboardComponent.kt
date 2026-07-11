@@ -60,7 +60,7 @@ class ClipboardComponent : BaseComponent() {
     private fun setText(params: JsonObject?): JsonElement {
         val text = getParam(params, "text")
         if (text.isEmpty()) {
-            return error("900001", "Text cannot be empty")
+            return paramValidationError("Text cannot be empty")
         }
         val clip = ClipData.newPlainText("text", text)
         clipboardManager?.setPrimaryClip(clip)
