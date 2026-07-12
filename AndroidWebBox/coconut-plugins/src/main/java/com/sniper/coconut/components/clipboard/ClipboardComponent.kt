@@ -41,6 +41,7 @@ class ClipboardComponent : BaseComponent() {
             "getText" -> getText()
             "setText" -> setText(params)
             "hasText" -> hasText()
+            "clear" -> clear()
             else -> functionNotSupportedError(function)
         }
     }
@@ -54,6 +55,7 @@ class ClipboardComponent : BaseComponent() {
         }
         return buildJsonObject {
             put("text", JsonPrimitive(text))
+            put("hasText", JsonPrimitive(text.isNotEmpty()))
         }.let { success(it) }
     }
 
@@ -74,6 +76,17 @@ class ClipboardComponent : BaseComponent() {
         val hasText = clipboardManager?.hasPrimaryClip() == true
         return buildJsonObject {
             put("hasText", JsonPrimitive(hasText))
+        }.let { success(it) }
+    }
+
+    private fun clear(): JsonElement {
+        clipboardManager?.let {
+            if (it.hasPrimaryClip()) {
+                it.clearPrimaryClip()
+            }
+        }
+        return buildJsonObject {
+            put("success", JsonPrimitive(true))
         }.let { success(it) }
     }
 

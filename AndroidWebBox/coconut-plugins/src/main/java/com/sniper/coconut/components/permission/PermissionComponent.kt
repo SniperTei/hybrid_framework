@@ -65,6 +65,7 @@ class PermissionComponent : BaseComponent() {
 
         return buildJsonObject {
             put("permission", JsonPrimitive(permission))
+            put("status", JsonPrimitive(if (granted) "authorized" else "denied"))
             put("granted", JsonPrimitive(granted))
         }.let { success(it) }
     }
@@ -92,6 +93,7 @@ class PermissionComponent : BaseComponent() {
         if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
             return buildJsonObject {
                 put("permission", JsonPrimitive(permission))
+                put("status", JsonPrimitive("authorized"))
                 put("granted", JsonPrimitive(true))
             }.let { success(it) }
         }
@@ -104,6 +106,7 @@ class PermissionComponent : BaseComponent() {
         Logger.d(name, "Requesting permission: $permission")
         return buildJsonObject {
             put("permission", JsonPrimitive(permission))
+            put("status", JsonPrimitive("notDetermined"))
             put("requested", JsonPrimitive(true))
         }.let { success(it) }
     }

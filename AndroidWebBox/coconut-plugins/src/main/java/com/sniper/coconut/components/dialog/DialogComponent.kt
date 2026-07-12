@@ -99,7 +99,7 @@ class DialogComponent : BaseComponent() {
 
         val title = getParam(params, "title", "确认")
         val message = getParam(params, "message", "")
-        val okText = getParam(params, "okText", "确定")
+        val okText = getParam(params, "confirmText", "确定")
         val cancelText = getParam(params, "cancelText", "取消")
 
         activity.runOnUiThread {
@@ -131,7 +131,8 @@ class DialogComponent : BaseComponent() {
      */
     private fun toast(params: JsonObject?): JsonElement {
         val message = getParam(params, "message", "")
-        val duration = getParam(params, "duration", "short")
+        // duration 单位为秒（跨端契约）；native Toast 仅支持 SHORT/LONG，按 3 秒阈值映射
+        val durationSec = getIntParam(params, "duration", 2)
         if (message.isEmpty()) {
             return paramValidationError("Message cannot be empty")
         }
@@ -140,7 +141,7 @@ class DialogComponent : BaseComponent() {
         val host = componentContext?.host
 
         val runToast = {
-            val toastDuration = if (duration == "long") Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+            val toastDuration = if (durationSec >= 3) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
             Toast.makeText(activity ?: componentContext?.applicationContext, message, toastDuration).show()
         }
 

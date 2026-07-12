@@ -1,0 +1,11 @@
+{
+  "name": "@coconut/camera",
+  "version": "1.0.0",
+  "description": "Coconut Camera module - photo capture and QR code scanning",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@coconut/sdk": "file:../CoconutSDK"
+  }
+}

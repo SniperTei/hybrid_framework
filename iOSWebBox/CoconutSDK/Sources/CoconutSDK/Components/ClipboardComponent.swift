@@ -12,6 +12,7 @@ public class ClipboardComponent: BaseComponent {
         case "getText": return getText()
         case "setText": return try setText(params)
         case "hasText": return hasText()
+        case "clear": return clear()
         default: try functionNotSupportedError(function)
         }
     }
@@ -30,5 +31,10 @@ public class ClipboardComponent: BaseComponent {
 
     private func hasText() -> [String: Any] {
         return success(["hasText": UIPasteboard.general.hasStrings])
+    }
+
+    private func clear() -> [String: Any] {
+        UIPasteboard.general.items = []
+        return success(["success": true])
     }
 }

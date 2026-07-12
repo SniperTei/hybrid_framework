@@ -1,8 +1,5 @@
-import { http } from '@kit.NetworkKit';
-import { connection } from '@kit.NetworkKit';
-import { BaseComponent } from '../component/BaseComponent';
-import { Logger } from '../utils/Logger';
-import { JsonObject, JsonParser } from '../utils/JsonHelper';
+import { http, connection } from '@kit.NetworkKit';
+import { BaseComponent, Logger, JsonObject, JsonParser } from '@coconut/sdk';
 
 /**
  * Network Component
@@ -98,7 +95,7 @@ export class NetworkComponent extends BaseComponent {
   private async httpRequest(paramsJson: string): Promise<string> {
     const url = this.getParam(paramsJson, 'url');
     if (!url) {
-      return this.error('900001', 'url is required');
+      return this.error('200007', 'url is required');
     }
 
     const method = this.getParam(paramsJson, 'method', 'GET').toUpperCase();

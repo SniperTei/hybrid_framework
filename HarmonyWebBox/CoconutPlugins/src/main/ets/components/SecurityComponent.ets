@@ -1,8 +1,4 @@
-import { BaseComponent } from '../component/BaseComponent';
-import { BridgeTokenManager } from '../bridge/BridgeTokenManager';
-import { RequestSignatureValidator } from '../bridge/RequestSignatureValidator';
-import { SecurityAuditLog } from '../bridge/SecurityAuditLog';
-import { JsonObject } from '../utils/JsonHelper';
+import { BaseComponent, BridgeTokenManager, RequestSignatureValidator, SecurityAuditLog, JsonObject } from '@coconut/sdk';
 
 /**
  * Security Component

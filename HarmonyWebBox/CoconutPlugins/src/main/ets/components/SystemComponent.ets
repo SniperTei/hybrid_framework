@@ -1,7 +1,4 @@
-import { BaseComponent } from '../component/BaseComponent';
-import { ComponentContext } from '../component/ComponentContext';
-import { ComponentManager } from '../component/ComponentManager';
-import { JsonObject, JsonParser } from '../utils/JsonHelper';
+import { BaseComponent, ComponentContext, ComponentManager, JsonObject, JsonParser } from '@coconut/sdk';
 
 /**
  * System Component
@@ -40,11 +37,11 @@ export class SystemComponent extends BaseComponent {
   private getComponentVersion(paramsJson: string): string {
     const name = this.getParam(paramsJson, 'name');
     if (!name) {
-      return this.error('900002', "Parameter 'name' is required");
+      return this.error('200007', "Parameter 'name' is required");
     }
     const info = ComponentManager.getInstance().getComponentInfo(name);
     if (!info || info.length === 0) {
-      return this.error('900001', `Component not found: ${name}`);
+      return this.error('200001', `Component not found: ${name}`);
     }
     // info is already a JSON string from getComponentInfo
     return this.successJson(info);
@@ -59,7 +56,7 @@ export class SystemComponent extends BaseComponent {
   private checkCapability(paramsJson: string): string {
     const method = this.getParam(paramsJson, 'method');
     if (!method) {
-      return this.error('900002', "Parameter 'method' is required");
+      return this.error('200007', "Parameter 'method' is required");
     }
     const componentName = method.split('.')[0];
     const component = ComponentManager.getInstance().getComponent(componentName);

@@ -1,8 +1,5 @@
 import { preferences } from '@kit.ArkData';
-import { BaseComponent } from '../component/BaseComponent';
-import { ComponentContext } from '../component/ComponentContext';
-import { Logger } from '../utils/Logger';
-import { JsonObject } from '../utils/JsonHelper';
+import { BaseComponent, ComponentContext, Logger, JsonObject } from '@coconut/sdk';
 
 /**
  * Storage Component
@@ -41,6 +38,8 @@ export class StorageComponent extends BaseComponent {
         return this.clear();
       case 'getAllKeys':
         return this.getAllKeys();
+      case 'getSize':
+        return this.getSize();
       default:
         return this.functionNotSupportedError(functionName);
     }
@@ -50,7 +49,7 @@ export class StorageComponent extends BaseComponent {
     const key = this.getParam(paramsJson, 'key');
     const value = this.getParam(paramsJson, 'value');
     if (!key) {
-      return this.error('900001', 'Key cannot be empty');
+      return this.error('200007', 'Key cannot be empty');
     }
     if (this.store) {
       await this.store.put(key, value);
@@ -65,7 +64,7 @@ export class StorageComponent extends BaseComponent {
   private async getItem(paramsJson: string): Promise<string> {
     const key = this.getParam(paramsJson, 'key');
     if (!key) {
-      return this.error('900001', 'Key cannot be empty');
+      return this.error('200007', 'Key cannot be empty');
     }
     const rawValue = this.store ? await this.store.get(key, '') : '';
     const value = typeof rawValue === 'string' ? rawValue : '';
@@ -78,7 +77,7 @@ export class StorageComponent extends BaseComponent {
   private async removeItem(paramsJson: string): Promise<string> {
     const key = this.getParam(paramsJson, 'key');
     if (!key) {
-      return this.error('900001', 'Key cannot be empty');
+      return this.error('200007', 'Key cannot be empty');
     }
     if (this.store) {
       await this.store.delete(key);
@@ -109,6 +108,14 @@ export class StorageComponent extends BaseComponent {
     const builder = new JsonObject();
     builder.putStringArray('keys', keys);
     builder.putNumber('count', keys.length);
+    return this.success(builder);
+  }
+
+  private async getSize(): Promise<string> {
+    const count = this.keySet.size;
+    const builder = new JsonObject();
+    builder.putNumber('count', count);
+    builder.putNumber('size', count * 100); // Approximate size in bytes
     return this.success(builder);
   }
 

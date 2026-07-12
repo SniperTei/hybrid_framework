@@ -19,27 +19,28 @@ public class DeviceComponent: BaseComponent {
 
     private func getDeviceInfo() -> [String: Any] {
         let device = UIDevice.current
+        let screen = UIScreen.main
         return success([
             "manufacturer": "Apple",
             "brand": "Apple",
-            "model": device.model,
-            "device": device.identifierForVendor?.uuidString ?? "unknown",
-            "product": device.systemName,
-            "platform": "iOS",
-            "screenWidth": UIScreen.main.bounds.width,
-            "screenHeight": UIScreen.main.bounds.height,
-            "screenScale": UIScreen.main.scale
+            "model": device.localizedModel,
+            "osName": "iOS",
+            "osVersion": device.systemVersion,
+            "platform": "ios",
+            "screenWidth": screen.bounds.width,
+            "screenHeight": screen.bounds.height,
+            "screenScale": screen.scale
         ])
     }
 
     private func getSystemInfo() -> [String: Any] {
         let device = UIDevice.current
         return success([
-            "iOSVersion": device.systemVersion,
-            "systemName": device.systemName,
-            "model": device.model,
-            "localizedModel": device.localizedModel,
-            "userInterfaceIdiom": "\(device.userInterfaceIdiom)"
+            "osName": "iOS",
+            "osVersion": device.systemVersion,
+            "sdkVersion": device.systemVersion,
+            "model": device.localizedModel,
+            "localizedModel": device.localizedModel
         ])
     }
 
@@ -57,14 +58,14 @@ public class DeviceComponent: BaseComponent {
     }
 
     private func getAllInfo() -> [String: Any] {
-        var allData: [String: Any] = [:]
-        let deviceInfo = getDeviceInfo()
-        let systemInfo = getSystemInfo()
-        let appInfo = getAppInfo()
-        allData.merge(deviceInfo) { $1 }
-        allData["system"] = systemInfo
-        allData["app"] = appInfo
-        return success(allData)
+        let device = getDeviceInfo()
+        let system = getSystemInfo()
+        let app = getAppInfo()
+        return success([
+            "device": device,
+            "system": system,
+            "app": app
+        ])
     }
 }
 

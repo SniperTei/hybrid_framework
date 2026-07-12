@@ -3,6 +3,7 @@ export { CoconutSDK } from './src/main/CoconutSDK'
 export { CoconutConfig } from './src/main/ets/config/CoconutConfig'
 export { Environment, EnvironmentConfig } from './src/main/ets/config/Environment'
 export { Logger } from './src/main/ets/utils/Logger'
+export { JsonObject, JsonParser } from './src/main/ets/utils/JsonHelper'
 
 // Bridge
 export { CoconutBridgeImpl } from './src/main/ets/bridge/CoconutBridgeImpl'
@@ -30,19 +31,3 @@ export { ComponentException, ComponentNotFoundException, ComponentNotInitialized
 export { CoconutWebPage } from './src/main/ets/web/CoconutWebPage'
 export { WebViewHelper } from './src/main/ets/web/WebViewHelper'
 
-// UI Components
-export { VerifyDialog, VerifyDialogConfig } from './src/main/ets/ui/VerifyDialog'
-
-// Components
-export { DeviceComponent } from './src/main/ets/components/DeviceComponent'
-export { StorageComponent } from './src/main/ets/components/StorageComponent'
-export { SystemComponent } from './src/main/ets/components/SystemComponent'
-export { NetworkComponent } from './src/main/ets/components/NetworkComponent'
-export { DialogComponent } from './src/main/ets/components/DialogComponent'
-export { SecurityComponent } from './src/main/ets/components/SecurityComponent'
-export { PerformanceComponent } from './src/main/ets/components/PerformanceComponent'
-export { PermissionComponent } from './src/main/ets/components/PermissionComponent'
-export { RouterComponent } from './src/main/ets/components/RouterComponent'
-export { StackComponent } from './src/main/ets/components/StackComponent'
-export { ClipboardComponent } from './src/main/ets/components/ClipboardComponent'
-export { ResourceComponent } from './src/main/ets/components/ResourceComponent'

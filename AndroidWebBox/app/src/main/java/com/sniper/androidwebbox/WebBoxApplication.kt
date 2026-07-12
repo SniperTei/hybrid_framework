@@ -14,6 +14,8 @@ import com.sniper.coconut.components.stack.StackComponent
 import com.sniper.coconut.components.storage.StorageComponent
 import com.sniper.coconut.components.system.SystemComponent
 import com.sniper.coconut.components.security.SecurityComponent
+import com.sniper.coconut.components.mytest.MyTestComponent
+import com.sniper.coconut.components.camera.CameraComponent
 import com.sniper.androidwebbox.components.LoginComponent
 import com.sniper.coconut.config.Environment
 import com.sniper.coconut.utils.Logger
@@ -75,6 +77,8 @@ class WebBoxApplication : Application() {
                     PerformanceComponent(), // Bridge性能监控
                     SystemComponent(),      // SDK版本 & 能力查询
                     SecurityComponent(),    // 安全审计
+                    MyTestComponent(),      // 测试脚手架（ping/echo/add）
+                    CameraComponent(),      // 相机（拍照 / 扫码占位 / 自定义弹窗）
                     LoginComponent()        // 登录（业务组件）
                 )
 

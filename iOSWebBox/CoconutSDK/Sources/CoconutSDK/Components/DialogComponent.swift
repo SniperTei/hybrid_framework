@@ -74,7 +74,7 @@ public class DialogComponent: BaseComponent {
         let position = getParam(params, "position", "bottom")
 
         guard let vc = componentContext?.currentViewController else {
-            return success(["shown": false])
+            return success(["success": false])
         }
 
         let label = UILabel()
@@ -108,7 +108,7 @@ public class DialogComponent: BaseComponent {
             label.removeFromSuperview()
         }
 
-        return success(["shown": true])
+        return success(["success": true])
     }
 
     @MainActor
@@ -116,7 +116,7 @@ public class DialogComponent: BaseComponent {
         let message = getParam(params, "message", "加载中...")
 
         guard let vc = componentContext?.currentViewController else {
-            return success(["shown": false])
+            return success(["success": false])
         }
 
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
@@ -129,14 +129,14 @@ public class DialogComponent: BaseComponent {
 
         loadingAlert = alert
         vc.present(alert, animated: true)
-        return success(["shown": true])
+        return success(["success": true])
     }
 
     @MainActor
     private func hideLoading() -> [String: Any] {
         loadingAlert?.dismiss(animated: true)
         loadingAlert = nil
-        return success(["hidden": true])
+        return success(["success": true])
     }
 
     private func getDoubleParam(_ params: [String: Any]?, _ key: String, _ defaultValue: Double = 0) -> Double {

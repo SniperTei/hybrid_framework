@@ -1,8 +1,5 @@
 import { abilityAccessCtrl, bundleManager, Permissions, common } from '@kit.AbilityKit';
-import { BaseComponent } from '../component/BaseComponent';
-import { ComponentContext } from '../component/ComponentContext';
-import { Logger } from '../utils/Logger';
-import { JsonObject } from '../utils/JsonHelper';
+import { BaseComponent, ComponentContext, Logger, JsonObject } from '@coconut/sdk';
 
 /**
  * Permission Component
@@ -32,13 +29,13 @@ export class PermissionComponent extends BaseComponent {
   private async checkPermission(paramsJson: string): Promise<string> {
     const permission = this.getParam(paramsJson, 'permission');
     if (!permission) {
-      return this.error('900001', 'Permission name required');
+      return this.error('200007', 'Permission name required');
     }
 
     try {
       const ctx = this.getComponentContext();
       if (!ctx) {
-        return this.error('900010', 'Context not available');
+        return this.error('100005', 'Context not available');
       }
 
       const atManager = abilityAccessCtrl.createAtManager();
@@ -47,25 +44,27 @@ export class PermissionComponent extends BaseComponent {
         permission as Permissions
       );
 
+      const granted = grantStatus === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED;
       const builder = new JsonObject();
       builder.put('permission', permission);
-      builder.putBool('granted', grantStatus === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED);
+      builder.put('status', granted ? 'authorized' : 'denied');
+      builder.putBool('granted', granted);
       return this.success(builder);
     } catch (e) {
       Logger.e(this.name, `Check permission failed: ${e}`);
-      return this.error('900010', `Failed to check permission: ${e}`);
+      return this.error('100005', `Failed to check permission: ${e}`);
     }
   }
 
   private async requestPermission(paramsJson: string): Promise<string> {
     const permission = this.getParam(paramsJson, 'permission');
     if (!permission) {
-      return this.error('900001', 'Permission name required');
+      return this.error('200007', 'Permission name required');
     }
 
     const ctx = this.getComponentContext();
     if (!ctx) {
-      return this.error('900010', 'Context not available');
+      return this.error('100005', 'Context not available');
     }
 
     try {
@@ -73,13 +72,15 @@ export class PermissionComponent extends BaseComponent {
       const perms: Array<Permissions> = [permission as Permissions];
       const result = await atManager.requestPermissionsFromUser(ctx.context, perms);
 
+      const granted = result.authResults[0] === 0;
       const builder = new JsonObject();
       builder.put('permission', permission);
-      builder.putBool('granted', result.authResults[0] === 0);
+      builder.put('status', granted ? 'authorized' : 'denied');
+      builder.putBool('granted', granted);
       return this.success(builder);
     } catch (e) {
       Logger.e(this.name, `Request permission failed: ${e}`);
-      return this.error('900010', `Failed to request permission: ${e}`);
+      return this.error('100005', `Failed to request permission: ${e}`);
     }
   }
 

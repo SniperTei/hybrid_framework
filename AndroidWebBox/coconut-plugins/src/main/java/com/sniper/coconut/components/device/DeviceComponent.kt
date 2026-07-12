@@ -40,35 +40,47 @@ class DeviceComponent : BaseComponent() {
 
     /**
      * Get device information
-     * Returns manufacturer, model, brand, etc.
+     * Returns the standard cross-platform field set.
      */
     private suspend fun getDeviceInfo(): JsonElement = withContext(Dispatchers.IO) {
+        val (screenW, screenH) = screenResolution()
         buildJsonObject {
             put("manufacturer", JsonPrimitive(Build.MANUFACTURER))
             put("brand", JsonPrimitive(Build.BRAND))
             put("model", JsonPrimitive(Build.MODEL))
-            put("device", JsonPrimitive(Build.DEVICE))
-            put("product", JsonPrimitive(Build.PRODUCT))
-            put("board", JsonPrimitive(Build.BOARD))
-            put("hardware", JsonPrimitive(Build.HARDWARE))
-            // Build.getSerial() requires READ_PRIVILEGED_PHONE_STATE permission
-            // Use "unknown" instead for compatibility
-            put("serial", JsonPrimitive("unknown"))
+            put("osName", JsonPrimitive("Android"))
+            put("osVersion", JsonPrimitive(Build.VERSION.RELEASE ?: ""))
+            put("platform", JsonPrimitive("android"))
+            if (screenW > 0) put("screenWidth", JsonPrimitive(screenW))
+            if (screenH > 0) put("screenHeight", JsonPrimitive(screenH))
         }.let { success(it) }
     }
 
     /**
      * Get system information
-     * Returns Android version, SDK version, etc.
+     * Returns the standard cross-platform field set.
      */
     private suspend fun getSystemInfo(): JsonElement = withContext(Dispatchers.IO) {
         buildJsonObject {
-            put("androidVersion", JsonPrimitive(Build.VERSION.RELEASE))
-            put("sdkInt", JsonPrimitive(Build.VERSION.SDK_INT))
-            put("codename", JsonPrimitive(Build.VERSION.CODENAME))
-            put("incremental", JsonPrimitive(Build.VERSION.INCREMENTAL))
-            put("securityPatch", JsonPrimitive(Build.VERSION.SECURITY_PATCH))
+            put("osName", JsonPrimitive("Android"))
+            put("osVersion", JsonPrimitive(Build.VERSION.RELEASE ?: ""))
+            put("sdkVersion", JsonPrimitive(Build.VERSION.SDK_INT.toString()))
+            put("model", JsonPrimitive(Build.MODEL))
+            put("localizedModel", JsonPrimitive(Build.MODEL))
         }.let { success(it) }
+    }
+
+    /**
+     * Best-effort screen resolution from system resources.
+     * Returns (0, 0) when unavailable.
+     */
+    private fun screenResolution(): Pair<Int, Int> {
+        return try {
+            val dm = android.content.res.Resources.getSystem().displayMetrics
+            Pair(dm.widthPixels, dm.heightPixels)
+        } catch (t: Throwable) {
+            Pair(0, 0)
+        }
     }
 
     /**

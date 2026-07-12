@@ -1,8 +1,5 @@
 import { resourceManager } from '@kit.LocalizationKit';
-import { BaseComponent } from '../component/BaseComponent';
-import { ComponentContext } from '../component/ComponentContext';
-import { Logger } from '../utils/Logger';
-import { JsonObject, JsonParser } from '../utils/JsonHelper';
+import { BaseComponent, ComponentContext, Logger, JsonObject, JsonParser } from '@coconut/sdk';
 
 /**
  * Resource Component
@@ -30,13 +27,13 @@ export class ResourceComponent extends BaseComponent {
   private async load(paramsJson: string): Promise<string> {
     const resName = this.getParam(paramsJson, 'name');
     if (!resName) {
-      return this.error('900001', 'Resource name is required');
+      return this.error('200007', 'Resource name is required');
     }
 
     try {
       const ctx = this.getComponentContext();
       if (!ctx) {
-        return this.error('900010', 'Context not available');
+        return this.error('100005', 'Context not available');
       }
 
       const mgr = ctx.context.resourceManager;
@@ -48,14 +45,14 @@ export class ResourceComponent extends BaseComponent {
       return this.success(builder);
     } catch (e) {
       Logger.e(this.name, `Load resource failed: ${e}`);
-      return this.error('900001', `Failed to load resource: ${e}`);
+      return this.error('100005', `Failed to load resource: ${e}`);
     }
   }
 
   private getResUrl(paramsJson: string): string {
     const resName = this.getParam(paramsJson, 'name');
     if (!resName) {
-      return this.error('900001', 'Resource name is required');
+      return this.error('200007', 'Resource name is required');
     }
 
     const builder = new JsonObject();

@@ -29,13 +29,13 @@
 | security | ✅ | ✅ | ✅ | 三端必备 |
 | dialog | ✅ | ✅ | ✅ | 三端必备 |
 | permission | ✅ | ✅ | ✅ | 三端必备 |
-| resource | ✅ | ✅ | ✅ | 三端必备 |
+| resource | ✅ | ✅ | ✅ | **可选 / 平台特定**（热更新 vs 本地资源加载语义不同，未标准化） |
 | router | ✅ | ✅ | ✅ | 三端必备 |
 | performance | ✅ | ✅ | ✅ | 三端必备 |
 | clipboard | ✅ | ✅ | ✅ | 三端必备 |
 | stack | ✅ | ✅ | ✅ | 三端必备 |
-| **camera** | ✅ | ❌ **缺** | ✅ | 三端必备（Android 待补） |
-| **mytest** | ✅ | ❌ **缺** | ❌ **缺** | 可选（开发脚手架） |
+| **camera** | ✅ | ✅ | ✅ | 三端必备（Android 已补齐，scanQRCode 暂返回 not-supported） |
+| **mytest** | ✅ | ✅ | ✅ | 三端必备（冒烟测试脚手架，已补齐 Android/Harmony） |
 
 ---
 
@@ -73,23 +73,26 @@
 
 > 格式：每组件一张「标准签名」表 + 「现状差异」。
 
-### 4.1 device
+### 4.1 device ✅ getInfo/getAll 字段已对齐
 
 **标准签名**
 
 | 方法 | params | returns |
 |---|---|---|
-| `getInfo` | — | `manufacturer, brand, model, deviceType, platform, screenWidth, screenHeight, screenScale` |
+| `getInfo` | — | `manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight, screenScale?` |
 | `getSystemInfo` | — | `osName, osVersion, sdkVersion, model, localizedModel` |
 | `getAppInfo` | — | `appName, packageName, version, buildNumber, debug` |
-| `getAll` | — | `{ device, system, app }`（三个嵌套对象） |
+| `getAll` | — | `{ device, system, app }`（三个嵌套对象，形状同上） |
 
-**现状差异** 🔴 严重
-- **getInfo 返回字段三端几乎全不同**：iOS 用 `device/product/platform`+屏幕尺寸；Android 用 `device/product/board/hardware/serial`；Harmony 用 `deviceType/marketName/productSeries`。
-- **getAll 形状不一致**：iOS 是扁平结构 + 嵌套；Android/Harmony 是 `{device,system,app}` 三段。
-- **getInfo 字段名**：iOS/Android `device` vs Harmony `deviceType`。
-
-**对齐工作**：定义统一的 `device` 字段集合（建议：`manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight`），三端按可用性填充，缺则省略。
+**对齐结果** ✅ P2-8 已完成
+- `getInfo` 三端统一返回 `manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight`（screenScale 可选）。
+  - `osName`：iOS="iOS" / Android="Android" / Harmony="HarmonyOS"
+  - `platform`：`ios` / `android` / `harmony`
+  - `osVersion`：iOS=systemVersion / Android=RELEASE / Harmony=osFullName
+- `getSystemInfo` 统一字段：`osName, osVersion, sdkVersion, model, localizedModel`。
+- `getAll` 三端统一为 `{device, system, app}` 嵌套结构（iOS 原扁平 merge 形状已修）。
+- Android 屏幕尺寸通过 `Resources.getSystem().displayMetrics` 获取；Harmony 通过 `display.getDefaultDisplaySync()`。
+- iOS 旧字段 `device/product/iOSVersion/userInterfaceIdiom` 已废弃；Android 旧字段 `device/product/board/hardware/serial` 已废弃；Harmony 旧字段 `deviceType/marketName/productSeries/osFullName/securityPatchTag/abiList/serial` 已废弃（仅在 getAll 嵌套 system 中保留 osFullName 作为 osVersion）。
 
 ---
 
@@ -107,12 +110,12 @@
 | `getSize` | — | `count, size` |
 
 **现状差异** 🟡 轻微
-- Harmony **缺 `getSize`** 方法（iOS/Android 都有）。
+- Harmony `getSize` 已补齐（与 iOS/Android 一致：`{count, size}`，size 为近似字节数）。
 - `value` 是否必填：iOS 默认""，Android 未标注，Harmony 必填 → 统一为「必填，空串报错」。
 
 ---
 
-### 4.3 dialog 🔴 命名分歧严重
+### 4.3 dialog ✅ 命名已对齐
 
 **标准签名**
 
@@ -125,12 +128,12 @@
 | `hideLoading` | — | `success` |
 | `prompt` | `title, message, placeholder, confirmText, cancelText` | `confirmed, input` |
 
-**现状差异** 🔴
-- **confirm 按钮**：iOS 用 `confirmText`；Android/Harmony 用 `okText` → **标准用 `confirmText`**。
-- **toast 方法名**：iOS/Android `toast`；Harmony `showToast` → **标准用 `toast`**。
-- **toast duration 类型**：iOS 数字(秒)；Android/Harmony 字符串(`short`/`long`) → **标准用数字秒**（更通用）。
-- **返回字段**：iOS 用 `shown`；Android/Harmony 用 `success` → **标准用 `success`**。
-- **prompt**：只有 Harmony 实现 → 若保留则三端都加，否则从 Harmony 删除。
+**对齐结果** ✅ P0-2 已完成
+- confirm 按钮参数：三端统一 `confirmText`（Android/Harmony 原 `okText` 已改名）。
+- toast 方法名：三端统一 `toast`（Harmony 原 `showToast` 已改名）。
+- toast duration 类型：三端统一数字秒（Android 按阈值映射 native SHORT/LONG；Harmony `秒*1000`）。
+- 返回字段：三端统一 `success`（iOS 原 `shown`/`hidden` 已改名）。
+- **遗留**：`prompt` 仅 Harmony 实现，待决策保留三端补齐或从 Harmony 删除。
 
 ---
 
@@ -145,9 +148,9 @@
 | `hasText` | — | `hasText` |
 | `clear` | — | `success` |
 
-**现状差异** 🟡
-- iOS `getText` 多返回 `hasText`（保留为标准）；Android/Harmony 缺 → 补齐。
-- `clear` 仅 Harmony 有 → 三端都加。
+**对齐结果** ✅ P2-10 已完成
+- iOS `getText` 已返回 `hasText`（原即如此）；Android/Harmony 已补齐。
+- `clear` 三端都已实现（iOS/Android 新增，Harmony 原有）。
 
 ---
 
@@ -163,10 +166,11 @@
 
 `status` 枚举：`authorized | denied | restricted | notDetermined | unsupported`
 
-**现状差异** 🔴
-- **返回字段**：iOS `{permission, status}`（字符串状态）；Android/Harmony `{permission, granted}`（布尔）。
-- → **标准用 `status` 字符串**（信息更丰富，能区分 notDetermined/restricted）。Android/Harmony 需改造。
-- 方法集：Harmony 多 `getAuthorized` → 三端都加或都不加。
+**对齐结果** ✅ P2-7 已完成
+- 三端统一返回 `{permission, status}` 字符串字段。
+- iOS 原即返回 `status`（信息最丰富：authorized/denied/restricted/notDetermined/limited/unsupported/authorizedWhenInUse）。
+- Android/Harmony 已新增 `status` 字段（取值：authorized / denied / notDetermined），同时保留 `granted` 布尔字段以兼容现有 H5。
+- 方法集差异：Harmony 保留额外 `getAuthorized`（非标准），三端标准方法集为 `check / request / openSettings`。
 
 ---
 
@@ -205,42 +209,45 @@
 
 ---
 
-### 4.8 stack 🔴 方法集几乎不同
+### 4.8 stack ✅ 方法集已对齐
 
-**现状**（先列差异，标准需你拍板）
+**标准签名**（以 iOS/Android 为准）
 
-| 方法 | iOS | Android | Harmony |
-|---|:---:|:---:|:---:|
-| `push` | ✅ | ✅ | ✅ |
-| `pop` | ✅ | ✅ | ✅ |
-| `replace` | ✅ | ✅ | ✅ |
-| `backTo` | ✅ | ✅ | ❌ |
-| `getSize` | ✅ | ✅ | ❌ |
-| `getStack` | ✅ | ✅ | ❌ |
-| `canGoBack` | ✅ | ✅ | ❌ |
-| `getCurrent` | ❌ | ❌ | ✅ |
-| `getAll` | ❌ | ❌ | ✅ |
-| `clear` | ❌ | ❌ | ✅ |
-
-**标准决策建议**：以 iOS/Android 的方法集为准（`push/pop/replace/backTo/getSize/getStack/canGoBack`），Harmony 改造对齐。返回字段统一：`{success, action, stackSize}`。
-
----
-
-### 4.9 resource 🔴 完全不同
-
-**现状**：三端 API 几乎无交集。
-
-| 平台 | 方法 | 关键参数 |
+| 方法 | params | returns |
 |---|---|---|
-| iOS | `getVersion, getAllVersions, checkUpdate, applyUpdate` | `name, url, version` |
-| Android | `getVersion, getAllVersions, checkUpdate, applyUpdate` | `moduleId, remoteVersion, downloadUrl, md5` |
-| Harmony | `load, getResUrl, preload` | `name, names[]` |
+| `push` | `url*(string)` | `success, action, stackSize` |
+| `pop` | — | `success, action, stackSize` |
+| `replace` | `url*(string)` | `success, action` |
+| `backTo` | `index(number) \| url(string)` | `success, action, stackSize` |
+| `getSize` | — | `size, currentIndex` |
+| `getStack` | — | `currentIndex, totalSize, pages[]` |
+| `canGoBack` | — | `canGoBack` |
 
-**标准决策**：需你定方向——这个组件解决什么场景（热更新？本地资源访问？）再统一签名。建议参考 Android 的热更新能力（`checkUpdate/applyUpdate`）作为主路径，参数统一为 `moduleId, version, downloadUrl, md5`。
+**对齐结果** ✅ P1-6 已完成
+- Harmony 已补齐 `backTo` / `getSize` / `getStack` / `canGoBack` 四个标准方法。
+- `backTo` 支持 `index`（0-based）或 `url`（子串匹配）两种寻址。
+- Harmony 保留原有 `getCurrent` / `getAll` / `clear` 作为附加能力（非标准、非契约）。
 
 ---
 
-### 4.10 performance 🔴 Harmony 方法名完全不同
+### 4.9 resource（暂未标准化，平台特定）
+
+**现状**：三端实现解决不同问题，目前没有标准契约。
+
+| 平台 | 方法 | 解决的场景 |
+|---|---|---|
+| iOS | `getVersion, getAllVersions, checkUpdate, applyUpdate` | 热更新（H5 资源包下载与版本管理） |
+| Android | `getVersion, getAllVersions, checkUpdate, applyUpdate` | 热更新（同 iOS，参数命名略不同） |
+| Harmony | `load, getResUrl, preload` | 本地 `$rawfile` 资源访问 |
+
+**决策**：暂不统一。当前业务不接入热更新，三端实现各自保留但**不视为标准组件**——H5 调用方不应假设 `resource.*` 在三端行为一致。
+- iOS/Android 的热更新骨架（`getVersion/checkUpdate/applyUpdate`）保留为「待激活」状态。
+- Harmony 的本地资源加载保留为「平台扩展」。
+- 等业务有明确方向（热更新或离线包统一管理），再回头定义标准签名并三端对齐。
+
+---
+
+### 4.10 performance ✅ 方法名已对齐
 
 **标准签名**（以 iOS/Android 为准）
 
@@ -251,7 +258,10 @@
 | `getSlowCalls` | `threshold(number,ms)` | `{threshold, slowCallCount, slowCalls[]}` |
 | `reset` | — | `success` |
 
-**现状差异** 🔴 Harmony 用的是 `getStats / getHistory / resetStats`——**完全另一套命名**。需改造为 `getMetrics/getMethodStats/getSlowCalls/reset`。
+**对齐结果** ✅ P0-3 已完成
+- Harmony 原 `getStats/getHistory/resetStats` 已重命名为 `getMetrics/getMethodStats/getSlowCalls/reset`。
+- Harmony `getHistory` 的「按 method 过滤历史」语义并入 `getMethodStats`（per-method stats），慢调语义由新 `getSlowCalls(threshold)` 承担（top 50、降序）。
+- 返回字段对齐：`getMetrics` 扁平化（不再嵌套 methods 数组），`getSlowCalls` 用 `{threshold, slowCallCount, slowCalls[]}`。
 
 ---
 
@@ -285,7 +295,7 @@
 
 ---
 
-### 4.13 camera（iOS + Harmony 已实现，Android 缺）
+### 4.13 camera ✅ Android 已补齐（scanQRCode 占位）
 
 **标准签名**
 
@@ -296,15 +306,16 @@
 | `isSupported` | — | `takePhoto, scanQRCode` |
 | `showDialog` | `title, message, confirmText, cancelText` | `confirmed` |
 
-**现状差异** 🟡
-- `takePhoto` 返回：Harmony 多 `uri` 字段 → 保留为可选字段。
-- `scanQRCode` 入参：Harmony 多 `enableAlbum/enableMultiMode` → 标准纳入 `enableAlbum`，`enableMultiMode` 可选。
-- Harmony 有 `showCustomDialog`（第二个弹窗）→ iOS 待补或从 Harmony 删除。
-- **Android 完全缺 camera 组件**，需新建。
+**对齐结果** ✅ P1-4 已完成
+- Android CameraComponent 已新建并注册，方法集与 iOS/Harmony 对齐：`takePhoto` / `scanQRCode` / `isSupported` / `showDialog`。
+- `takePhoto`：使用 `MediaStore.ACTION_IMAGE_CAPTURE` 走系统相机（无需新增第三方库），返回 JPEG data URL；通过新建的 `ActivityForResultDispatcher`（coconut-core）路由 `onActivityResult`。
+- `showDialog`：复用 `AlertDialog`（与 DialogComponent.confirm 同款）。
+- `scanQRCode`：Android 暂返回 `{success:false, message:'not yet supported'}`，等 QR 后端方案落地（决策见会话）。
+- 仍需宿主 App 在 AndroidManifest 声明 `<uses-permission android:name="android.permission.CAMERA" />`（demo app 已加）。
 
 ---
 
-### 4.14 mytest（可选脚手架）
+### 4.14 mytest ✅ 已三端补齐
 
 **标准签名**
 
@@ -314,7 +325,7 @@
 | `echo` | `message*` | `message` |
 | `add` | `a, b` | `sum` |
 
-仅 iOS 实现。决策：要么三端都加（作为冒烟测试），要么从 iOS 删除。
+三端均已实现，作为 Bridge 冒烟测试脚手架。
 
 ---
 
@@ -323,21 +334,22 @@
 ### P0 — 命名空间级分歧（影响所有调用）
 
 1. ✅ **错误码统一**（已完成）：Android/Harmony 组件层的 `9xxxxx` 全部替换为标准码（`200007` 参数校验 / `200001` 组件未找到 / `100005` 内部错误）。
-2. **dialog 三处命名统一**：`toast`(非 showToast) / `confirmText`(非 okText) / `duration` 数字秒 / 返回 `success`(非 shown)。
-3. **performance 方法名统一**：Harmony `getStats/getHistory/resetStats` → `getMetrics/getMethodStats/getSlowCalls/reset`。
+2. ✅ **dialog 三处命名统一**（已完成）：`toast`(非 showToast) / `confirmText`(非 okText) / `duration` 数字秒 / 返回 `success`(非 shown)。
+3. ✅ **performance 方法名统一**（已完成）：Harmony `getStats/getHistory/resetStats` → `getMetrics/getMethodStats/getSlowCalls/reset`，并拆分原 `getHistory` 的统计/慢调语义。
 
-### P1 — 组件补齐
+### P1 — 组件补齐 ✅ 全部完成
 
-4. **Android 补 camera 组件**（参考 iOS/Harmony）。
-5. **Harmony 补 storage.getSize**。
-6. **Harmony stack 方法集对齐** iOS/Android（补 backTo/getSize/getStack/canGoBack）。
+4. ✅ **Android 补 camera 组件**（已完成：takePhoto/showDialog/isSupported 已实现，scanQRCode 占位）。
+5. ✅ **Harmony 补 storage.getSize**（已完成）。
+6. ✅ **Harmony stack 方法集对齐** iOS/Android（已完成：补 backTo/getSize/getStack/canGoBack）。
+7. ✅ **mytest 三端补齐**（已完成：Android + Harmony 新建，参考 iOS）。
 
-### P2 — 签名漂移
+### P2 — 签名漂移 ✅ 全部完成
 
-7. **permission 返回值**：Android/Harmony `granted(boolean)` → `status(string)`。
-8. **device.getInfo 字段**：定义统一字段集，三端对齐。
-9. **resource 组件**：定方向后三端重写对齐。
-10. **clipboard.getText**：Android/Harmony 补 `hasText`；三端补 `clear`。
+7. ✅ **permission 返回值**（已完成）：Android/Harmony 新增 `status` 字符串字段（保留 `granted` 兼容）。
+8. ✅ **device.getInfo 字段**（已完成）：三端统一返回 `manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight`；`getAll` 统一为 `{device, system, app}` 嵌套。
+9. ✅ **resource 组件**（已决策）：暂不统一，标记为可选/平台特定（见 4.9）。
+10. ✅ **clipboard.getText**（已完成）：Android/Harmony 补 `hasText`；三端补 `clear`。
 
 ### P3 — 壳工程
 

@@ -63,6 +63,30 @@
           ]
         }
       ]
+    },
+    {
+      "name": "CoconutPlugins",
+      "srcPath": "./CoconutPlugins",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Camera",
+      "srcPath": "./Camera",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
     }
   ]
 }

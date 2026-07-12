@@ -1,12 +1,14 @@
 import { deviceInfo } from '@kit.BasicServicesKit';
-import { BaseComponent } from '../component/BaseComponent';
-import { JsonObject } from '../utils/JsonHelper';
-import { ComponentContext } from '../component/ComponentContext';
+import { display } from '@kit.ArkUI';
+import { BaseComponent, ComponentContext, JsonObject } from '@coconut/sdk';
 
 /**
  * Device Component
  *
- * Provides device information using HarmonyOS APIs
+ * Provides device information using HarmonyOS APIs.
+ * getInfo / getSystemInfo / getAppInfo return the standard cross-platform
+ * field set (manufacturer, brand, model, osName, osVersion, platform,
+ * screenWidth, screenHeight, sdkVersion, etc).
  */
 export class DeviceComponent extends BaseComponent {
   name: string = 'device';
@@ -33,25 +35,35 @@ export class DeviceComponent extends BaseComponent {
     builder.put('manufacturer', deviceInfo.manufacture);
     builder.put('brand', deviceInfo.brand);
     builder.put('model', deviceInfo.productModel);
-    builder.put('deviceType', deviceInfo.deviceType);
-    builder.put('marketName', deviceInfo.marketName);
-    builder.put('productSeries', deviceInfo.productSeries);
+    builder.put('osName', 'HarmonyOS');
+    builder.put('osVersion', deviceInfo.osFullName);
+    builder.put('platform', 'harmony');
+    // Screen dimensions from display manager
+    try {
+      const d = display.getDefaultDisplaySync();
+      builder.putNumber('screenWidth', d.width);
+      builder.putNumber('screenHeight', d.height);
+      builder.putNumber('screenScale', d.densityPixels);
+    } catch (e) {
+      // skip screen fields if unavailable
+    }
     return this.success(builder);
   }
 
   private getSystemInfo(): string {
     const builder = new JsonObject();
-    builder.put('osFullName', deviceInfo.osFullName);
-    builder.putNumber('sdkApiVersion', deviceInfo.sdkApiVersion);
-    builder.put('securityPatchTag', deviceInfo.securityPatchTag);
-    builder.put('abiList', deviceInfo.abiList);
-    builder.put('serial', deviceInfo.serial);
+    builder.put('osName', 'HarmonyOS');
+    builder.put('osVersion', deviceInfo.osFullName);
+    builder.putNumber('sdkVersion', deviceInfo.sdkApiVersion);
+    builder.put('model', deviceInfo.productModel);
+    builder.put('localizedModel', deviceInfo.productModel);
     return this.success(builder);
   }
 
   private getAppInfo(): string {
     const builder = new JsonObject();
     builder.put('appName', 'CoconutSDK');
+    builder.put('packageName', 'com.sniper.coconut');
     builder.put('version', '2.0.0');
     builder.put('buildNumber', '1');
     builder.putBool('debug', false);
@@ -63,11 +75,15 @@ export class DeviceComponent extends BaseComponent {
     device.put('manufacturer', deviceInfo.manufacture);
     device.put('brand', deviceInfo.brand);
     device.put('model', deviceInfo.productModel);
-    device.put('deviceType', deviceInfo.deviceType);
+    device.put('osName', 'HarmonyOS');
+    device.put('osVersion', deviceInfo.osFullName);
+    device.put('platform', 'harmony');
 
     const system = new JsonObject();
-    system.put('osFullName', deviceInfo.osFullName);
-    system.putNumber('sdkApiVersion', deviceInfo.sdkApiVersion);
+    system.put('osName', 'HarmonyOS');
+    system.put('osVersion', deviceInfo.osFullName);
+    system.putNumber('sdkVersion', deviceInfo.sdkApiVersion);
+    system.put('model', deviceInfo.productModel);
 
     const app = new JsonObject();
     app.put('appName', 'CoconutSDK');

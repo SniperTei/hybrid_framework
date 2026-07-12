@@ -1,7 +1,5 @@
 import { pasteboard } from '@kit.BasicServicesKit';
-import { BaseComponent } from '../component/BaseComponent';
-import { Logger } from '../utils/Logger';
-import { JsonObject } from '../utils/JsonHelper';
+import { BaseComponent, Logger, JsonObject } from '@coconut/sdk';
 
 /**
  * Clipboard Component
@@ -34,11 +32,13 @@ export class ClipboardComponent extends BaseComponent {
       const text = pasteData.getPrimaryText() || '';
       const builder = new JsonObject();
       builder.put('text', text);
+      builder.putBool('hasText', !!text);
       return this.success(builder);
     } catch (e) {
       Logger.e(this.name, `Get clipboard text failed: ${e}`);
       const builder = new JsonObject();
       builder.put('text', '');
+      builder.putBool('hasText', false);
       return this.success(builder);
     }
   }
@@ -46,7 +46,7 @@ export class ClipboardComponent extends BaseComponent {
   private async setText(paramsJson: string): Promise<string> {
     const text = this.getParam(paramsJson, 'text');
     if (!text) {
-      return this.error('900001', 'Text cannot be empty');
+      return this.error('200007', 'Text cannot be empty');
     }
 
     try {
@@ -58,7 +58,7 @@ export class ClipboardComponent extends BaseComponent {
       return this.success(builder);
     } catch (e) {
       Logger.e(this.name, `Set clipboard text failed: ${e}`);
-      return this.error('900010', `Failed to set clipboard: ${e}`);
+      return this.error('100005', `Failed to set clipboard: ${e}`);
     }
   }
 
@@ -82,7 +82,7 @@ export class ClipboardComponent extends BaseComponent {
       builder.putBool('success', true);
       return this.success(builder);
     } catch (e) {
-      return this.error('900010', `Failed to clear clipboard: ${e}`);
+      return this.error('100005', `Failed to clear clipboard: ${e}`);
     }
   }
 }

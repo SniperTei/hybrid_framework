@@ -564,6 +564,24 @@
         }
     };
 
+    /**
+     * 快捷方法 - 相机组件 (Camera component)
+     *
+     * takePhoto: { frontCamera?: boolean } -> { success, uri, base64 }
+     * scanQRCode: { enableAlbum?, enableMultiMode?, qrOnly? } -> { success, codeType, originalValue }
+     */
+    Coconut.prototype.camera = {
+        takePhoto: function (options, callback) {
+            return Coconut.call('camera.takePhoto', options || {}, callback);
+        },
+        scanQRCode: function (options, callback) {
+            return Coconut.call('camera.scanQRCode', options || {}, callback);
+        },
+        isSupported: function (callback) {
+            return Coconut.call('camera.isSupported', {}, callback);
+        }
+    };
+
     // 创建单例
     var CoconutSDK = new Coconut();
 

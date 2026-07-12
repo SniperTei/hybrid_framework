@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "Camera",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}

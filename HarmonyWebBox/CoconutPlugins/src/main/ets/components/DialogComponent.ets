@@ -1,6 +1,5 @@
 import { promptAction } from '@kit.ArkUI';
-import { BaseComponent } from '../component/BaseComponent';
-import { JsonObject } from '../utils/JsonHelper';
+import { BaseComponent, JsonObject } from '@coconut/sdk';
 
 /**
  * Dialog Component
@@ -20,8 +19,8 @@ export class DialogComponent extends BaseComponent {
         return this.confirm(paramsJson);
       case 'prompt':
         return this.prompt(paramsJson);
-      case 'showToast':
-        return this.showToast(paramsJson);
+      case 'toast':
+        return this.toast(paramsJson);
       case 'showLoading':
         return this.showLoading(paramsJson);
       case 'hideLoading':
@@ -56,7 +55,7 @@ export class DialogComponent extends BaseComponent {
   private async confirm(paramsJson: string): Promise<string> {
     const title = this.getParam(paramsJson, 'title', '确认');
     const message = this.getParam(paramsJson, 'message', '');
-    const okText = this.getParam(paramsJson, 'okText', '确定');
+    const confirmText = this.getParam(paramsJson, 'confirmText', '确定');
     const cancelText = this.getParam(paramsJson, 'cancelText', '取消');
 
     return new Promise<string>((resolve) => {
@@ -65,7 +64,7 @@ export class DialogComponent extends BaseComponent {
         message: message,
         buttons: [
           { text: cancelText, color: '#666666' },
-          { text: okText, color: '#007DFF' }
+          { text: confirmText, color: '#007DFF' }
         ]
       }).then((result) => {
         // Index 0 = cancel, Index 1 = OK
@@ -84,7 +83,7 @@ export class DialogComponent extends BaseComponent {
     const title = this.getParam(paramsJson, 'title', '输入');
     const message = this.getParam(paramsJson, 'message', '');
     const placeholder = this.getParam(paramsJson, 'placeholder', '');
-    const okText = this.getParam(paramsJson, 'okText', '确定');
+    const confirmText = this.getParam(paramsJson, 'confirmText', '确定');
     const cancelText = this.getParam(paramsJson, 'cancelText', '取消');
 
     return new Promise<string>((resolve) => {
@@ -93,7 +92,7 @@ export class DialogComponent extends BaseComponent {
         message: message,
         buttons: [
           { text: cancelText, color: '#666666' },
-          { text: okText, color: '#007DFF' }
+          { text: confirmText, color: '#007DFF' }
         ]
       }).then((result) => {
         const builder = new JsonObject();
@@ -109,17 +108,17 @@ export class DialogComponent extends BaseComponent {
     });
   }
 
-  private showToast(paramsJson: string): string {
+  private toast(paramsJson: string): string {
     const message = this.getParam(paramsJson, 'message', '');
-    const duration = this.getParam(paramsJson, 'duration', 'short');
+    const durationSec = this.getIntParam(paramsJson, 'duration', 2);
 
     if (!message) {
-      return this.error('900001', 'Message cannot be empty');
+      return this.error('200007', 'Message cannot be empty');
     }
 
     promptAction.showToast({
       message: message,
-      duration: duration === 'long' ? 3500 : 1500
+      duration: durationSec * 1000
     });
 
     const builder = new JsonObject();

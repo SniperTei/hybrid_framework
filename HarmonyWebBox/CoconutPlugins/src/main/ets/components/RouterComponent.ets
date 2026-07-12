@@ -1,7 +1,4 @@
-import { BaseComponent } from '../component/BaseComponent';
-import { ComponentContext } from '../component/ComponentContext';
-import { Logger } from '../utils/Logger';
-import { JsonObject } from '../utils/JsonHelper';
+import { BaseComponent, ComponentContext, Logger, JsonObject } from '@coconut/sdk';
 
 /**
  * Router Component
@@ -32,7 +29,7 @@ export class RouterComponent extends BaseComponent {
   private open(paramsJson: string): string {
     const url = this.getParam(paramsJson, 'url');
     if (!url) {
-      return this.error('900001', 'URL is required');
+      return this.error('200007', 'URL is required');
     }
 
     const isNewWindow = this.getParam(paramsJson, 'isNewWindow') === 'true';
@@ -46,7 +43,7 @@ export class RouterComponent extends BaseComponent {
       return this.handleHttpRoute(url, isNewWindow);
     }
 
-    return this.error('900001', `Unsupported URL scheme: ${url}`);
+    return this.error('200007', `Unsupported URL scheme: ${url}`);
   }
 
   private handleNativeRoute(url: string): string {
