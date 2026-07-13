@@ -23,17 +23,29 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         let window = UIWindow(windowScene: windowScene)
-        let webVC = CoconutWebViewController()
-        webVC.enableDebug = true
-        webVC.loadViewIfNeeded()
-        webVC.loadUrl(CoconutConfig.shared.environment.defaultH5Domain)
-        window.rootViewController = webVC
         self.window = window
         window.makeKeyAndVisible()
 
-        // Initialize SDK components
+        // Initialize SDK components FIRST, then load the H5 page so the bridge
+        // is ready when coconut_index.html fires its first call.
         Task {
             await CoconutSDK.initialize()
+
+            await MainActor.run {
+                let webVC = CoconutWebViewController()
+                webVC.enableDebug = true
+                webVC.loadViewIfNeeded()
+
+                // Load the local conformance-test page from the app bundle.
+                if let html = Bundle.main.url(forResource: "coconut_index", withExtension: "html") {
+                    webVC.loadUrl(html.absoluteString)
+                } else {
+                    // Fallback to remote dev URL if the local page is missing from the bundle.
+                    webVC.loadUrl(CoconutConfig.shared.environment.defaultH5Domain)
+                }
+
+                window.rootViewController = webVC
+            }
         }
     }
 
