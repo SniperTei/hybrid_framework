@@ -3,6 +3,8 @@ import UIKit
 
 open class BaseComponent: CoconutPlugin {
 
+    public init() {}
+
     open var name: String { "" }
     open var version: String { "1.0.0" }
     open var pluginDescription: String { "" }

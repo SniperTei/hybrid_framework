@@ -1,4 +1,5 @@
 import Foundation
+import CoconutSDK
 
 /**
  * MyTest Component
@@ -16,6 +17,7 @@ import Foundation
  *       Adds two integers (demonstrates getIntParam + numeric result).
  */
 public class MyTestComponent: BaseComponent {
+    public init() { super.init() }
 
     override public var name: String { "mytest" }
     override public var version: String { "1.0.0" }

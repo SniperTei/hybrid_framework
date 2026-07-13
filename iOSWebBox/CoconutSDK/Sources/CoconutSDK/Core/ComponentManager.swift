@@ -112,26 +112,6 @@ public class ComponentManager {
         return getRegisteredComponents().compactMap { getComponentInfo(name: $0) }
     }
 
-    public func autoRegister() async {
-        let defaultComponents: [CoconutPlugin] = [
-            DeviceComponent(),
-            NetworkComponent(),
-            StorageComponent(),
-            SystemComponent(),
-            SecurityComponent(),
-            DialogComponent(),
-            PermissionComponent(),
-            ResourceComponent(),
-            RouterComponent(),
-            PerformanceComponent(),
-            ClipboardComponent(),
-            StackComponent(),
-            CameraComponent(),
-            MyTestComponent()
-        ]
-        await inject(defaultComponents)
-    }
-
     public func cleanup() async {
         lock.lock()
         let allComponents = Array(components.values)

@@ -42,10 +42,30 @@ public class CoconutSDK {
         ComponentManager.shared.setApplicationContext(UIApplication.shared)
         ComponentManager.shared.setSdkVersion(config.sdkVersion)
 
-        await ComponentManager.shared.autoRegister()
-
+        // NOTE: components are no longer auto-registered. The host app must call
+        // registerComponents(...) after initialize() so it controls exactly which
+        // components are active. This mirrors Android's WebBoxApplication pattern.
         isInitialized = true
         Logger.shared.i("CoconutSDK", "✓ SDK initialized (v\(config.sdkVersion), env: \(config.environment.displayName))")
+    }
+
+    /// Register multiple components explicitly.
+    /// Mirrors `CoconutSDK.registerComponents(vararg BaseComponent)` on Android.
+    public static func registerComponents(_ components: [CoconutPlugin]) async {
+        guard isInitialized else {
+            Logger.shared.e("CoconutSDK", "Cannot register components: SDK not initialized. Call CoconutSDK.initialize() first.")
+            return
+        }
+        await ComponentManager.shared.inject(components)
+    }
+
+    /// Register a single component.
+    public static func registerComponent(_ component: CoconutPlugin) async {
+        guard isInitialized else {
+            Logger.shared.e("CoconutSDK", "Cannot register component: SDK not initialized. Call CoconutSDK.initialize() first.")
+            return
+        }
+        try? await ComponentManager.shared.register(component)
     }
 
     public static func configure(_ block: (CoconutConfig) -> Void) {

@@ -1,8 +1,10 @@
 import Foundation
 import UIKit
 import WebKit
+import CoconutSDK
 
 public class RouterComponent: BaseComponent {
+    public init() { super.init() }
 
     override public var name: String { "router" }
     override public var version: String { "1.0.0" }

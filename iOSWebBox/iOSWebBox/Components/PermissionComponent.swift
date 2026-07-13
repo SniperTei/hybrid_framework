@@ -4,8 +4,10 @@ import AVFoundation
 import Photos
 import Contacts
 import CoreLocation
+import CoconutSDK
 
 public class PermissionComponent: BaseComponent {
+    public init() { super.init() }
 
     override public var name: String { "permission" }
     override public var version: String { "1.0.0" }

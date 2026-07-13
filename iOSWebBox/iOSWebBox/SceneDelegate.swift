@@ -26,10 +26,29 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
         window.makeKeyAndVisible()
 
-        // Initialize SDK components FIRST, then load the H5 page so the bridge
-        // is ready when coconut_index.html fires its first call.
+        // Initialize SDK + register components FIRST, then load the H5 page so
+        // the bridge is ready when coconut_index.html fires its first call.
         Task {
             await CoconutSDK.initialize()
+
+            // Explicit registration (mirrors Android's WebBoxApplication).
+            // The host app decides which components are active.
+            await CoconutSDK.registerComponents([
+                DeviceComponent(),
+                NetworkComponent(),
+                StorageComponent(),
+                SystemComponent(),
+                SecurityComponent(),
+                DialogComponent(),
+                PermissionComponent(),
+                ResourceComponent(),
+                RouterComponent(),
+                PerformanceComponent(),
+                ClipboardComponent(),
+                StackComponent(),
+                CameraComponent(),
+                MyTestComponent()
+            ])
 
             await MainActor.run {
                 let webVC = CoconutWebViewController()

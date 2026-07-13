@@ -1,6 +1,8 @@
 import Foundation
+import CoconutSDK
 
 public class StorageComponent: BaseComponent {
+    public init() { super.init() }
 
     override public var name: String { "storage" }
     override public var version: String { "1.0.0" }

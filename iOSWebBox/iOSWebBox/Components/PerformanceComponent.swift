@@ -1,6 +1,8 @@
 import Foundation
+import CoconutSDK
 
 public class PerformanceComponent: BaseComponent {
+    public init() { super.init() }
 
     override public var name: String { "performance" }
     override public var version: String { "1.0.0" }

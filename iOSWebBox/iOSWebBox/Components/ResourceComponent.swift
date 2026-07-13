@@ -1,6 +1,8 @@
 import Foundation
+import CoconutSDK
 
 public class ResourceComponent: BaseComponent {
+    public init() { super.init() }
 
     override public var name: String { "resource" }
     override public var version: String { "1.0.0" }
