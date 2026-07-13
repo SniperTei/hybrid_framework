@@ -102,7 +102,7 @@ class LoginComponent : BaseComponent() {
             }.let { success(it) }
         } else {
             Logger.w(name, "Login failed: empty username or password")
-            error("400001", "用户名或密码不能为空")
+            paramValidationError("用户名或密码不能为空")
         }
     }
 
@@ -167,7 +167,7 @@ class LoginComponent : BaseComponent() {
                 put("email", JsonPrimitive(email))
             }.let { success(it) }
         } else {
-            error("400002", "用户名或密码不能为空")
+            paramValidationError("用户名或密码不能为空")
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.sniper.coconut.component
 
+import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.utils.Logger
 import io.github.classgraph.ClassGraph
 import io.github.classgraph.ClassInfo
@@ -295,4 +296,4 @@ data class ComponentInfo(
 /**
  * Component exception
  */
-class ComponentException(val code: String = "200001", message: String, cause: Throwable? = null) : Exception(message, cause)
+class ComponentException(val code: String = ErrorCode.UNKNOWN_COMPONENT, message: String, cause: Throwable? = null) : Exception(message, cause)

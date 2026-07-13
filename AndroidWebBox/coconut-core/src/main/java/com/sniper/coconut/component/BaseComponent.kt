@@ -1,5 +1,6 @@
 package com.sniper.coconut.component
 
+import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -116,14 +117,14 @@ abstract class BaseComponent : CoconutPlugin {
      * Throw function not supported error
      */
     protected fun functionNotSupportedError(function: String): JsonElement {
-        throw ComponentException("200002", "Function not supported: $function")
+        throw ComponentException(ErrorCode.UNKNOWN_FUNCTION, "Function not supported: $function")
     }
 
     protected fun paramValidationError(message: String): JsonElement {
-        throw ComponentException("200007", message)
+        throw ComponentException(ErrorCode.PARAM_VALIDATION_FAILED, message)
     }
 
     protected fun internalError(message: String): JsonElement {
-        throw ComponentException("100005", message)
+        throw ComponentException(ErrorCode.INTERNAL_ERROR, message)
     }
 }

@@ -8,7 +8,7 @@ import com.sniper.coconut.components.dialog.DialogComponent
 import com.sniper.coconut.components.network.NetworkComponent
 import com.sniper.coconut.components.performance.PerformanceComponent
 import com.sniper.coconut.components.permission.PermissionComponent
-import com.sniper.coconut.resource.ResourceComponent
+import com.sniper.coconut.components.resource.ResourceComponent
 import com.sniper.coconut.components.router.RouterComponent
 import com.sniper.coconut.components.stack.StackComponent
 import com.sniper.coconut.components.storage.StorageComponent

@@ -1,4 +1,4 @@
-package com.sniper.coconut.resource
+package com.sniper.coconut.components.resource
 
 import com.sniper.coconut.component.BaseComponent
 import com.sniper.coconut.component.ComponentContext
