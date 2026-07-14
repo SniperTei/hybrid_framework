@@ -11,7 +11,12 @@ public class RequestSignatureValidator: @unchecked Sendable {
     public var timestampToleranceMs: Int64 = 300_000 // 5 minutes
 
     private let maxNonceCache = 1000
-    private var nonceCache: [String: Int64] = [:]
+    // True LRU: `nonceOrder` maintains insertion order, `nonceTimestamps` stores
+    // values. Eviction pops the oldest from the head of `nonceOrder`. Replacing
+    // the previous Dictionary.keys.first approach (which returned hash-order, not
+    // insertion-order, so it was not actually LRU).
+    private var nonceOrder: [String] = []
+    private var nonceTimestamps: [String: Int64] = [:]
     private let lock = NSLock()
 
     private init() {}
@@ -41,7 +46,7 @@ public class RequestSignatureValidator: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        if nonceCache[nonce] != nil {
+        if nonceTimestamps[nonce] != nil {
             return .invalid(errorCode: ErrorCode.NONCE_REUSED, message: "Nonce already used")
         }
 
@@ -57,11 +62,13 @@ public class RequestSignatureValidator: @unchecked Sendable {
             return .invalid(errorCode: ErrorCode.SIGNATURE_INVALID, message: "Invalid signature")
         }
 
-        // Record nonce with LRU eviction
-        if nonceCache.count >= maxNonceCache, let oldestKey = nonceCache.keys.first {
-            nonceCache.removeValue(forKey: oldestKey)
+        // Record nonce with true LRU eviction (oldest insertion first).
+        if nonceOrder.count >= maxNonceCache, let oldest = nonceOrder.first {
+            nonceOrder.removeFirst()
+            nonceTimestamps.removeValue(forKey: oldest)
         }
-        nonceCache[nonce] = now
+        nonceOrder.append(nonce)
+        nonceTimestamps[nonce] = now
         return .valid
     }
 
@@ -87,6 +94,7 @@ public class RequestSignatureValidator: @unchecked Sendable {
     public func reset() {
         lock.lock()
         defer { lock.unlock() }
-        nonceCache.removeAll()
+        nonceOrder.removeAll()
+        nonceTimestamps.removeAll()
     }
 }

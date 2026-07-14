@@ -15,34 +15,64 @@ public enum SecurityResult {
     }
 }
 
-public class BridgeSecurityValidator {
+public class BridgeSecurityValidator: @unchecked Sendable {
 
     private let tag = "BridgeSecurity"
 
-    private var allowedDomains: Set<String> = []
-    private var callCounts: [String: Int] = [:]
-    private var lastResetTime: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
+    // All mutable state guarded by `lock` so the validator is safe to call from
+    // any thread. Configuration reads (maxParamsSize etc.) are intentionally
+    // also locked because callers may mutate them at runtime.
+    private let lock = NSLock()
+    private var _allowedDomains: Set<String> = []
+    private var _callCounts: [String: Int] = [:]
+    private var _lastResetTime: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
 
-    public var maxParamsSize: Int = 1_048_576 // 1MB
-    public var rateLimitPerMethod: Int = 100
-    public var rateLimitWindowMs: Int64 = 60_000 // 1 minute
+    private var _maxParamsSize: Int = 1_048_576 // 1MB
+    private var _rateLimitPerMethod: Int = 100
+    private var _rateLimitWindowMs: Int64 = 60_000 // 1 minute
+
+    public var maxParamsSize: Int {
+        get { lock.lock(); defer { lock.unlock() }; return _maxParamsSize }
+        set { lock.lock(); defer { lock.unlock() }; _maxParamsSize = newValue }
+    }
+    public var rateLimitPerMethod: Int {
+        get { lock.lock(); defer { lock.unlock() }; return _rateLimitPerMethod }
+        set { lock.lock(); defer { lock.unlock() }; _rateLimitPerMethod = newValue }
+    }
+    public var rateLimitWindowMs: Int64 {
+        get { lock.lock(); defer { lock.unlock() }; return _rateLimitWindowMs }
+        set { lock.lock(); defer { lock.unlock() }; _rateLimitWindowMs = newValue }
+    }
 
     public func addAllowedDomain(_ domain: String) {
-        allowedDomains.insert(domain)
+        lock.lock(); defer { lock.unlock() }
+        _allowedDomains.insert(domain)
     }
 
     public func setAllowedDomains(_ domains: [String]) {
-        allowedDomains = Set(domains)
+        lock.lock(); defer { lock.unlock() }
+        _allowedDomains = Set(domains)
+    }
+
+    /// Returns the currently configured allowed domains (snapshot under lock).
+    public func getAllowedDomains() -> [String] {
+        lock.lock(); defer { lock.unlock() }
+        return Array(_allowedDomains)
     }
 
     public func validateDomain(_ url: String) -> SecurityResult {
-        if allowedDomains.isEmpty { return .valid }
+        let domains = { () -> Set<String> in
+            lock.lock(); defer { lock.unlock() }
+            return _allowedDomains
+        }()
+
+        if domains.isEmpty { return .valid }
 
         guard let host = extractHost(url), !host.isEmpty else {
             return .invalid("Cannot extract host from URL: \(url)")
         }
 
-        let isAllowed = allowedDomains.contains { domain in
+        let isAllowed = domains.contains { domain in
             host == domain || host.hasSuffix(".\(domain)")
         }
 
@@ -54,21 +84,27 @@ public class BridgeSecurityValidator {
     }
 
     public func validateParamsSize(_ json: String) -> SecurityResult {
-        if json.utf8.count > maxParamsSize {
-            return .invalid("Params size exceeds limit (\(json.utf8.count) > \(maxParamsSize))")
+        let limit = { () -> Int in
+            lock.lock(); defer { lock.unlock() }
+            return _maxParamsSize
+        }()
+        if json.utf8.count > limit {
+            return .invalid("Params size exceeds limit (\(json.utf8.count) > \(limit))")
         }
         return .valid
     }
 
     public func checkRateLimit(_ method: String) -> SecurityResult {
-        resetIfNeeded()
+        lock.lock(); defer { lock.unlock() }
 
-        let count = callCounts[method, default: 0]
-        if count >= rateLimitPerMethod {
+        resetIfNeededLocked()
+
+        let count = _callCounts[method, default: 0]
+        if count >= _rateLimitPerMethod {
             return .invalid("Rate limit exceeded for method: \(method)")
         }
 
-        callCounts[method] = count + 1
+        _callCounts[method] = count + 1
         return .valid
     }
 
@@ -77,11 +113,19 @@ public class BridgeSecurityValidator {
         return urlObj.host
     }
 
-    private func resetIfNeeded() {
+    /// Must be called while holding `lock`.
+    private func resetIfNeededLocked() {
         let now = Int64(Date().timeIntervalSince1970 * 1000)
-        if now - lastResetTime >= rateLimitWindowMs {
-            callCounts.removeAll()
-            lastResetTime = now
+        if now - _lastResetTime >= _rateLimitWindowMs {
+            _callCounts.removeAll()
+            _lastResetTime = now
         }
+    }
+
+    /// Test/support hook: clears rate-limit counters and resets the window.
+    public func resetRateLimit() {
+        lock.lock(); defer { lock.unlock() }
+        _callCounts.removeAll()
+        _lastResetTime = Int64(Date().timeIntervalSince1970 * 1000)
     }
 }
