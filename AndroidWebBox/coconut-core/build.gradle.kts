@@ -40,6 +40,12 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+
     publishing {
         singleVariant("release") {
             withSourcesJar()
