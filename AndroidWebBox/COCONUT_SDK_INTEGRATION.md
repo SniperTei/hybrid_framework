@@ -4,10 +4,18 @@
 
 ```
 AndroidWebBox/
-├── app/                          # 主应用模块
-│   └── build.gradle.kts          # 依赖 :coconut-sdk
+├── app/                          # 主应用模块（持有全部组件源码）
+│   └── src/main/java/com/sniper/androidwebbox/
+│       ├── WebBoxApplication.kt  # 在此显式注册组件
+│       └── components/           # 14 个框架组件 + 业务组件
+│           ├── device/DeviceComponent.kt
+│           ├── network/NetworkComponent.kt
+│           ├── storage/StorageComponent.kt
+│           ├── ... (clipboard / dialog / permission / router / stack / system / ...)
+│           ├── camera/ mytest/ security/ performance/ resource/
+│           └── LoginComponent.kt  # 业务组件示例
 │
-├── coconut-core/                 # 核心模块 (10个Kotlin文件)
+├── coconut-core/                 # 核心模块（Bridge / Component / Security）
 │   ├── src/main/java/com/sniper/coconut/
 │   │   ├── bridge/               # Bridge系统
 │   │   │   ├── CoconutBridge.kt
@@ -23,14 +31,7 @@ AndroidWebBox/
 │   │       └── Logger.kt
 │   └── build.gradle.kts
 │
-├── coconut-plugins/              # 内置组件模块 (3个Kotlin文件)
-│   ├── src/main/java/com/sniper/coconut/components/
-│   │   ├── device/DeviceComponent.kt    # 设备信息
-│   │   ├── network/NetworkComponent.kt  # 网络状态
-│   │   └── storage/StorageComponent.kt  # 本地存储
-│   └── build.gradle.kts
-│
-└── coconut-sdk/                  # SDK统一入口模块 (4个Kotlin文件)
+└── coconut-sdk/                  # SDK统一入口模块（初始化 + WebView 封装）
     ├── src/main/java/com/sniper/coconut/
     │   ├── CoconutSDK.kt        # 主入口API
     │   ├── config/CoconutConfig.kt
@@ -42,12 +43,14 @@ AndroidWebBox/
 ## 模块依赖关系
 
 ```
-app
+app (持有组件源码)
   ↓ 依赖
 coconut-sdk
   ↓ 依赖
-coconut-core + coconut-plugins
+coconut-core
 ```
+
+> CoconutSDK 只放框架（Bridge / ComponentManager / 安全管线），**不含任何具体组件**。组件归 App 装配，通过显式注册决定启用哪些。
 
 ## 如何使用
 
@@ -64,6 +67,8 @@ dependencies {
 
 ```kotlin
 class MyApplication : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     override fun onCreate() {
         super.onCreate()
 
@@ -76,12 +81,13 @@ class MyApplication : Application() {
             setTimeout(30000)
         }
 
-        // 注册组件
-        lifecycleScope.launch {
+        // 显式注册组件（三端统一模式）
+        applicationScope.launch {
             CoconutSDK.registerComponents(
                 DeviceComponent(),
                 NetworkComponent(),
                 StorageComponent()
+                // ... 按需添加更多组件
             )
         }
     }
@@ -140,7 +146,6 @@ Coconut.call('storage.setItem', { key: 'myKey', value: 'myValue' }, function(res
 
 # 只构建SDK模块
 ./gradlew :coconut-core:build
-./gradlew :coconut-plugins:build
 ./gradlew :coconut-sdk:build
 
 # 构建并安装app
@@ -156,9 +161,9 @@ Coconut.call('storage.setItem', { key: 'myKey', value: 'myValue' }, function(res
 - **Android Gradle Plugin**: 8.13.2
 - **Kotlin Coroutines**: 1.7.3
 - **Kotlin Serialization**: 1.6.0
-- **ClassGraph**: 4.8.162 (组件自动扫描)
-- **Compile SDK**: 34
-- **Min SDK**: 24
+- **OkHttp**: 4.12.0 (NetworkComponent 的 HTTP 后端之一，可选)
+- **Compile SDK**: 36
+- **Min SDK**: 29
 
 ## 命名重构对照表
 
@@ -175,23 +180,25 @@ Coconut.call('storage.setItem', { key: 'myKey', value: 'myValue' }, function(res
 | NetworkPlugin | NetworkComponent |
 | StorageComponent | StorageComponent (保持) |
 
-## 下一步
+## 状态
 
 1. ✅ 项目结构创建完成
 2. ✅ 所有模块构建成功
 3. ✅ 依赖配置正确
-4. ⏭️ 在app模块中创建示例代码
-5. ⏭️ 创建H5测试页面
-6. ⏭️ 编写集成文档
+4. ✅ app 模块中包含全部组件源码与示例注册
+5. ✅ H5 测试页面（`coconut_index.html`）就绪
+6. ✅ 三端架构对齐（iOS / Android / Harmony 组件均在 App 工程）
 
 ## 注意事项
 
 1. **Java版本**: 所有模块使用Java 17
-2. **包名**: `com.sniper.coconut.*`
+2. **包名约定**:
+   - 框架代码：`com.sniper.coconut.*`（coconut-core / coconut-sdk）
+   - App 组件代码：`com.sniper.androidwebbox.components.*`（业务自定义）
 3. **命名空间**:
    - coconut-core: `com.sniper.coconut.core`
-   - coconut-plugins: `com.sniper.coconut.components`
    - coconut-sdk: `com.sniper.coconut.sdk`
-4. **权限要求**:
-   - coconut-plugins需要网络权限
-   - app模块需要在AndroidManifest.xml中配置网络权限
+4. **组件注册**：显式注册模式（三端统一），不扫描注解。App 决定启用哪些组件。
+5. **权限要求**:
+   - 网络相关组件需要 INTERNET 权限
+   - app模块需要在AndroidManifest.xml中声明所需权限
