@@ -22,5 +22,4 @@ dependencyResolutionManagement {
 rootProject.name = "AndroidWebBox"
 include(":app")
 include(":coconut-core")
-include(":coconut-plugins")
 include(":coconut-sdk")

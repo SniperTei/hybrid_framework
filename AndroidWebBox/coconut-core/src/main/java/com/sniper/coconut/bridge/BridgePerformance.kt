@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
  * Bridge Performance Collector
  *
  * Lightweight singleton in coconut-core to record bridge call metrics.
- * PerformanceComponent in coconut-plugins reads from this.
+ * PerformanceComponent (in app project) reads from this.
  */
 object BridgePerformance {
 

@@ -51,9 +51,6 @@ dependencies {
     // Coconut Core
     api(project(":coconut-core"))
 
-    // Coconut Plugins
-    api(project(":coconut-plugins"))
-
     // Kotlin Coroutines
     api("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 

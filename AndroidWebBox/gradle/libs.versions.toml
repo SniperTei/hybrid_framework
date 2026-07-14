@@ -12,7 +12,6 @@ constraintlayout = "2.2.1"
 # Coconut SDK dependencies
 kotlinx-coroutines = "1.7.3"
 kotlinx-serialization = "1.6.0"
-classgraph = "4.8.162"
 webkit = "1.10.0"
 
 [libraries]
@@ -28,7 +27,6 @@ androidx-constraintlayout = { group = "androidx.constraintlayout", name = "const
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
-classgraph = { group = "io.github.classgraph", name = "classgraph", version.ref = "classgraph" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 
 [plugins]

@@ -56,9 +56,6 @@ dependencies {
     // Kotlin Serialization
     api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
-    // Class scanning for auto-registration
-    api("io.github.classgraph:classgraph:4.8.162")
-
     // AndroidX Core
     api("androidx.core:core-ktx:1.12.0")
 

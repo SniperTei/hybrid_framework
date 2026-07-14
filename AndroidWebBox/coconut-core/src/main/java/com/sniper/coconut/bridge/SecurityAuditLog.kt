@@ -7,7 +7,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * Security Audit Log
  *
  * Singleton in coconut-core to record security rejection events.
- * SecurityComponent in coconut-plugins reads from this.
+ * SecurityComponent (in app project) reads from this.
  */
 object SecurityAuditLog {
 

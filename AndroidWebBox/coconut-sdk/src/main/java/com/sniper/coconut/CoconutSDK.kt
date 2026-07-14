@@ -90,17 +90,6 @@ object CoconutSDK {
     }
 
     /**
-     * Auto-register built-in components
-     *
-     * Scans com.sniper.coconut.components package for @ComponentMetadata annotated classes
-     */
-    suspend fun autoRegisterComponents() {
-        checkInitialized()
-        ComponentManager.getInstance().autoRegister("com.sniper.coconut.components")
-        Logger.i("CoconutSDK", "Auto-registered built-in components")
-    }
-
-    /**
      * Unregister a component
      *
      * @param componentName Component name

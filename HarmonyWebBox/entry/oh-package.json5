@@ -6,9 +6,7 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "@coconut/sdk": "file:../CoconutSDK",
-    "@coconut/plugins": "file:../CoconutPlugins",
-    "@coconut/camera": "file:../Camera"
+    "@coconut/sdk": "file:../CoconutSDK"
   }
 }
 

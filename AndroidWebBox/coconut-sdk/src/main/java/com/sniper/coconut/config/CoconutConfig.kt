@@ -25,12 +25,6 @@ class CoconutConfig {
         private set
 
     /**
-     * Enable auto-registration of built-in components
-     */
-    var autoRegisterComponents: Boolean = true
-        private set
-
-    /**
      * Custom user agent for WebView
      */
     var customUserAgent: String? = null
@@ -142,10 +136,6 @@ class CoconutConfig {
 
     fun setTimeout(milliseconds: Long) = apply {
         timeout = milliseconds
-    }
-
-    fun setAutoRegisterComponents(enable: Boolean) = apply {
-        autoRegisterComponents = enable
     }
 
     fun setCustomUserAgent(agent: String) = apply {

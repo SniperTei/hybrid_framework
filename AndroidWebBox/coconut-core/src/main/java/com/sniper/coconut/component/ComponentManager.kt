@@ -2,8 +2,6 @@ package com.sniper.coconut.component
 
 import com.sniper.coconut.bridge.model.ErrorCode
 import com.sniper.coconut.utils.Logger
-import io.github.classgraph.ClassGraph
-import io.github.classgraph.ClassInfo
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -164,50 +162,6 @@ class ComponentManager private constructor() {
     suspend fun getAllComponentsInfo(): List<ComponentInfo> {
         val componentNames = getRegisteredComponents()
         return componentNames.mapNotNull { getComponentInfo(it) }
-    }
-
-    /**
-     * Auto-register components with @ComponentMetadata annotation
-     *
-     * @param packageName Package to scan
-     */
-    suspend fun autoRegister(packageName: String) {
-        Logger.d("ComponentManager", "Auto-registering components from package: $packageName")
-
-        val scanResult = try {
-            ClassGraph()
-                .enableClassInfo()
-                .enableAnnotationInfo()
-                .acceptPackages(packageName)
-                .scan()
-        } catch (e: Exception) {
-            Logger.e("ComponentManager", "Failed to scan for components", e)
-            return
-        }
-
-        try {
-            val componentClasses = scanResult.getClassesWithAnnotation(ComponentMetadata::class.java.name)
-
-            for (classInfo: ClassInfo in componentClasses) {
-                try {
-                    @Suppress("UNCHECKED_CAST")
-                    val componentClass = classInfo.loadClass() as Class<CoconutPlugin>
-                    val component = componentClass.getDeclaredConstructor().newInstance()
-
-                    try {
-                        register(component)
-                    } catch (e: Exception) {
-                        Logger.e("ComponentManager", "Failed to auto-register component: ${classInfo.name}", e)
-                    }
-                } catch (e: Exception) {
-                    Logger.e("ComponentManager", "Failed to instantiate component: ${classInfo.name}", e)
-                }
-            }
-
-            Logger.d("ComponentManager", "Auto-registered ${componentClasses.size} components")
-        } finally {
-            scanResult.close()
-        }
     }
 
     /**

@@ -9,10 +9,6 @@
 -keep class kotlinx.serialization.json.** { *; }
 -keep @kotlinx.serialization.Serializable class * { *; }
 
-# Keep ClassGraph for component scanning
--keep class io.github.classgraph.** { *; }
--dontwarn io.github.classgraph.**
-
 # Keep component interfaces and implementations
 -keep interface com.sniper.coconut.component.** { *; }
 -keep class * implements com.sniper.coconut.component.CoconutPlugin { *; }
