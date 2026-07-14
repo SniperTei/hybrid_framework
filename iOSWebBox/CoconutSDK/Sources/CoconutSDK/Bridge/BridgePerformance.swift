@@ -1,6 +1,6 @@
 import Foundation
 
-public class BridgePerformance {
+public class BridgePerformance: @unchecked Sendable {
 
     public static let shared = BridgePerformance()
 

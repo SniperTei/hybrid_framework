@@ -1,12 +1,12 @@
 import Foundation
 import UIKit
 
+@MainActor
 public class ComponentManager {
 
     public static let shared = ComponentManager()
 
     private var components: [String: CoconutPlugin] = [:]
-    private let lock = NSLock()
     private(set) public var sharedContext: ComponentContext!
 
     private init() {}
@@ -24,9 +24,6 @@ public class ComponentManager {
     }
 
     public func register(_ component: CoconutPlugin) async throws {
-        lock.lock()
-        defer { lock.unlock() }
-
         if components[component.name] != nil {
             Logger.shared.w("ComponentManager", "Component '\(component.name)' already registered")
             return
@@ -61,9 +58,7 @@ public class ComponentManager {
     }
 
     public func unregister(name: String) async {
-        lock.lock()
         let component = components.removeValue(forKey: name)
-        lock.unlock()
 
         if let component = component {
             await component.cleanup()
@@ -72,20 +67,14 @@ public class ComponentManager {
     }
 
     public func getComponent(name: String) -> CoconutPlugin? {
-        lock.lock()
-        defer { lock.unlock() }
         return components[name]
     }
 
     public func hasComponent(name: String) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
         return components[name] != nil
     }
 
     public func getRegisteredComponents() -> [String] {
-        lock.lock()
-        defer { lock.unlock() }
         return Array(components.keys)
     }
 
@@ -113,10 +102,8 @@ public class ComponentManager {
     }
 
     public func cleanup() async {
-        lock.lock()
         let allComponents = Array(components.values)
         components.removeAll()
-        lock.unlock()
 
         for component in allComponents {
             await component.cleanup()

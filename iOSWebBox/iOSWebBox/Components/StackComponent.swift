@@ -3,7 +3,7 @@ import WebKit
 import CoconutSDK
 
 public class StackComponent: BaseComponent {
-    public init() { super.init() }
+    override public init() { super.init() }
 
     override public var name: String { "stack" }
     override public var version: String { "1.0.0" }

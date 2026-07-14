@@ -77,7 +77,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         webView.navigationDelegate = self
         webView.isOpaque = false
         webView.backgroundColor = .white
-        webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
+        webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
 
         containerView.addSubview(webView)
         NSLayoutConstraint.activate([
@@ -213,7 +213,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         change: [NSKeyValueChangeKey: Any]?,
         context: UnsafeMutableRawPointer?
     ) {
-        if keyPath == #keyPath(WKWebView.estimatedProgress) {
+        if keyPath == "estimatedProgress" {
             let progress = Float(webView.estimatedProgress)
             progressView.progress = progress
             progressView.isHidden = progress >= 1.0
@@ -240,9 +240,11 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     // MARK: - Deinit
 
     deinit {
-        webView?.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-        ComponentManager.shared.setHost(nil)
-        BridgeTokenManager.shared.reset()
+        webView?.removeObserver(self, forKeyPath: "estimatedProgress")
+        MainActor.assumeIsolated {
+            ComponentManager.shared.setHost(nil)
+            BridgeTokenManager.shared.reset()
+        }
     }
 }
 

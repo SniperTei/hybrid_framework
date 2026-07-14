@@ -3,7 +3,7 @@ import Network
 import CoconutSDK
 
 public class NetworkComponent: BaseComponent {
-    public init() { super.init() }
+    override public init() { super.init() }
 
     override public var name: String { "network" }
     override public var version: String { "2.0.0" }

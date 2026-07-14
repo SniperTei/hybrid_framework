@@ -1,6 +1,6 @@
 import Foundation
 
-public class ComponentException: Error {
+public class ComponentException: Error, @unchecked Sendable {
     public let code: String
     public let message: String
 
@@ -10,13 +10,13 @@ public class ComponentException: Error {
     }
 }
 
-public class ComponentNotFoundException: ComponentException {
+public final class ComponentNotFoundException: ComponentException {
     public init(_ message: String) {
         super.init(code: ErrorCode.UNKNOWN_COMPONENT, message: message)
     }
 }
 
-public class ComponentNotInitializedException: ComponentException {
+public final class ComponentNotInitializedException: ComponentException {
     public init(_ message: String) {
         super.init(code: ErrorCode.COMPONENT_NOT_INITIALIZED, message: message)
     }

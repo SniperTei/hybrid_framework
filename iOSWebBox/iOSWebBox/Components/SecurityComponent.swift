@@ -2,7 +2,7 @@ import Foundation
 import CoconutSDK
 
 public class SecurityComponent: BaseComponent {
-    public init() { super.init() }
+    override public init() { super.init() }
 
     override public var name: String { "security" }
     override public var version: String { "2.0.0" }

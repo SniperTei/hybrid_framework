@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-public class RequestSignatureValidator {
+public class RequestSignatureValidator: @unchecked Sendable {
 
     public static let shared = RequestSignatureValidator()
     private let tag = "RequestSignature"

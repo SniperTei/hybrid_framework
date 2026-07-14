@@ -23,7 +23,7 @@ import CoconutSDK
  * Note: requires NSCameraUsageDescription in the host app's Info.plist.
  */
 public class CameraComponent: BaseComponent {
-    public init() { super.init() }
+    override public init() { super.init() }
 
     override public var name: String { "camera" }
     override public var version: String { "1.0.0" }

@@ -1,6 +1,6 @@
 import Foundation
 
-public class BridgeTokenManager {
+public class BridgeTokenManager: @unchecked Sendable {
 
     public static let shared = BridgeTokenManager()
     private let tag = "BridgeTokenManager"

@@ -2,7 +2,7 @@ import Foundation
 import CoconutSDK
 
 public class SystemComponent: BaseComponent {
-    public init() { super.init() }
+    override public init() { super.init() }
 
     override public var name: String { "system" }
     override public var version: String { "1.0.0" }

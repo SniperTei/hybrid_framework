@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import WebKit
 
+@MainActor
 public class ComponentContext {
 
     public let applicationContext: UIApplication

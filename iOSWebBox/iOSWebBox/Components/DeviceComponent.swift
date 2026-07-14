@@ -3,7 +3,7 @@ import UIKit
 import CoconutSDK
 
 public class DeviceComponent: BaseComponent {
-    public init() { super.init() }
+    override public init() { super.init() }
 
     override public var name: String { "device" }
     override public var version: String { "1.0.0" }

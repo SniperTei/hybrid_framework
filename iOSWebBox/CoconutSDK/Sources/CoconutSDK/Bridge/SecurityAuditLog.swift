@@ -1,6 +1,6 @@
 import Foundation
 
-public class SecurityAuditLog {
+public class SecurityAuditLog: @unchecked Sendable {
 
     public static let shared = SecurityAuditLog()
     private let tag = "SecurityAuditLog"

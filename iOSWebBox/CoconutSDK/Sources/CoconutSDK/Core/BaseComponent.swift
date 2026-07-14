@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 
+@MainActor
 open class BaseComponent: CoconutPlugin {
 
     public init() {}

@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 
+@MainActor
 public class CoconutConfig {
 
     public static let shared = CoconutConfig()
@@ -21,6 +22,7 @@ public class CoconutConfig {
     private init() {}
 }
 
+@MainActor
 public class CoconutSDK {
 
     public static private(set) var isInitialized = false

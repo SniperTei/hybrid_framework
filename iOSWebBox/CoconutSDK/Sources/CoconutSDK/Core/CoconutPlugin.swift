@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public protocol CoconutPlugin: AnyObject {
 
     var name: String { get }
