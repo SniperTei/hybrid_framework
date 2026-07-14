@@ -12,6 +12,11 @@ let package = Package(
         .target(
             name: "CoconutSDK",
             path: "Sources/CoconutSDK"
+        ),
+        .testTarget(
+            name: "CoconutSDKTests",
+            dependencies: ["CoconutSDK"],
+            path: "Tests/CoconutSDKTests"
         )
     ]
 )
