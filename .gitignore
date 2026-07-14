@@ -20,3 +20,7 @@ build/
 # Node
 node_modules/
 dist/
+
+# Editor / IDE tooling
+.claude/
+.zcode/
