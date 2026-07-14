@@ -5,12 +5,13 @@ import WebKit
 public class CoconutWebViewController: UIViewController, ComponentHost {
 
     private let tag = "CoconutWebVC"
-    public private(set) var webView: WKWebView!
+    public private(set) var webView: WKWebView?
     private var bridge: CoconutBridge!
     private var progressView: UIProgressView!
     private var currentUrl: String?
     private var containerView: UIView!
-    private var errorLabel: UILabel?
+    private var errorPageView: UIView?
+    private var progressObservation: NSKeyValueObservation?
 
     public var enableDebug: Bool = false
 
@@ -72,19 +73,27 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             config.defaultWebpagePreferences.allowsContentJavaScript = true
         }
 
-        webView = WKWebView(frame: .zero, configuration: config)
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.navigationDelegate = self
-        webView.isOpaque = false
-        webView.backgroundColor = .white
-        webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
+        let wv = WKWebView(frame: .zero, configuration: config)
+        wv.translatesAutoresizingMaskIntoConstraints = false
+        wv.navigationDelegate = self
+        wv.isOpaque = false
+        wv.backgroundColor = .white
+        webView = wv
 
-        containerView.addSubview(webView)
+        // KeyPath-based observation: auto-invalidates on deinit, no manual removeObserver needed.
+        progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+            guard let self else { return }
+            let progress = Float(wv.estimatedProgress)
+            self.progressView.progress = progress
+            self.progressView.isHidden = progress >= 1.0
+        }
+
+        containerView.addSubview(wv)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            webView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+            wv.topAnchor.constraint(equalTo: containerView.topAnchor),
+            wv.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            wv.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            wv.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
     }
 
@@ -92,7 +101,9 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
 
     private func setupBridge() {
         bridge = CoconutBridge()
-        webView.configuration.userContentController.add(bridge, name: "CoconutBridge")
+        if let webView = webView {
+            webView.configuration.userContentController.add(bridge, name: "CoconutBridge")
+        }
         Logger.shared.d(tag, "Bridge setup complete")
     }
 
@@ -115,11 +126,19 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     // MARK: - Bridge JS Injection
 
     private func injectBridgeJavaScript() {
+        guard let webView = webView else { return }
         let token = BridgeTokenManager.shared.getToken()
         let signingEnabled = RequestSignatureValidator.shared.enabled
-        let config = CoconutConfig.shared
 
-        let js = """
+        let js = Self.bridgeBootstrapJS(token: token, signingEnabled: signingEnabled)
+        webView.evaluateJavaScript(js)
+        Logger.shared.d(tag, "Bridge security config injected (token: \(token.prefix(8))...)")
+    }
+
+    /// Builds the security-config bootstrap JS injected into the page after navigation finishes.
+    /// Extracted to a static method so the script shape is unit-testable without a WebView.
+    private static func bridgeBootstrapJS(token: String, signingEnabled: Bool) -> String {
+        return """
         (function() {
             if (window.__coconutInitialized) return;
             window.__coconutConfig = {
@@ -134,37 +153,37 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             console.log('Coconut SDK security config injected (iOS)');
         })();
         """
-        webView.evaluateJavaScript(js)
-        Logger.shared.d(tag, "Bridge security config injected (token: \(token.prefix(8))...)")
     }
 
     // MARK: - Public Methods
 
-    public func loadUrl(_ url: String) {
-        currentUrl = url
+    public func loadUrl(_ urlString: String) {
+        currentUrl = urlString
         hideErrorPage()
-        guard let url = URL(string: url) else {
-            Logger.shared.e(tag, "Invalid URL: \(url)")
+        guard let url = URL(string: urlString) else {
+            Logger.shared.e(tag, "Invalid URL: \(urlString)")
             return
         }
-        Logger.shared.d(tag, "Loading URL: \(url)")
-        webView.load(URLRequest(url: url))
+        Logger.shared.d(tag, "Loading URL: \(urlString)")
+        webView?.load(URLRequest(url: url))
     }
 
     public func evaluateJavascript(_ script: String) {
-        webView.evaluateJavaScript(script)
+        webView?.evaluateJavaScript(script)
     }
 
     public func goBack() {
-        if webView.canGoBack {
-            webView.goBack()
-        }
+        guard let webView = webView, webView.canGoBack else { return }
+        webView.goBack()
     }
 
     // MARK: - Error Page
 
     private func showErrorPage() {
-        guard errorLabel == nil else { return }
+        guard errorPageView == nil else { return }
+
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
 
         let label = UILabel()
         label.text = "页面加载失败\n请检查网络连接"
@@ -173,50 +192,42 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         label.textColor = .gray
         label.font = .systemFont(ofSize: 16)
         label.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(label)
+        container.addSubview(label)
         NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: containerView.centerYAnchor)
+            label.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
 
         let retryButton = UIButton(type: .system)
         retryButton.setTitle("重试", for: .normal)
         retryButton.translatesAutoresizingMaskIntoConstraints = false
         retryButton.addTarget(self, action: #selector(retryLoad), for: .touchUpInside)
-        containerView.addSubview(retryButton)
+        container.addSubview(retryButton)
         NSLayoutConstraint.activate([
-            retryButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            retryButton.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             retryButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 16)
         ])
 
-        errorLabel = label
+        containerView.addSubview(container)
+        NSLayoutConstraint.activate([
+            container.topAnchor.constraint(equalTo: containerView.topAnchor),
+            container.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+
+        errorPageView = container
     }
 
     private func hideErrorPage() {
-        errorLabel?.superview?.viewWithTag(-999)?.removeFromSuperview()
-        errorLabel?.removeFromSuperview()
-        errorLabel = nil
+        errorPageView?.removeFromSuperview()
+        errorPageView = nil
     }
 
     @objc private func retryLoad() {
         if let url = currentUrl {
             hideErrorPage()
             loadUrl(url)
-        }
-    }
-
-    // MARK: - KVO
-
-    public override func observeValue(
-        forKeyPath keyPath: String?,
-        of object: Any?,
-        change: [NSKeyValueChangeKey: Any]?,
-        context: UnsafeMutableRawPointer?
-    ) {
-        if keyPath == "estimatedProgress" {
-            let progress = Float(webView.estimatedProgress)
-            progressView.progress = progress
-            progressView.isHidden = progress >= 1.0
         }
     }
 
@@ -240,7 +251,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     // MARK: - Deinit
 
     deinit {
-        webView?.removeObserver(self, forKeyPath: "estimatedProgress")
+        // NSKeyValueObservation auto-invalidates on deinit; no manual removeObserver needed.
         MainActor.assumeIsolated {
             ComponentManager.shared.setHost(nil)
             BridgeTokenManager.shared.reset()
