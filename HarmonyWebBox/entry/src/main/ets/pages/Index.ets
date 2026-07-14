@@ -13,6 +13,7 @@ import { ClipboardComponent } from '../components/ClipboardComponent';
 import { ResourceComponent } from '../components/ResourceComponent';
 import { MyTestComponent } from '../components/MyTestComponent';
 import { CameraComponent } from '../components/CameraComponent';
+import { PopupDemoComponent } from '../components/PopupDemoComponent';
 import { VerifyDialog, VerifyDialogConfig } from '../components/VerifyDialog';
 import { SecondPage } from './SecondPage';
 import { ThirdPage } from './ThirdPage';
@@ -60,7 +61,8 @@ struct Index {
       new ClipboardComponent(),
       new ResourceComponent(),
       new CameraComponent(),
-      new MyTestComponent()
+      new MyTestComponent(),
+      new PopupDemoComponent()
     ]);
   }
 
