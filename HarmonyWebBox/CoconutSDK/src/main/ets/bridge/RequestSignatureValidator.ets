@@ -108,11 +108,11 @@ export class RequestSignatureValidator {
       const keyData = new Uint8Array(Array.from(secretStr).map((c: string) => c.charCodeAt(0)));
       const msgData = new Uint8Array(Array.from(payload).map((c: string) => c.charCodeAt(0)));
 
-      const symKeyGenerator = cryptoFramework.createSymKeyGenerator('HMAC|SHA256|SHA256');
+      const symKeyGenerator = cryptoFramework.createSymKeyGenerator('HMAC');
       const keyBlob: cryptoFramework.DataBlob = { data: keyData };
       const symKey = await symKeyGenerator.convertKey(keyBlob);
 
-      const mac = cryptoFramework.createMac('HMAC|SHA256|SHA256');
+      const mac = cryptoFramework.createMac('SHA256');
       await mac.init(symKey);
       const msgBlob: cryptoFramework.DataBlob = { data: msgData };
       await mac.update(msgBlob);

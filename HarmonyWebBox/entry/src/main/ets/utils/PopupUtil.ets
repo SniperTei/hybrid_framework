@@ -99,8 +99,7 @@ export class PopupUtil {
       alignment: options?.alignment ?? DialogAlignment.Center,
       isModal: options?.isModal ?? true,
       showInSubWindow: options?.showInSubWindow ?? false,
-      autoCancel: options?.autoCancel ?? false,
-      onDidDismiss: options?.onDidDismiss
+      autoCancel: options?.autoCancel ?? false
     };
 
     try {
@@ -118,6 +117,15 @@ export class PopupUtil {
         console.error(`[PopupUtil] dismiss failed: ${e}`);
       } finally {
         content.dispose();
+      }
+      // HarmonyOS promptAction.openCustomDialog does NOT provide an onDidDisappear
+      // callback on BaseDialogOptions (only onDidAppear). To deliver some form of
+      // the onDidDismiss contract, we fire it here after the programmatic dismiss
+      // path. Note: user-initiated dismiss (autoCancel / tap mask) will NOT
+      // trigger this — that limitation is unavoidable without migrating to
+      // CustomDialogController in a @Component host.
+      if (options?.onDidDismiss) {
+        options.onDidDismiss();
       }
     });
   }
