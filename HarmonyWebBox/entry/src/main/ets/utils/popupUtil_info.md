@@ -125,8 +125,31 @@ const handle = await CustomView1Popup.show({
 | `isModal` | `boolean` | `true` | 是否模态（背景是否拦截点击） |
 | `showInSubWindow` | `boolean` | `false` | 是否在子窗口显示 |
 | `autoCancel` | `boolean` | `false` | 点 mask 是否自动关闭 |
+| `onDidDismiss?` | `() => void` | `undefined` | 弹窗关闭后回调（无论是用户操作还是程序化 `handle.dismiss()`） |
 
 > 字段全部透传给 `promptAction.BaseDialogOptions`。
+
+**`onDidDismiss` 触发时机**：
+- 用户开了 `autoCancel` 点 mask 关闭 → ✅ 触发
+- 用户按返回键关闭 → ✅ 触发
+- 调用方主动调 `handle.dismiss()` → ✅ 触（HarmonyOS 系统级行为，无法区分关闭来源）
+- 因此 **回调内不要写非幂等逻辑**（如多次累加、重复网络请求），最好用一个标志位防重入
+
+**典型用法**：让调用方知道弹窗已关（比如解锁按钮、重置状态机）：
+```typescript
+const handle = await CustomView1Popup.show({
+  title: '处理中',
+  message: '请稍候...'
+}, {
+  onDidDismiss: () => {
+    // 弹窗已关（不管谁关的），恢复 UI 状态
+    setLoading(false);
+  }
+});
+
+// 业务逻辑里随时可以主动关
+setTimeout(() => handle.dismiss(), 3000);
+```
 
 ### `PopupHandle`
 
@@ -257,7 +280,7 @@ const handle = await CustomDialog2Popup.show({
 |------|------|------|
 | 单 UIAbility 假设 | `abilityContext` 是 static 单例，多 ability 场景下会串 | 当前 hybrid framework 只有一个 UIAbility，单实例够用。多 ability 时改成 `Map<abilityId, context>` |
 | 每次 show 都 `getLastWindow` | 不缓存 UIContext（window 重建会失效），每次现取 | 微秒级开销，非热点路径，安全优先 |
-| `autoCancel` 自动关闭感知 | 用户开了 autoCancel 点 mask 关闭后，调用方持有的 `handle` 仍可调 `dismiss()`（幂等无副作用），但调用方不知道弹窗已关 | 如需感知，用 `promptAction.openCustomDialog` 的 `onDidDismiss` 回调（当前 PopupUtil 未暴露，需要时加） |
+| `onDidDismiss` 不区分关闭来源 | 用户操作（点 mask / 返回键）和程序化 `handle.dismiss()` 都会触发系统回调 | 回调内写幂等逻辑（用标志位防重入） |
 | 单 ability 路径下的 getLastWindow | 多窗口（分屏 / 多实例）时取的是"最后活跃"的 window，可能不是调用方期望的那个 | 单 window 应用没问题；多窗口场景需要传 windowId |
 
 ---

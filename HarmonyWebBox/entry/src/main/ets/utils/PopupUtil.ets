@@ -30,6 +30,7 @@ export class PopupOptions {
   isModal: boolean = true;
   showInSubWindow: boolean = false;
   autoCancel: boolean = false;
+  onDidDismiss?: () => void;
 }
 
 /** 弹窗句柄：调用方拿它主动关闭弹窗。 */
@@ -98,7 +99,8 @@ export class PopupUtil {
       alignment: options?.alignment ?? DialogAlignment.Center,
       isModal: options?.isModal ?? true,
       showInSubWindow: options?.showInSubWindow ?? false,
-      autoCancel: options?.autoCancel ?? false
+      autoCancel: options?.autoCancel ?? false,
+      onDidDismiss: options?.onDidDismiss
     };
 
     try {
