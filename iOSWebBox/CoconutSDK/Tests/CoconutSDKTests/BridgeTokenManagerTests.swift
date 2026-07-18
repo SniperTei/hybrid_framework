@@ -17,12 +17,14 @@ final class BridgeTokenManagerTests: XCTestCase {
         super.tearDown()
     }
 
-    func testInitialTokenIsEmptyAndEmptyTokenValidates() {
+    func testInitialTokenIsEmptyAndEmptyTokenRejects() {
         manager.reset()
         XCTAssertEqual(manager.getToken(), "")
-        // Empty token means "not yet generated" → any request passes
-        XCTAssertTrue(manager.validateToken(""))
-        XCTAssertTrue(manager.validateToken("anything"))
+        // Empty token means "not yet generated" → fail-closed (any request rejected).
+        // Previously this was fail-open (returned true), which created a silent
+        // bypass window if reset() ran without an immediate generateToken().
+        XCTAssertFalse(manager.validateToken(""))
+        XCTAssertFalse(manager.validateToken("anything"))
     }
 
     func testGenerateTokenReturnsNonEmpty() {
@@ -60,7 +62,8 @@ final class BridgeTokenManagerTests: XCTestCase {
         XCTAssertFalse(token.isEmpty)
         manager.reset()
         XCTAssertEqual(manager.getToken(), "")
-        // After reset, token is empty → any token passes again
-        XCTAssertTrue(manager.validateToken("whatever"))
+        // After reset, token is empty → fail-closed: validation rejects until
+        // generateToken() is called again.
+        XCTAssertFalse(manager.validateToken("whatever"))
     }
 }

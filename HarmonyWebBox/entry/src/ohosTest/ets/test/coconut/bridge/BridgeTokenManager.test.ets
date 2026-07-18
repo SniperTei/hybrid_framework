@@ -18,10 +18,13 @@ export default function bridgeTokenManagerTest() {
       expect(BridgeTokenManager.getToken()).assertEqual('');
     });
 
-    it('emptyToken_validatesAnyToken', 0, () => {
+    it('emptyToken_rejectsAnyToken', 0, () => {
       BridgeTokenManager.reset();
-      expect(BridgeTokenManager.validateToken('whatever')).assertTrue();
-      expect(BridgeTokenManager.validateToken('')).assertTrue();
+      // Fail-closed: empty token (never generated or reset without regenerate)
+      // rejects all requests. Previously this was fail-open (returned true),
+      // which created a silent bypass window.
+      expect(BridgeTokenManager.validateToken('whatever')).assertFalse();
+      expect(BridgeTokenManager.validateToken('')).assertFalse();
     });
 
     it('generateToken_returnsNonEmpty', 0, () => {
@@ -56,6 +59,8 @@ export default function bridgeTokenManagerTest() {
       BridgeTokenManager.generateToken();
       BridgeTokenManager.reset();
       expect(BridgeTokenManager.getToken()).assertEqual('');
+      // After reset the manager is fail-closed until generateToken() runs again.
+      expect(BridgeTokenManager.validateToken('whatever')).assertFalse();
     });
   });
 }

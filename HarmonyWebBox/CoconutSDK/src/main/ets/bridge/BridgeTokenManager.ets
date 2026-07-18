@@ -40,7 +40,12 @@ export class BridgeTokenManager {
    */
   static validateToken(requestToken: string): boolean {
     if (!BridgeTokenManager._enabled) return true;
-    if (BridgeTokenManager.token === '') return true; // Not initialized yet
+    // Fail-closed: an empty token means "never initialized" or "reset without
+    // regenerate". Previously this returned true (fail-open), which created a
+    // silent bypass window if reset() was called at runtime without an
+    // immediate generateToken(). Returning false forces the caller to
+    // generate a token before any bridge call can succeed.
+    if (BridgeTokenManager.token === '') return false;
     return BridgeTokenManager.token === requestToken;
   }
 

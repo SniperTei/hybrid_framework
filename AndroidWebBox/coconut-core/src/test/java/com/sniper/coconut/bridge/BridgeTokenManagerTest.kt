@@ -27,11 +27,13 @@ class BridgeTokenManagerTest {
     }
 
     @Test
-    fun initialToken_isEmpty_andEmptyTokenValidatesAnything() {
+    fun initialToken_isEmpty_andEmptyTokenRejectsEverything() {
         assertEquals("", BridgeTokenManager.getToken())
-        // When token has never been generated, validation is permissive (allows initialization).
-        assertTrue(BridgeTokenManager.validateToken("anything"))
-        assertTrue(BridgeTokenManager.validateToken(""))
+        // Fail-closed: when token has never been generated, validation rejects.
+        // Previously this was fail-open (returned true), which created a silent
+        // bypass window if reset() ran without an immediate generateToken().
+        assertFalse(BridgeTokenManager.validateToken("anything"))
+        assertFalse(BridgeTokenManager.validateToken(""))
     }
 
     @Test
@@ -74,7 +76,7 @@ class BridgeTokenManagerTest {
         BridgeTokenManager.generateToken()
         BridgeTokenManager.reset()
         assertEquals("", BridgeTokenManager.getToken())
-        // After reset the manager behaves as un-initialized → permissive again.
-        assertTrue(BridgeTokenManager.validateToken("anything"))
+        // After reset the manager is fail-closed until generateToken() runs again.
+        assertFalse(BridgeTokenManager.validateToken("anything"))
     }
 }

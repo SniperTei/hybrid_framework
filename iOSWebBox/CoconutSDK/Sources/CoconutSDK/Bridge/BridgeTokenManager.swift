@@ -21,7 +21,12 @@ public class BridgeTokenManager: @unchecked Sendable {
 
     public func validateToken(_ requestToken: String) -> Bool {
         if !enabled { return true }
-        if token.isEmpty { return true }
+        // Fail-closed: an empty token means "never initialized" or "reset without
+        // regenerate". Previously this returned true (fail-open), which created a
+        // silent bypass window if reset() was called at runtime without an
+        // immediate generateToken(). Returning false forces the caller to
+        // generate a token before any bridge call can succeed.
+        if token.isEmpty { return false }
         return token == requestToken
     }
 
