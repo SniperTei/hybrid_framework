@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <!-- cache-path resolves to Context.getCacheDir() -->
-    <cache-path name="coconut_photos" path="coconut_photos/" />
-</paths>

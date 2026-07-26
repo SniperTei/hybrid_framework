@@ -2,21 +2,8 @@ package com.sniper.androidwebbox
 
 import android.app.Application
 import com.sniper.coconut.CoconutSDK
-import com.sniper.androidwebbox.components.camera.CameraComponent
-import com.sniper.androidwebbox.components.clipboard.ClipboardComponent
 import com.sniper.androidwebbox.components.device.DeviceComponent
-import com.sniper.androidwebbox.components.dialog.DialogComponent
-import com.sniper.androidwebbox.components.mytest.MyTestComponent
-import com.sniper.androidwebbox.components.network.NetworkComponent
-import com.sniper.androidwebbox.components.performance.PerformanceComponent
-import com.sniper.androidwebbox.components.permission.PermissionComponent
-import com.sniper.androidwebbox.components.resource.ResourceComponent
-import com.sniper.androidwebbox.components.router.RouterComponent
-import com.sniper.androidwebbox.components.security.SecurityComponent
-import com.sniper.androidwebbox.components.stack.StackComponent
 import com.sniper.androidwebbox.components.storage.StorageComponent
-import com.sniper.androidwebbox.components.system.SystemComponent
-import com.sniper.androidwebbox.components.LoginComponent
 import com.sniper.coconut.config.Environment
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
@@ -66,20 +53,7 @@ class WebBoxApplication : Application() {
             try {
                 CoconutSDK.registerComponents(
                     DeviceComponent(),      // 设备信息
-                    NetworkComponent(),     // 网络状态 & 原生HTTP代理
-                    StorageComponent(),     // 本地存储
-                    ClipboardComponent(),   // 剪切板读写
-                    DialogComponent(),      // 原生弹窗/Toast
-                    PermissionComponent(),  // 权限管理
-                    RouterComponent(),      // 路由协议
-                    StackComponent(),       // 页面栈管理
-                    ResourceComponent(),    // 离线资源 & 热更新
-                    PerformanceComponent(), // Bridge性能监控
-                    SystemComponent(),      // SDK版本 & 能力查询
-                    SecurityComponent(),    // 安全审计
-                    MyTestComponent(),      // 测试脚手架（ping/echo/add）
-                    CameraComponent(),      // 相机（拍照 / 扫码占位 / 自定义弹窗）
-                    LoginComponent()        // 登录（业务组件）
+                    StorageComponent()      // 本地存储
                 )
 
                 val components = CoconutSDK.getRegisteredComponents()

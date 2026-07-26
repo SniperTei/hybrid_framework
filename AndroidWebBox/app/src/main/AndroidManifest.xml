@@ -5,9 +5,6 @@
     <!-- Internet permission for WebView -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Camera permission for CameraComponent.takePhoto -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".WebBoxApplication"
@@ -37,26 +34,6 @@
             android:name="com.sniper.coconut.web.CoconutWebActivity"
             android:exported="false"
             android:label="Coconut WebView" />
-
-        <!-- CameraComponent.scanQRCode scanner UI. CameraX preview + ML Kit
-             barcode detector. Owns the SCAN_RESULT / SCAN_RESULT_FORMAT extras
-             in the result Intent. -->
-        <activity
-            android:name=".components.camera.QrScannerActivity"
-            android:screenOrientation="portrait"
-            android:exported="false" />
-
-        <!-- FileProvider for CameraComponent.takePhoto full-res capture.
-             Authoritiy is namespaced to the applicationId. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
     </application>
 
 </manifest>

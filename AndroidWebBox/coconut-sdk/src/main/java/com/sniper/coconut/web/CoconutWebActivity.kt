@@ -530,28 +530,6 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         }
     }
 
-    @Deprecated("Superseded by Activity Result API, kept for component intent results.")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (com.sniper.coconut.component.ActivityForResultDispatcher.dispatch(requestCode, resultCode, data)) {
-            return
-        }
-        @Suppress("DEPRECATION")
-        super.onActivityResult(requestCode, resultCode, data)
-    }
-
-    @Deprecated("Superseded by Activity Result API, kept for component permission results.")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        if (com.sniper.coconut.component.PermissionResultDispatcher.dispatch(requestCode, permissions, grantResults)) {
-            return
-        }
-        @Suppress("DEPRECATION")
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         ComponentManager.getInstance().setHost(null)  // Clear host reference
