@@ -1,38 +1,43 @@
 package com.sniper.androidwebbox.components.permission
 
-import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.sniper.coconut.component.BaseComponent
 import com.sniper.coconut.component.ComponentContext
 import com.sniper.coconut.component.ComponentMetadata
+import com.sniper.coconut.component.PermissionResultDispatcher
 import com.sniper.coconut.utils.Logger
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlin.coroutines.resume
 
 /**
  * Permission Component
  *
  * Unified permission checking and requesting.
  * Requires Activity via ComponentHost.
+ *
+ * `request` now suspends until the user responds to the system permission
+ * dialog (routed through PermissionResultDispatcher), so the result reflects
+ * the actual grant/deny decision. Previously it was fire-and-forget and H5
+ * had to poll `check()` afterward.
  */
 @ComponentMetadata(
     name = "permission",
-    version = "1.0.0",
+    version = "1.1.0",
     description = "Unified permission management component"
 )
 class PermissionComponent : BaseComponent() {
 
     override val name = "permission"
-    override val version = "1.0.0"
+    override val version = "1.1.0"
     override val description = "Unified permission management component"
 
     private var componentContext: ComponentContext? = null
@@ -71,13 +76,15 @@ class PermissionComponent : BaseComponent() {
     }
 
     /**
-     * Request a permission (launches system permission dialog)
+     * Request a permission (launches system permission dialog) and suspend
+     * until the user responds.
      * params: { "permission": "android.permission.CAMERA" }
      *
-     * Note: This initiates the request. The result comes via ActivityCompat callbacks.
-     * H5 should call check() afterward to verify.
+     * Returns { permission, status, granted }:
+     *   - status="authorized" / granted=true   when already granted or granted via dialog
+     *   - status="denied"     / granted=false  when user denied or dialog unavailable
      */
-    private fun requestPermission(params: JsonObject?): JsonElement {
+    private suspend fun requestPermission(params: JsonObject?): JsonElement {
         val permission = getParam(params, "permission")
         if (permission.isEmpty()) {
             return paramValidationError("Permission name required")
@@ -88,27 +95,32 @@ class PermissionComponent : BaseComponent() {
             return internalError("Activity not available")
         }
 
-        // Already granted?
+        // Fast path: already granted.
         val context = componentContext!!.applicationContext
         if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
-            return buildJsonObject {
-                put("permission", JsonPrimitive(permission))
-                put("status", JsonPrimitive("authorized"))
-                put("granted", JsonPrimitive(true))
-            }.let { success(it) }
-        }
-
-        // Request the permission
-        activity.runOnUiThread {
-            ActivityCompat.requestPermissions(activity, arrayOf(permission), PERMISSION_REQUEST_CODE)
+            return buildResult(permission, granted = true)
         }
 
         Logger.d(name, "Requesting permission: $permission")
-        return buildJsonObject {
+
+        // Suspend on the dispatcher until the user responds.
+        val granted = suspendCancellableCoroutine { cont ->
+            val code = PermissionResultDispatcher.request(activity, arrayOf(permission)) { result ->
+                if (!cont.isActive) return@request
+                cont.resume(result[permission] == true)
+            }
+            cont.invokeOnCancellation { PermissionResultDispatcher.cancel(code) }
+        }
+
+        return buildResult(permission, granted = granted)
+    }
+
+    private fun buildResult(permission: String, granted: Boolean): JsonElement {
+        return jsonSuccess {
             put("permission", JsonPrimitive(permission))
-            put("status", JsonPrimitive("notDetermined"))
-            put("requested", JsonPrimitive(true))
-        }.let { success(it) }
+            put("status", JsonPrimitive(if (granted) "authorized" else "denied"))
+            put("granted", JsonPrimitive(granted))
+        }
     }
 
     /**
@@ -131,8 +143,8 @@ class PermissionComponent : BaseComponent() {
         }.let { success(it) }
     }
 
-    companion object {
-        private const val PERMISSION_REQUEST_CODE = 1001
+    private inline fun jsonSuccess(builder: JsonObjectBuilder.() -> Unit): JsonElement {
+        return buildJsonObject(builder).let { success(it) }
     }
 
     override suspend fun onCleanup() {
