@@ -76,38 +76,7 @@
       <button class="btn-b" onclick="onWrite('B')">写入 B</button>
       <button class="btn-r" onclick="onRead()">读取</button>
     </div>
-    <div class="btns" style="margin-top:10px">
-      <button class="btn-g" onclick="onCall('clipboard.getText')">剪贴板</button>
-      <button class="btn-d" onclick="onCall('dialog.alert', {title:'提示',message:'原生 alert',buttonText:'好'})">Alert</button>
-      <button class="btn-d" onclick="onCall('dialog.confirm', {title:'确认',message:'确定继续吗？'})">Confirm</button>
-      <button class="btn-d" onclick="onCall('dialog.toast', {message:'Hello from H5 👋'})">Toast</button>
-    </div>
-    <div class="btns" style="margin-top:10px">
-      <button class="btn-c" onclick="onCall('permission.check', {permission:'camera'})">相机权限</button>
-    </div>
   </section>
-
-  <section>
-    <h2>扩展组件（iOS / Harmony 支持，Android 暂无）</h2>
-    <div class="btns">
-      <button class="btn-a" onclick="onCall('camera.takePhoto')">拍照</button>
-      <button class="btn-a" onclick="onCall('camera.scanQRCode')">扫码</button>
-      <button class="btn-a" onclick="onCall('camera.showDialog', {title:'自定义弹窗',message:'从 H5 调起的原生弹窗'})">原生弹窗</button>
-      <button class="btn-b" onclick="onCall('mytest.ping')">MyTest Ping</button>
-      <button class="btn-b" onclick="onCall('mytest.echo', {message:'hello'})">MyTest Echo</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>PopupUtil 弹窗（Harmony，演示用）</h2>
-    <div class="btns">
-      <button class="btn-d" onclick="onCall('popup.view1', {title:'确认操作',message:'这是 CustomView1 双按钮弹窗'})">View1 双按钮</button>
-      <button class="btn-d" onclick="onCall('popup.dialog2', {title:'请输入',message:'带输入框的弹窗',placeholder:'输入点什么'})">Dialog2 输入框</button>
-      <button class="btn-c" onclick="onCall('popup.autoDismiss')">程序化关闭（延迟1.5s）</button>
-      <button class="btn-c" onclick="onCall('popup.stack')">多弹窗叠加</button>
-    </div>
-  </section>
-
 
   <div class="panel">
     <h3>最近一次请求（H5 → 原生）</h3>

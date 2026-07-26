@@ -1,19 +1,6 @@
 import { CoconutSDK, CoconutWebPage } from '@coconut/sdk';
 import { DeviceComponent } from '../components/DeviceComponent';
 import { StorageComponent } from '../components/StorageComponent';
-import { SystemComponent } from '../components/SystemComponent';
-import { NetworkComponent } from '../components/NetworkComponent';
-import { DialogComponent } from '../components/DialogComponent';
-import { SecurityComponent } from '../components/SecurityComponent';
-import { PerformanceComponent } from '../components/PerformanceComponent';
-import { PermissionComponent } from '../components/PermissionComponent';
-import { RouterComponent } from '../components/RouterComponent';
-import { StackComponent } from '../components/StackComponent';
-import { ClipboardComponent } from '../components/ClipboardComponent';
-import { ResourceComponent } from '../components/ResourceComponent';
-import { MyTestComponent } from '../components/MyTestComponent';
-import { CameraComponent } from '../components/CameraComponent';
-import { PopupDemoComponent } from '../components/PopupDemoComponent';
 import { VerifyDialog, VerifyDialogConfig } from '../components/VerifyDialog';
 import { SecondPage } from './SecondPage';
 import { ThirdPage } from './ThirdPage';
@@ -49,20 +36,7 @@ struct Index {
     // Register all components
     CoconutSDK.registerComponents([
       new DeviceComponent(),
-      new StorageComponent(),
-      new SystemComponent(),
-      new NetworkComponent(),
-      new DialogComponent(),
-      new SecurityComponent(),
-      new PerformanceComponent(),
-      new PermissionComponent(),
-      new RouterComponent(),
-      new StackComponent(),
-      new ClipboardComponent(),
-      new ResourceComponent(),
-      new CameraComponent(),
-      new MyTestComponent(),
-      new PopupDemoComponent()
+      new StorageComponent()
     ]);
   }
 
