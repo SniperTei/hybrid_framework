@@ -295,23 +295,54 @@
 
 ---
 
-### 4.13 camera ✅ Android 已补齐（scanQRCode 占位）
+### 4.13 camera ✅ 三端已对齐（含 uri 字段、权限门、ZXing scanQRCode）
 
 **标准签名**
 
 | 方法 | params | returns |
 |---|---|---|
-| `takePhoto` | `frontCamera(boolean)` | `success, base64(data URL), message` |
-| `scanQRCode` | `qrOnly(boolean), enableAlbum(boolean)` | `success, codeType, originalValue, message` |
+| `takePhoto` | `frontCamera(boolean)` | `success, uri?, base64?, message?` |
+| `scanQRCode` | `qrOnly(boolean), enableAlbum(boolean)` | `success, codeType?, originalValue?, message?` |
 | `isSupported` | — | `takePhoto, scanQRCode` |
 | `showDialog` | `title, message, confirmText, cancelText` | `confirmed` |
 
-**对齐结果** ✅ P1-4 已完成
-- Android CameraComponent 已新建并注册，方法集与 iOS/Harmony 对齐：`takePhoto` / `scanQRCode` / `isSupported` / `showDialog`。
-- `takePhoto`：使用 `MediaStore.ACTION_IMAGE_CAPTURE` 走系统相机（无需新增第三方库），返回 JPEG data URL；通过新建的 `ActivityForResultDispatcher`（coconut-core）路由 `onActivityResult`。
-- `showDialog`：复用 `AlertDialog`（与 DialogComponent.confirm 同款）。
-- `scanQRCode`：Android 暂返回 `{success:false, message:'not yet supported'}`，等 QR 后端方案落地（决策见会话）。
-- 仍需宿主 App 在 AndroidManifest 声明 `<uses-permission android:name="android.permission.CAMERA" />`（demo app 已加）。
+**返回 shape 约定（三端必须一致）**
+
+`takePhoto` 成功：
+```json
+{ "success": true,
+  "uri":     "<平台特定>",   // iOS: file:///...    Android: content://...    Harmony: sandbox URI
+  "base64":  "data:image/jpeg;base64,..." }
+```
+- 成功时 `uri` 与 `base64` **必须同时存在**。
+- `uri` 仅保证在当前 WebView session 内有效（iOS=NSTemporaryDirectory，Android=cacheDir，均可能被系统回收）；H5 需要持久化请上传 `base64`。
+
+`takePhoto` 失败/取消：
+```json
+{ "success": false, "message": "User cancelled" | "Camera permission denied" | ... }
+```
+
+`scanQRCode` 成功：
+```json
+{ "success": true, "codeType": "QR_CODE" | "EAN_13" | ..., "originalValue": "<解码字符串>" }
+```
+`scanQRCode` 失败/取消：`{ "success": false, "message": "..." }`（同 takePhoto）。
+
+**权限拒绝走业务层**（不走 Bridge error code）：
+- 三端在 takePhoto / scanQRCode 入口都做相机权限预检。
+- 拒绝时返回 `code:"000000"` + `result.success:false` + `result.message:"Camera permission denied"`。
+- 理由：`code:"200003"` 是 Bridge 安全层（Token / HMAC / 域名）专用；权限提示是业务结果。混在一起 H5 错误处理会乱。这是 13 个组件一致的模式。
+
+**对齐结果** ✅ 已三端对齐
+- iOS：`AVCaptureDevice.authorizationStatus(for: .video)` 预检；JPEG 写 `NSTemporaryDirectory()` 返回 `file://` uri。`Info.plist` 必须声明 `NSCameraUsageDescription`（demo app 已加）。
+- Android：`ContextCompat.checkSelfPermission` + 新建 `PermissionResultDispatcher`（coconut-core）路由 `onRequestPermissionsResult`；JPEG 写 `cacheDir/coconut_photos/`，通过 `FileProvider`（authority `${applicationId}.fileprovider`）返回 `content://` uri。需在 manifest 声明 `<uses-permission android:name="android.permission.CAMERA" />` + FileProvider + `<cache-path>`（demo app 已加）。
+- Android `scanQRCode`：用 `zxing-android-embedded:4.3.0`（ZXing 纯 Java + CaptureActivity），不用 ML Kit（依赖 Google Play Services，HMS-only / 无 GMS 设备跑不起来）。CaptureActivity 在 manifest 强制 `screenOrientation="portrait"` + `tools:replace`（ZXing 默认横屏）。
+- Harmony：参考实现，`cameraPicker` 走系统 UI，已满足合约。
+
+**遗留 / 不在 v1 范围**
+- Harmony `isSupported()` 硬编码 `true`，未用 `cameraPicker.isPickerSupported(mediaTypes)` 精确化（follow-up）。
+- 三端相机组件的 instrumented test（Espresso / XCTest UI / Hypium）未覆盖。
+- H5 端合约测试（防三端 shape 漂移）未覆盖。
 
 ---
 
@@ -339,7 +370,7 @@
 
 ### P1 — 组件补齐 ✅ 全部完成
 
-4. ✅ **Android 补 camera 组件**（已完成：takePhoto/showDialog/isSupported 已实现，scanQRCode 占位）。
+4. ✅ **Android 补 camera 组件**（已完成：takePhoto 走 FileProvider 全分辨率、scanQRCode 走 ZXing、权限门走 PermissionResultDispatcher，与 iOS/Harmony 三端 shape 对齐）。
 5. ✅ **Harmony 补 storage.getSize**（已完成）。
 6. ✅ **Harmony stack 方法集对齐** iOS/Android（已完成：补 backTo/getSize/getStack/canGoBack）。
 7. ✅ **mytest 三端补齐**（已完成：Android + Harmony 新建，参考 iOS）。
