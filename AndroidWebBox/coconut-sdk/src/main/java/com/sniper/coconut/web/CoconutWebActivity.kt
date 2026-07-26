@@ -539,6 +539,19 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
+    @Deprecated("Superseded by Activity Result API, kept for component permission results.")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        if (com.sniper.coconut.component.PermissionResultDispatcher.dispatch(requestCode, permissions, grantResults)) {
+            return
+        }
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         ComponentManager.getInstance().setHost(null)  // Clear host reference
