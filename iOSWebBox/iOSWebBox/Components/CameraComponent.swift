@@ -11,11 +11,13 @@ import CoconutSDK
  * API mirrors the Harmony CameraComponent so H5 calls are cross-platform identical.
  *
  * Functions:
- *   - takePhoto:   { frontCamera?: bool } -> { success, base64?, message? }
- *       base64 is a data URL (image/jpeg) ready for <img src>.
- *       Returns { success: false, message } when the user cancels.
+ *   - takePhoto:   { frontCamera?: bool } -> { success, uri?, base64?, message? }
+ *       On success: JPEG persisted to NSTemporaryDirectory(), returned as both a
+ *       file:// uri (current session only) and a data:image/jpeg;base64,... URL.
+ *       Permission denied / cancel returns { success: false, message }.
  *   - scanQRCode:  { qrOnly?: bool } -> { success, codeType?, originalValue?, message? }
  *       qrOnly=true restricts the scanner to QR codes only.
+ *       Permission denied / cancel returns { success: false, message }.
  *   - isSupported: -> { takePhoto: bool, scanQRCode: bool }
  *   - showDialog:  { title?, message?, confirmText?, cancelText? } -> { confirmed: bool }
  *       Shows a native confirm dialog (same UX as the Harmony TestCustomDialog).
@@ -57,6 +59,12 @@ public class CameraComponent: BaseComponent {
             return success(["success": false, "message": "No view controller available"])
         }
 
+        // Permission precheck: business-layer result on denial, not a Bridge error code.
+        let granted = await ensureCameraPermission()
+        if !granted {
+            return success(["success": false, "message": "Camera permission denied"])
+        }
+
         let frontCamera = getBoolParam(params, "frontCamera", false)
         let cameraDevice: UIImagePickerController.CameraDevice = frontCamera ? .front : .rear
 
@@ -79,12 +87,36 @@ public class CameraComponent: BaseComponent {
         }
     }
 
+    /// Returns true iff the app is authorized to use the camera.
+    /// - .authorized: returns true immediately.
+    /// - .notDetermined: prompts the user via requestAccess(for: .video).
+    /// - .denied / .restricted / other: returns false (caller surfaces
+    ///   { success:false, message:"Camera permission denied" }).
+    @MainActor
+    private func ensureCameraPermission() async -> Bool {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            return true
+        case .notDetermined:
+            return await AVCaptureDevice.requestAccess(for: .video)
+        default:
+            return false
+        }
+    }
+
     // MARK: - scanQRCode
 
     @MainActor
     private func scanQRCode(_ params: [String: Any]?) async -> [String: Any] {
         guard let vc = componentContext?.currentViewController else {
             return success(["success": false, "message": "No view controller available"])
+        }
+
+        // Permission precheck: business-layer result on denial, not a Bridge error code.
+        let granted = await ensureCameraPermission()
+        if !granted {
+            return success(["success": false, "message": "Camera permission denied"])
         }
 
         let qrOnly = getBoolParam(params, "qrOnly", false)
@@ -176,7 +208,22 @@ private class PhotoCaptureCoordinator: NSObject, UIImagePickerControllerDelegate
         let jpegData = CameraComponent.jpegData(for: image!) ?? Data()
         let base64 = jpegData.base64EncodedString()
         let dataUrl = "data:image/jpeg;base64,\(base64)"
-        return ["success": true, "base64": dataUrl]
+
+        // Persist JPEG to NSTemporaryDirectory() so H5 can fetch via file:// uri.
+        // Fail-closed: write failure returns success:false rather than degrading
+        // to a uri-less result (callers expect uri+base64 together on success).
+        let fileName = "coconut_photo_\(UUID().uuidString).jpg"
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        do {
+            try jpegData.write(to: fileURL)
+        } catch {
+            return ["success": false, "message": "Failed to persist photo: \(error.localizedDescription)"]
+        }
+        return [
+            "success": true,
+            "uri": fileURL.absoluteString,
+            "base64": dataUrl
+        ]
     }
 }
 
