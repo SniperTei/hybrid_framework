@@ -9,6 +9,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Base64
 import androidx.core.content.FileProvider
+import com.google.zxing.integration.android.IntentIntegrator
 import com.sniper.coconut.component.ActivityForResultDispatcher
 import com.sniper.coconut.component.BaseComponent
 import com.sniper.coconut.component.ComponentContext
@@ -21,7 +22,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -50,13 +50,13 @@ import kotlin.coroutines.resume
  */
 @ComponentMetadata(
     name = "camera",
-    version = "1.1.0",
+    version = "1.2.0",
     description = "Camera component for photo capture and QR code scanning"
 )
 class CameraComponent : BaseComponent() {
 
     override val name = "camera"
-    override val version = "1.1.0"
+    override val version = "1.2.0"
     override val description = "Camera component for photo capture and QR code scanning"
 
     private var componentContext: ComponentContext? = null
@@ -200,13 +200,71 @@ class CameraComponent : BaseComponent() {
     }
 
     // ------------------------------------------------------------------
-    // scanQRCode (placeholder — ZXing implementation lands in a follow-up commit)
+    // scanQRCode (ZXing via zxing-android-embedded)
     // ------------------------------------------------------------------
 
-    private fun scanQRCode(params: JsonObject?): JsonElement {
+    private suspend fun scanQRCode(params: JsonObject?): JsonElement {
+        val activity = componentContext?.currentActivity
+        if (activity == null || activity.isFinishing) {
+            return internalError("Activity not available")
+        }
+
+        // Reuse the CAMERA permission gate from takePhoto.
+        if (!ensureCameraPermission(activity)) {
+            return jsonSuccess {
+                put("success", JsonPrimitive(false))
+                put("message", JsonPrimitive("Camera permission denied"))
+            }
+        }
+
+        // Build the scan intent via IntentIntegrator but DO NOT call initiateScan(),
+        // which would startActivityForResult with its own request code and bypass
+        // ActivityForResultDispatcher.
+        val qrOnly = getBoolParam(params, "qrOnly", false)
+        val integrator = IntentIntegrator(activity).apply {
+            setOrientationLocked(false)
+            setBeepEnabled(false)
+            if (qrOnly) {
+                setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+            }
+        }
+        val scanIntent = integrator.createScanIntent()
+
+        return suspendCancellableCoroutine { cont ->
+            val requestCode = ActivityForResultDispatcher.launch(activity, scanIntent) { resultCode, data ->
+                if (!cont.isActive) return@launch
+                cont.resume(buildScanResult(resultCode, data))
+            }
+            cont.invokeOnCancellation {
+                ActivityForResultDispatcher.cancel(requestCode)
+            }
+        }
+    }
+
+    private fun buildScanResult(resultCode: Int, data: Intent?): JsonElement {
+        if (resultCode != Activity.RESULT_OK) {
+            return jsonSuccess {
+                put("success", JsonPrimitive(false))
+                put("message", JsonPrimitive("User cancelled"))
+            }
+        }
+        // ZXing's CaptureActivity returns SCAN_RESULT / SCAN_RESULT_FORMAT in the
+        // result Intent extras. We extract directly instead of using
+        // IntentIntegrator.parseActivityResult() because that method matches against
+        // ZXing's own internal REQUEST_CODE, which doesn't apply here (we route the
+        // launch through ActivityForResultDispatcher with its own dynamic codes).
+        val contents = data?.getStringExtra("SCAN_RESULT")
+        val formatName = data?.getStringExtra("SCAN_RESULT_FORMAT")
+        if (contents.isNullOrEmpty()) {
+            return jsonSuccess {
+                put("success", JsonPrimitive(false))
+                put("message", JsonPrimitive("No barcode data returned"))
+            }
+        }
         return jsonSuccess {
-            put("success", JsonPrimitive(false))
-            put("message", JsonPrimitive("QR code scanning is not yet supported on Android"))
+            put("success", JsonPrimitive(true))
+            put("codeType", JsonPrimitive(formatName ?: "UNKNOWN"))
+            put("originalValue", JsonPrimitive(contents))
         }
     }
 
@@ -224,8 +282,8 @@ class CameraComponent : BaseComponent() {
 
         return buildJsonObject {
             put("takePhoto", JsonPrimitive(canCapture))
-            // Scanning intentionally reported as unsupported until ZXing backend is wired.
-            put("scanQRCode", JsonPrimitive(false))
+            // ZXing's CaptureActivity works on any device with a back-facing camera.
+            put("scanQRCode", JsonPrimitive(hasCameraFeature))
         }.let { success(it) }
     }
 

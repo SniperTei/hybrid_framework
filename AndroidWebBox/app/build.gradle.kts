@@ -50,6 +50,11 @@ dependencies {
     // OkHttp (used by NetworkComponent's OkHttpHttpClient)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // ZXing Android Embedded (used by CameraComponent.scanQRCode).
+    // Pure-Java barcode scanner with built-in CaptureActivity; works on
+    // HMS-only / non-GMS devices (unlike ML Kit which needs Play Services).
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
     // AndroidX libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
