@@ -35,19 +35,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             // The host app decides which components are active.
             await CoconutSDK.registerComponents([
                 DeviceComponent(),
-                NetworkComponent(),
                 StorageComponent(),
-                SystemComponent(),
-                SecurityComponent(),
-                DialogComponent(),
-                PermissionComponent(),
-                ResourceComponent(),
-                RouterComponent(),
-                PerformanceComponent(),
-                ClipboardComponent(),
-                StackComponent(),
-                CameraComponent(),
-                MyTestComponent()
             ])
 
             await MainActor.run {
