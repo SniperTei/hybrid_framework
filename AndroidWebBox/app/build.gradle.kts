@@ -50,10 +50,17 @@ dependencies {
     // OkHttp (used by NetworkComponent's OkHttpHttpClient)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // ZXing Android Embedded (used by CameraComponent.scanQRCode).
-    // Pure-Java barcode scanner with built-in CaptureActivity; works on
-    // HMS-only / non-GMS devices (unlike ML Kit which needs Play Services).
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // ML Kit Barcode (bundled variant — model in APK, NO GMS dependency).
+    // Used by CameraComponent.scanQRCode. Bundled runs fully on-device,
+    // works on HMS-only / non-GMS ROMs. (+~2.5MB)
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // CameraX (AndroidX Jetpack) — official camera preview for scanQRCode.
+    val cameraxVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
 
     // AndroidX libraries
     implementation(libs.androidx.core.ktx)

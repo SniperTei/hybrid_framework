@@ -9,7 +9,6 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Base64
 import androidx.core.content.FileProvider
-import com.google.zxing.integration.android.IntentIntegrator
 import com.sniper.coconut.component.ActivityForResultDispatcher
 import com.sniper.coconut.component.BaseComponent
 import com.sniper.coconut.component.ComponentContext
@@ -38,8 +37,9 @@ import kotlin.coroutines.resume
  *       both a content:// uri (current session only) and a data:image/jpeg;base64,...
  *       data URL. Permission denied / cancel returns { success:false, message }.
  *   - scanQRCode:  { qrOnly?: bool } -> { success, codeType?, originalValue?, message? }
- *       Backed by ZXing (`zxing-android-embedded`). Returns codeType (e.g. "QR_CODE")
- *       and originalValue on success; { success:false, message:"User cancelled" } on
+ *       Backed by ML Kit barcode-scanning (bundled, no GMS dependency) + CameraX
+ *       preview (see QrScannerActivity). Returns codeType (e.g. "QR_CODE") and
+ *       originalValue on success; { success:false, message:"User cancelled" } on
  *       back/cancel.
  *   - isSupported: -> { takePhoto: bool, scanQRCode: bool }
  *   - showDialog:  { title?, message?, confirmText?, cancelText? } -> { confirmed: bool }
@@ -50,13 +50,13 @@ import kotlin.coroutines.resume
  */
 @ComponentMetadata(
     name = "camera",
-    version = "1.2.0",
+    version = "1.3.0",
     description = "Camera component for photo capture and QR code scanning"
 )
 class CameraComponent : BaseComponent() {
 
     override val name = "camera"
-    override val version = "1.2.0"
+    override val version = "1.3.0"
     override val description = "Camera component for photo capture and QR code scanning"
 
     private var componentContext: ComponentContext? = null
@@ -200,7 +200,7 @@ class CameraComponent : BaseComponent() {
     }
 
     // ------------------------------------------------------------------
-    // scanQRCode (ZXing via zxing-android-embedded)
+    // scanQRCode (ML Kit barcode-scanning bundled + CameraX preview)
     // ------------------------------------------------------------------
 
     private suspend fun scanQRCode(params: JsonObject?): JsonElement {
@@ -217,18 +217,10 @@ class CameraComponent : BaseComponent() {
             }
         }
 
-        // Build the scan intent via IntentIntegrator but DO NOT call initiateScan(),
-        // which would startActivityForResult with its own request code and bypass
-        // ActivityForResultDispatcher.
         val qrOnly = getBoolParam(params, "qrOnly", false)
-        val integrator = IntentIntegrator(activity).apply {
-            setOrientationLocked(false)
-            setBeepEnabled(false)
-            if (qrOnly) {
-                setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-            }
+        val scanIntent = Intent(activity, QrScannerActivity::class.java).apply {
+            putExtra(QrScannerActivity.EXTRA_QR_ONLY, qrOnly)
         }
-        val scanIntent = integrator.createScanIntent()
 
         return suspendCancellableCoroutine { cont ->
             val requestCode = ActivityForResultDispatcher.launch(activity, scanIntent) { resultCode, data ->
@@ -248,13 +240,8 @@ class CameraComponent : BaseComponent() {
                 put("message", JsonPrimitive("User cancelled"))
             }
         }
-        // ZXing's CaptureActivity returns SCAN_RESULT / SCAN_RESULT_FORMAT in the
-        // result Intent extras. We extract directly instead of using
-        // IntentIntegrator.parseActivityResult() because that method matches against
-        // ZXing's own internal REQUEST_CODE, which doesn't apply here (we route the
-        // launch through ActivityForResultDispatcher with its own dynamic codes).
-        val contents = data?.getStringExtra("SCAN_RESULT")
-        val formatName = data?.getStringExtra("SCAN_RESULT_FORMAT")
+        val contents = data?.getStringExtra(QrScannerActivity.EXTRA_SCAN_RESULT)
+        val formatName = data?.getStringExtra(QrScannerActivity.EXTRA_SCAN_RESULT_FORMAT)
         if (contents.isNullOrEmpty()) {
             return jsonSuccess {
                 put("success", JsonPrimitive(false))

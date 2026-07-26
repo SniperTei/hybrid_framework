@@ -38,12 +38,12 @@
             android:exported="false"
             android:label="Coconut WebView" />
 
-        <!-- ZXing CaptureActivity (CameraComponent.scanQRCode). Forced portrait
-             with tools:replace because ZXing's manifest declares landscape. -->
+        <!-- CameraComponent.scanQRCode scanner UI. CameraX preview + ML Kit
+             barcode detector. Owns the SCAN_RESULT / SCAN_RESULT_FORMAT extras
+             in the result Intent. -->
         <activity
-            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:name=".components.camera.QrScannerActivity"
             android:screenOrientation="portrait"
-            tools:replace="android:screenOrientation"
             android:exported="false" />
 
         <!-- FileProvider for CameraComponent.takePhoto full-res capture.

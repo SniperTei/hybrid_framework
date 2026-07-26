@@ -336,7 +336,9 @@
 **对齐结果** ✅ 已三端对齐
 - iOS：`AVCaptureDevice.authorizationStatus(for: .video)` 预检；JPEG 写 `NSTemporaryDirectory()` 返回 `file://` uri。`Info.plist` 必须声明 `NSCameraUsageDescription`（demo app 已加）。
 - Android：`ContextCompat.checkSelfPermission` + 新建 `PermissionResultDispatcher`（coconut-core）路由 `onRequestPermissionsResult`；JPEG 写 `cacheDir/coconut_photos/`，通过 `FileProvider`（authority `${applicationId}.fileprovider`）返回 `content://` uri。需在 manifest 声明 `<uses-permission android:name="android.permission.CAMERA" />` + FileProvider + `<cache-path>`（demo app 已加）。
-- Android `scanQRCode`：用 `zxing-android-embedded:4.3.0`（ZXing 纯 Java + CaptureActivity），不用 ML Kit（依赖 Google Play Services，HMS-only / 无 GMS 设备跑不起来）。CaptureActivity 在 manifest 强制 `screenOrientation="portrait"` + `tools:replace`（ZXing 默认横屏）。
+- Android `scanQRCode`：用 **ML Kit barcode-scanning (bundled)**（官方、模型打进 APK、**无 GMS 依赖**，HMS-only / 无 GMS 设备能跑）+ **CameraX**（AndroidX Jetpack，相机预览）。自定义 `QrScannerActivity` 持有相机预览 + 调 ML Kit 解码。ML Kit 的 int 格式常量映射成跨平台字符串名（`FORMAT_QR_CODE` → `"QR_CODE"`）以保持 shape 稳定。
+  - 体积增量 ~5MB（ML Kit 模型 ~2.5MB + CameraX ~1.5MB + 预览 UI）。
+  - 不用 ZXing 是因为想尽量用官方库；不用 ML Kit thin 变体（`play-services-mlkit-barcode-scanning`）是因为那个变体才真依赖 GMS。bundled 版本是纯 on-device。
 - Harmony：参考实现，`cameraPicker` 走系统 UI，已满足合约。
 
 **遗留 / 不在 v1 范围**
