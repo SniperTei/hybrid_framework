@@ -1,10 +1,11 @@
 /**
  * 🥥 Coconut SDK - JavaScript Client
  *
- * Coconut SDK 的 JavaScript 客户端，用于与 Android 原生代码交互
- * 支持 Phase 4 安全特性：Bridge Token 防护 & HMAC-SHA256 请求签名
+ * 与 Android / iOS / HarmonyOS 原生交互的统一 JS 客户端
+ * 支持环境：android (sync) / ios (async) / harmony (async) / web (mock)
+ * 安全特性：Bridge Token 防护 & HMAC-SHA256 请求签名
  *
- * @version 1.1.0
+ * @version 2.1.0
  */
 
 (function (global, factory) {
@@ -20,7 +21,7 @@
      * Coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '2.0.0';
+        this.version = '2.1.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -29,7 +30,7 @@
         this.timers = {};
         this.environment = this.detectEnvironment();
         this.env = this.createEnv();
-        this._securityConfig = null; // Phase 4: 缓存安全配置
+        this._securityConfig = null;
     };
 
     /**
@@ -160,8 +161,8 @@
     };
 
     /**
-     * Phase 4: 加载安全配置
-     * 从 window.__coconutConfig 读取 Android 注入的安全参数
+     * 加载安全配置
+     * 从 window.__coconutConfig 读取原生注入的安全参数
      */
     Coconut.prototype._loadSecurityConfig = function () {
         if (typeof window !== 'undefined' && window.__coconutConfig) {
@@ -177,13 +178,13 @@
     };
 
     /**
-     * Phase 4: 为请求附加安全字段
+     * 为请求附加安全字段
      * 返回 Promise，因为 HMAC 计算是异步的
      */
     Coconut.prototype._applySecurity = function (request) {
         var self = this;
 
-        // 延迟加载：首次调用时如果还没拿到 Android 注入的配置，再读一次
+        // 延迟加载：首次调用时如果还没拿到原生注入的配置，再读一次
         if (!this._securityConfig && typeof window !== 'undefined' && window.__coconutConfig) {
             this._loadSecurityConfig();
         }
@@ -224,7 +225,7 @@
     };
 
     /**
-     * Phase 4: HMAC-SHA256 计算（Web Crypto API）
+     * HMAC-SHA256 计算（Web Crypto API）
      */
     Coconut.prototype._computeHmac = function (key, message) {
         try {
@@ -261,7 +262,6 @@
         var self = this;
         var requestId = this.generateRequestId();
         var request = {
-            jsonrpc: '2.0',
             method: method,
             params: params || {},
             id: requestId
@@ -277,7 +277,6 @@
             self.cleanupRequest(requestId);
             if (callback) {
                 callback({
-                    jsonrpc: '2.0',
                     id: requestId,
                     code: '200004',
                     message: 'Timeout after ' + to + 'ms',
@@ -291,7 +290,7 @@
         }).catch(function (error) {
             self.error('Security apply failed:', error);
             if (callback) {
-                callback({ jsonrpc: '2.0', id: requestId, code: '100005', message: 'Security error: ' + error.message, result: null }, true);
+                callback({ id: requestId, code: '100005', message: 'Security error: ' + error.message, result: null }, true);
                 self.cleanupRequest(requestId);
             }
         });
@@ -318,7 +317,7 @@
     };
 
     /**
-     * 发送请求到原生（纯同步桥调用）
+     * 发送请求到原生
      */
     Coconut.prototype._sendBridgeRequest = function (request) {
         var requestJson = JSON.stringify(request);
@@ -336,19 +335,17 @@
             } else if (this.environment === 'ios') {
                 if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.CoconutBridge) {
                     window.webkit.messageHandlers.CoconutBridge.postMessage(requestJson);
-                    // Response will come back asynchronously via __coconutIOSCallback
+                    // 响应经 window.__coconutIOSCallback 异步回来
                 } else {
                     throw new Error('CoconutBridge not found');
                 }
             } else if (this.environment === 'harmony') {
-                // HarmonyOS async bridge (similar to iOS)
-                window.__coconutHarmonyCallback = function (responseJson) {
-                    if (CoconutSDK && CoconutSDK.handleResponse) {
-                        CoconutSDK.handleResponse(responseJson);
-                    }
-                    delete window.__coconutHarmonyCallback;
-                };
-                window.CoconutHarmonyBridge.call(requestJson);
+                if (window.CoconutHarmonyBridge && window.CoconutHarmonyBridge.call) {
+                    window.CoconutHarmonyBridge.call(requestJson);
+                    // 响应经 window.__coconutHarmonyCallback 异步回来
+                } else {
+                    throw new Error('CoconutHarmonyBridge not found');
+                }
             } else {
                 // Web 环境模拟
                 this.handleWebMock(request);
@@ -358,7 +355,6 @@
             var errorCallback = this.callbacks[request.id];
             if (errorCallback) {
                 errorCallback({
-                    jsonrpc: '2.0',
                     id: request.id,
                     code: '100005',
                     message: error.message,
@@ -376,7 +372,6 @@
         var self = this;
         setTimeout(function () {
             var mockResponse = {
-                jsonrpc: '2.0',
                 id: request.id,
                 code: '000000',
                 message: 'success (web mock)',
@@ -389,22 +384,14 @@
                     model: 'Mock Browser',
                     version: '1.0.0'
                 };
-            } else if (request.method === 'system.getVersion') {
-                mockResponse.result = { version: '2.0.0' };
-            } else if (request.method === 'system.getComponentVersion') {
-                mockResponse.result = { name: request.params.name, version: '1.0.0' };
-            } else if (request.method === 'system.getAllComponents') {
-                mockResponse.result = { components: ['device', 'network', 'storage', 'system', 'security'] };
-            } else if (request.method === 'system.checkCapability') {
-                mockResponse.result = { method: request.params.method, supported: true };
-            } else if (request.method === 'security.getAuditLog') {
-                mockResponse.result = { entries: [], total: 0 };
-            } else if (request.method === 'security.getAuditSummary') {
-                mockResponse.result = { totalCalls: 0, blockedCalls: 0, lastActivity: null };
-            } else if (request.method === 'security.getSecurityConfig') {
-                mockResponse.result = { bridgeTokenEnabled: false, signingEnabled: false };
-            } else if (request.method === 'security.clearAuditLog') {
-                mockResponse.result = { cleared: true };
+            } else if (request.method === 'storage.getItem') {
+                mockResponse.result = { key: request.params.key, value: null };
+            } else if (request.method === 'storage.setItem') {
+                mockResponse.result = { key: request.params.key, success: true };
+            } else if (request.method === 'storage.removeItem') {
+                mockResponse.result = { key: request.params.key, success: true };
+            } else if (request.method === 'storage.clear') {
+                mockResponse.result = { success: true };
             }
 
             self.handleResponse(JSON.stringify(mockResponse));
@@ -471,36 +458,15 @@
         }
     };
 
+    // 创建单例
+    var CoconutSDK = new Coconut();
+
     /**
      * 快捷方法 - 设备组件
      */
     Coconut.prototype.device = {
         getInfo: function (callback) {
-            return Coconut.call('device.getInfo', {}, callback);
-        }
-    };
-
-    /**
-     * 快捷方法 - 网络组件
-     */
-    Coconut.prototype.network = {
-        request: function (options, callback) {
-            return Coconut.call('network.request', options, callback);
-        },
-        get: function (url, callback) {
-            return Coconut.call('network.request', { url: url, method: 'GET' }, callback);
-        },
-        post: function (url, data, callback) {
-            return Coconut.call('network.request', { url: url, method: 'POST', body: data }, callback);
-        },
-        put: function (url, data, callback) {
-            return Coconut.call('network.request', { url: url, method: 'PUT', body: data }, callback);
-        },
-        delete: function (url, callback) {
-            return Coconut.call('network.request', { url: url, method: 'DELETE' }, callback);
-        },
-        patch: function (url, data, callback) {
-            return Coconut.call('network.request', { url: url, method: 'PATCH', body: data }, callback);
+            return CoconutSDK.call('device.getInfo', {}, callback);
         }
     };
 
@@ -509,88 +475,32 @@
      */
     Coconut.prototype.storage = {
         setItem: function (key, value, callback) {
-            return Coconut.call('storage.setItem', { key: key, value: value }, callback);
+            return CoconutSDK.call('storage.setItem', { key: key, value: value }, callback);
         },
         getItem: function (key, callback) {
-            return Coconut.call('storage.getItem', { key: key }, callback);
+            return CoconutSDK.call('storage.getItem', { key: key }, callback);
         },
         removeItem: function (key, callback) {
-            return Coconut.call('storage.removeItem', { key: key }, callback);
+            return CoconutSDK.call('storage.removeItem', { key: key }, callback);
         },
         clear: function (callback) {
-            return Coconut.call('storage.clear', {}, callback);
+            return CoconutSDK.call('storage.clear', {}, callback);
         },
         getAllKeys: function (callback) {
-            return Coconut.call('storage.getAllKeys', {}, callback);
+            return CoconutSDK.call('storage.getAllKeys', {}, callback);
         },
         getLength: function (callback) {
-            return Coconut.call('storage.getLength', {}, callback);
+            return CoconutSDK.call('storage.getLength', {}, callback);
         }
     };
 
-    /**
-     * 快捷方法 - System 组件
-     */
-    Coconut.prototype.system = {
-        getVersion: function (callback) {
-            return Coconut.call('system.getVersion', {}, callback);
-        },
-        getComponentVersion: function (name, callback) {
-            return Coconut.call('system.getComponentVersion', { name: name }, callback);
-        },
-        getAllComponents: function (callback) {
-            return Coconut.call('system.getAllComponents', {}, callback);
-        },
-        checkCapability: function (method, callback) {
-            return Coconut.call('system.checkCapability', { method: method }, callback);
-        }
-    };
-
-    /**
-     * 快捷方法 - Security 组件
-     */
-    Coconut.prototype.security = {
-        getAuditLog: function (options, callback) {
-            return Coconut.call('security.getAuditLog', options || {}, callback);
-        },
-        getAuditSummary: function (callback) {
-            return Coconut.call('security.getAuditSummary', {}, callback);
-        },
-        getSecurityConfig: function (callback) {
-            return Coconut.call('security.getSecurityConfig', {}, callback);
-        },
-        clearAuditLog: function (callback) {
-            return Coconut.call('security.clearAuditLog', {}, callback);
-        }
-    };
-
-    /**
-     * 快捷方法 - 相机组件 (Camera component)
-     *
-     * takePhoto: { frontCamera?: boolean } -> { success, uri, base64 }
-     * scanQRCode: { enableAlbum?, enableMultiMode?, qrOnly? } -> { success, codeType, originalValue }
-     */
-    Coconut.prototype.camera = {
-        takePhoto: function (options, callback) {
-            return Coconut.call('camera.takePhoto', options || {}, callback);
-        },
-        scanQRCode: function (options, callback) {
-            return Coconut.call('camera.scanQRCode', options || {}, callback);
-        },
-        isSupported: function (callback) {
-            return Coconut.call('camera.isSupported', {}, callback);
-        }
-    };
-
-    // 创建单例
-    var CoconutSDK = new Coconut();
-
-    // iOS bridge callback (called by native side via evaluateJavaScript)
+    // iOS / Harmony 异步响应回调入口（持久注册，由原生 evaluateJavaScript 调用）
     if (typeof window !== 'undefined') {
         window.__coconutIOSCallback = function (responseJson) {
-            if (CoconutSDK && CoconutSDK.handleResponse) {
-                CoconutSDK.handleResponse(responseJson);
-            }
+            CoconutSDK.handleResponse(responseJson);
+        };
+        window.__coconutHarmonyCallback = function (responseJson) {
+            CoconutSDK.handleResponse(responseJson);
         };
     }
 
