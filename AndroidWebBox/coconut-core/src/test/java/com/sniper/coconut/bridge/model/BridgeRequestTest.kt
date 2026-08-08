@@ -77,12 +77,4 @@ class BridgeRequestTest {
         assertFalse(result.isValid)
         assertTrue(result.message.contains("method"))
     }
-
-    @Test
-    fun validate_failsOnWrongJsonrpcVersion() {
-        val request = BridgeRequest(jsonrpc = "1.0", method = "device.getInfo", id = "req-1")
-        val result = request.validate()
-        assertFalse(result.isValid)
-        assertTrue(result.message.contains("JSON-RPC"))
-    }
 }

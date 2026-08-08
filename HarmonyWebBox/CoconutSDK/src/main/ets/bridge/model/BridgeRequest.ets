@@ -1,11 +1,10 @@
 /**
  * Bridge Request Model
  *
- * JSON-RPC 2.0 request with security extensions
+ * Bridge request with security extensions
  */
 
 export class BridgeRequest {
-  jsonrpc: string = '2.0';
   method: string = '';
   params: string = ''; // raw JSON string
   id: string = '';
@@ -14,7 +13,6 @@ export class BridgeRequest {
   sign: string = '';
   bridgeToken: string = '';
 
-  static readonly JSONRPC_VERSION = '2.0';
   private static readonly METHOD_REGEX = /^[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*$/;
 
   static isValidMethod(method: string): boolean {
@@ -38,12 +36,6 @@ export class BridgeRequest {
   }
 
   validate(): ValidationResult {
-    if (this.jsonrpc !== BridgeRequest.JSONRPC_VERSION) {
-      const r = new ValidationResult();
-      r.isValid = false;
-      r.message = `Invalid JSON-RPC version: ${this.jsonrpc}`;
-      return r;
-    }
     if (!BridgeRequest.isValidMethod(this.method)) {
       const r = new ValidationResult();
       r.isValid = false;
@@ -64,17 +56,6 @@ export class BridgeRequest {
 
   static fromJson(json: string): BridgeRequest {
     const req = new BridgeRequest();
-
-    // Extract jsonrpc
-    const jsonrpcPattern = '"jsonrpc":"';
-    const jsonrpcStart = json.indexOf(jsonrpcPattern);
-    if (jsonrpcStart !== -1) {
-      const valStart = jsonrpcStart + jsonrpcPattern.length;
-      const valEnd = json.indexOf('"', valStart);
-      if (valEnd !== -1) {
-        req.jsonrpc = json.substring(valStart, valEnd);
-      }
-    }
 
     // Extract method
     const methodPattern = '"method":"';

@@ -39,7 +39,6 @@ final class BridgeDispatcherTests: XCTestCase {
                              params: [String: Any] = [:],
                              token: String? = nil) -> String {
         var dict: [String: Any] = [
-            "jsonrpc": "2.0",
             "id": id,
             "method": method,
             "params": params,

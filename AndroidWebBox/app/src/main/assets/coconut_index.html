@@ -130,7 +130,6 @@
           try { if (window.__coconutConfig && window.__coconutConfig.token) token = window.__coconutConfig.token; } catch (e) {}
 
           var request = {
-            jsonrpc: '2.0',
             method: method,
             params: params || {},
             id: id,
@@ -158,7 +157,7 @@
               // web mock：模拟一次成功响应
               setTimeout(function () {
                 self._handleResponse(JSON.stringify({
-                  jsonrpc: '2.0', id: id, code: '000000', message: 'success (web mock)',
+                  id: id, code: '000000', message: 'success (web mock)',
                   result: JSON.stringify({ mocked: true, method: method, params: params || {} })
                 }));
               }, 100);
@@ -183,7 +182,7 @@
       },
 
       _fail: function (id, code, message) {
-        var resp = { jsonrpc: '2.0', id: id, code: code, message: message, result: null };
+        var resp = { id: id, code: code, message: message, result: null };
         setResponseView(resp, true);
         var cb = this._pending[id];
         if (cb) { cb(resp); delete this._pending[id]; }

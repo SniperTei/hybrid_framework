@@ -4,11 +4,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 /**
- * JSON-RPC 2.0 Request Model
+ * Bridge Request Model
  *
- * Standard JSON-RPC 2.0 request format:
+ * Request format:
  * {
- *   "jsonrpc": "2.0",
  *   "method": "component.function",
  *   "params": { ... },
  *   "id": "unique-request-id"
@@ -16,7 +15,6 @@ import kotlinx.serialization.json.JsonObject
  */
 @Serializable
 data class BridgeRequest(
-    val jsonrpc: String = "2.0",
     val method: String,
     val params: JsonObject? = null,
     val id: String,
@@ -26,8 +24,6 @@ data class BridgeRequest(
     val bridgeToken: String = ""
 ) {
     companion object {
-        const val JSONRPC_VERSION = "2.0"
-
         /**
          * Validate method format: component.function
          */
@@ -67,9 +63,6 @@ data class BridgeRequest(
      */
     fun validate(): ValidationResult {
         when {
-            jsonrpc != JSONRPC_VERSION -> {
-                return ValidationResult(false, "Invalid JSON-RPC version: $jsonrpc")
-            }
             !isValidMethod(method) -> {
                 return ValidationResult(false, "Invalid method format: $method")
             }

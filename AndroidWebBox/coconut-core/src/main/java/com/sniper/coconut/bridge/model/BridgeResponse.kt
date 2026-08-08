@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonNull
  *
  * Flattened response format:
  * {
- *   "jsonrpc": "2.0",
  *   "id": "request-id",
  *   "code": "000000",
  *   "message": "success",
@@ -18,21 +17,17 @@ import kotlinx.serialization.json.JsonNull
  */
 @Serializable
 data class BridgeResponse(
-    val jsonrpc: String = "2.0",
     val id: String,
     val code: String = ErrorCode.SUCCESS,
     val message: String = "success",
     val result: JsonElement? = null
 ) {
     companion object {
-        const val JSONRPC_VERSION = "2.0"
-
         /**
          * Create success response
          */
         fun success(id: String, result: JsonElement? = null): BridgeResponse {
             return BridgeResponse(
-                jsonrpc = JSONRPC_VERSION,
                 id = id,
                 code = ErrorCode.SUCCESS,
                 message = "success",
@@ -45,7 +40,6 @@ data class BridgeResponse(
          */
         fun error(id: String, code: String, message: String): BridgeResponse {
             return BridgeResponse(
-                jsonrpc = JSONRPC_VERSION,
                 id = id,
                 code = code,
                 message = message,

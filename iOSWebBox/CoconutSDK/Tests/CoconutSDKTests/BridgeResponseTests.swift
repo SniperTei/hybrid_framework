@@ -8,7 +8,6 @@ final class BridgeResponseTests: XCTestCase {
         XCTAssertEqual(resp.code, ErrorCode.SUCCESS)
         XCTAssertEqual(resp.message, "success")
         XCTAssertEqual(resp.id, "abc")
-        XCTAssertEqual(resp.jsonrpc, "2.0")
         XCTAssertTrue(resp.isSuccess)
     }
 
@@ -59,7 +58,6 @@ final class BridgeResponseTests: XCTestCase {
         let data = json.data(using: .utf8)!
 
         let parsed = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        XCTAssertEqual(parsed["jsonrpc"] as? String, "2.0")
         XCTAssertEqual(parsed["id"] as? String, "roundtrip")
         XCTAssertEqual(parsed["code"] as? String, ErrorCode.SUCCESS)
         XCTAssertEqual(parsed["message"] as? String, "success")

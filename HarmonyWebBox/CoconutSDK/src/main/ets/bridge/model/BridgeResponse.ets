@@ -5,7 +5,6 @@ import { JsonObject } from '../../utils/JsonHelper';
  * Bridge Response Model (Flattened)
  *
  * {
- *   "jsonrpc": "2.0",
  *   "id": "request-id",
  *   "code": "000000",
  *   "message": "success",
@@ -13,13 +12,10 @@ import { JsonObject } from '../../utils/JsonHelper';
  * }
  */
 export class BridgeResponse {
-  jsonrpc: string = '2.0';
   id: string = '';
   code: string = ErrorCode.SUCCESS;
   message: string = 'success';
   result: string = '{}'; // JSON string
-
-  static readonly JSONRPC_VERSION = '2.0';
 
   get isSuccess(): boolean {
     return this.code === ErrorCode.SUCCESS;
@@ -31,7 +27,6 @@ export class BridgeResponse {
 
   static success(id: string, result: string): BridgeResponse {
     const resp = new BridgeResponse();
-    resp.jsonrpc = BridgeResponse.JSONRPC_VERSION;
     resp.id = id;
     resp.code = ErrorCode.SUCCESS;
     resp.message = 'success';
@@ -41,7 +36,6 @@ export class BridgeResponse {
 
   static error(id: string, code: string, message: string): BridgeResponse {
     const resp = new BridgeResponse();
-    resp.jsonrpc = BridgeResponse.JSONRPC_VERSION;
     resp.id = id;
     resp.code = code;
     resp.message = message;
@@ -71,7 +65,6 @@ export class BridgeResponse {
 
   toJson(): string {
     const builder = new JsonObject();
-    builder.put('jsonrpc', this.jsonrpc);
     builder.put('id', this.id);
     builder.put('code', this.code);
     builder.put('message', this.message);

@@ -220,7 +220,6 @@
         // 调用Coconut SDK
         function callCoconut(method, params, callback) {
             const request = {
-                jsonrpc: "2.0",
                 method: method,
                 params: params || {},
                 id: Date.now().toString()
@@ -244,10 +243,10 @@
                         callback(response, false);
                     }
                 } catch (e) {
-                    callback({ jsonrpc: '2.0', id: request.id, code: '100001', message: 'Parse error: ' + e.message, result: null }, true);
+                    callback({ id: request.id, code: '100001', message: 'Parse error: ' + e.message, result: null }, true);
                 }
             } else {
-                callback({ jsonrpc: '2.0', id: request.id, code: '100005', message: 'CoconutBridge not found', result: null }, true);
+                callback({ id: request.id, code: '100005', message: 'CoconutBridge not found', result: null }, true);
             }
         }
 

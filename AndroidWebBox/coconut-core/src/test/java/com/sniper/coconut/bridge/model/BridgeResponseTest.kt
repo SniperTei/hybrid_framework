@@ -25,7 +25,6 @@ class BridgeResponseTest {
         assertEquals(ErrorCode.SUCCESS, response.code)
         assertEquals("success", response.message)
         assertEquals("req-1", response.id)
-        assertEquals(BridgeResponse.JSONRPC_VERSION, response.jsonrpc)
     }
 
     @Test
@@ -110,7 +109,6 @@ class BridgeResponseTest {
         assertEquals(original.id, decoded.id)
         assertEquals(original.code, decoded.code)
         assertEquals(original.message, decoded.message)
-        assertEquals(original.jsonrpc, decoded.jsonrpc)
         // result content equality
         val originalValue = (original.result as? JsonObject)?.get("value") as? JsonPrimitive
         val decodedValue = (decoded.result as? JsonObject)?.get("value") as? JsonPrimitive

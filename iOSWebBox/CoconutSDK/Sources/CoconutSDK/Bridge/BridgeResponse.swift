@@ -2,16 +2,12 @@ import Foundation
 
 public struct BridgeResponse {
 
-    public let jsonrpc: String
     public let id: String
     public let code: String
     public let message: String
     public let result: Any?
 
-    private static let jsonrpcVersion = "2.0"
-
     private init(id: String, code: String, message: String, result: Any? = nil) {
-        self.jsonrpc = BridgeResponse.jsonrpcVersion
         self.id = id
         self.code = code
         self.message = message
@@ -50,7 +46,6 @@ public struct BridgeResponse {
 
     public func toJSON() -> String {
         var dict: [String: Any] = [
-            "jsonrpc": jsonrpc,
             "id": id,
             "code": code,
             "message": message
@@ -61,7 +56,7 @@ public struct BridgeResponse {
             dict["result"] = NSNull()
         }
         guard let data = try? JSONSerialization.data(withJSONObject: dict) else {
-            return "{\"jsonrpc\":\"2.0\",\"id\":\"\(id)\",\"code\":\"\(ErrorCode.INTERNAL_ERROR)\",\"message\":\"JSON serialization error\",\"result\":null}"
+            return "{\"id\":\"\(id)\",\"code\":\"\(ErrorCode.INTERNAL_ERROR)\",\"message\":\"JSON serialization error\",\"result\":null}"
         }
         return String(data: data, encoding: .utf8) ?? "{}"
     }

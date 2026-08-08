@@ -10,7 +10,6 @@ export default function bridgeResponseTest() {
       expect(r.code).assertEqual(ErrorCode.SUCCESS);
       expect(r.message).assertEqual('success');
       expect(r.result).assertEqual('{"k":1}');
-      expect(r.jsonrpc).assertEqual('2.0');
     });
 
     it('success_isSuccessTrue', 0, () => {
@@ -64,7 +63,6 @@ export default function bridgeResponseTest() {
     it('toJson_roundtripsAllFields', 0, () => {
       const r = BridgeResponse.success('id-2', '{"x":42}');
       const json = r.toJson();
-      expect(json).assertContain('"jsonrpc":"2.0"');
       expect(json).assertContain('"id":"id-2"');
       expect(json).assertContain('"code":"000000"');
       expect(json).assertContain('"message":"success"');
@@ -77,10 +75,6 @@ export default function bridgeResponseTest() {
       expect(json).assertContain('"code":"200001"');
       expect(json).assertContain('"message":"unknown component"');
       expect(json).assertContain('"result":{}');
-    });
-
-    it('jsonrpcVersionConstant_isTwoPointZero', 0, () => {
-      expect(BridgeResponse.JSONRPC_VERSION).assertEqual('2.0');
     });
   });
 }
