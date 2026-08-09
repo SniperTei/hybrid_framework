@@ -104,6 +104,11 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         if let webView = webView {
             webView.configuration.userContentController.add(bridge, name: "CoconutBridge")
         }
+
+        // Wire EventEmitter → WebView. The host owns the WebView lifecycle, so
+        // we hand it a fresh executor each setupBridge pass.
+        ComponentManager.shared.sharedContext.eventEmitter.jsExecutor = WebViewJSExecutor(webView: webView)
+
         Logger.shared.d(tag, "Bridge setup complete")
     }
 
@@ -264,6 +269,9 @@ extension CoconutWebViewController: WKNavigationDelegate {
         progressView.isHidden = false
         progressView.progress = 0
         hideErrorPage()
+        // Clear stale H5 event subscriptions so reload doesn't deliver events
+        // registered by the previous page context.
+        ComponentManager.shared.sharedContext.eventEmitter.clearAll()
         Logger.shared.d(tag, "Page started: \(webView.url?.absoluteString ?? "")")
     }
 

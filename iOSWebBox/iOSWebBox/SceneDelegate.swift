@@ -36,6 +36,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             await CoconutSDK.registerComponents([
                 DeviceComponent(),
                 StorageComponent(),
+                EventComponent(),
             ])
 
             await MainActor.run {

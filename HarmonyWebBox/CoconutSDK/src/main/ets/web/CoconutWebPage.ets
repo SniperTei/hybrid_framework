@@ -1,5 +1,6 @@
 import { webview } from '@kit.ArkWeb';
 import { CoconutSDK } from '../../CoconutSDK';
+import { ComponentManager } from '../component/ComponentManager';
 import { Logger } from '../utils/Logger';
 import { WebViewHelper } from './WebViewHelper';
 
@@ -44,6 +45,18 @@ export struct CoconutWebPage {
     CoconutSDK.bridge?.securityValidator;
     // Bind proxy to this page
     this.bridgeProxy.bind(this);
+    // Wire EventEmitter → WebView. EventEmitter owns no WebView reference,
+    // so the host owns the dispatch hop.
+    const ctx = ComponentManager.getInstance().getSharedContext();
+    if (ctx !== null) {
+      ctx.eventEmitter.setJsExecutor((script: string) => {
+        try {
+          this.webController.runJavaScript(script);
+        } catch (e) {
+          Logger.e('CoconutWebPage', `EventEmitter dispatch failed: ${e}`);
+        }
+      });
+    }
   }
 
   build() {
@@ -72,6 +85,11 @@ export struct CoconutWebPage {
           if (event) {
             this.isLoading = true;
             this.showError = false;
+            // Critical: clear stale H5 event subscriptions on reload / new
+            // navigation. Otherwise emit() dispatches into the fresh page
+            // context using subscriptionIds that no longer have callbacks.
+            const ctx = ComponentManager.getInstance().getSharedContext();
+            ctx?.eventEmitter.clearAll();
             Logger.d('CoconutWebPage', `Page begin: ${event.url}`);
           }
         })

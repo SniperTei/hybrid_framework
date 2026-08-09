@@ -8,10 +8,14 @@ public class ComponentContext {
     public let applicationContext: UIApplication
     public var sdkVersion: String = "2.0.0"
 
+    /// Shared EventEmitter for native → H5 push.
+    public var eventEmitter: EventEmitter!
+
     weak var host: ComponentHost?
 
     public init(applicationContext: UIApplication) {
         self.applicationContext = applicationContext
+        self.eventEmitter = EventEmitter()
     }
 
     public var currentViewController: UIViewController? {

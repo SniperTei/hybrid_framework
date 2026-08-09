@@ -43,6 +43,13 @@ export class ComponentManager {
   }
 
   /**
+   * Get the shared context (null if not yet set).
+   */
+  getSharedContext(): ComponentContext | null {
+    return this.sharedContext;
+  }
+
+  /**
    * Set the current host
    */
   setHost(host: ComponentHost | null): void {

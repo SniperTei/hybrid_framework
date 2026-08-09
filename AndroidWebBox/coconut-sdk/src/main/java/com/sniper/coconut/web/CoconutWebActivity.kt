@@ -294,6 +294,9 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                 isLoadingError = false
                 url?.let { cachedPageUrl = it }  // Cache URL on main thread
                 hideErrorPage()
+                // Clear stale H5 event subscriptions so reload doesn't deliver
+                // events registered by the previous page context.
+                ComponentManager.getInstance().eventEmitter.clearAll()
                 Logger.d(TAG, "Page started: $url")
                 onPageStartedCallback(url)
             }
@@ -376,6 +379,17 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
             },
             "CoconutBridge"
         )
+
+        // Wire EventEmitter → WebView. Native emit() may come from background
+        // threads (e.g. ConnectivityManager), so hop to UI thread before
+        // evaluateJavascript.
+        ComponentManager.getInstance().eventEmitter.jsExecutor = { script ->
+            runOnMainThread {
+                if (::webView.isInitialized) {
+                    webView.evaluateJavascript(script, null)
+                }
+            }
+        }
 
         Logger.d(TAG, "Bridge setup complete")
     }

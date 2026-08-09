@@ -1,6 +1,7 @@
 package com.sniper.coconut.component
 
 import com.sniper.coconut.bridge.model.ErrorCode
+import com.sniper.coconut.event.EventEmitter
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,8 +26,15 @@ class ComponentManager private constructor() {
             coroutineScope = requireNotNull(coroutineScope) {
                 "Coroutine scope not set"
             }
-        )
+        ).also { ctx ->
+            ctx.eventEmitter = eventEmitter
+        }
     }
+
+    /**
+     * Shared EventEmitter - native → H5 event push infrastructure.
+     */
+    val eventEmitter: EventEmitter by lazy { EventEmitter() }
 
     /**
      * Set the current ComponentHost (called by CoconutWebActivity)

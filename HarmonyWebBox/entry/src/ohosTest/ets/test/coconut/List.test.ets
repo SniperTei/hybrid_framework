@@ -11,6 +11,7 @@ import baseComponentTest from './component/BaseComponent.test';
 import componentManagerTest from './component/ComponentManager.test';
 import componentExceptionTest from './component/ComponentException.test';
 import environmentTest from './config/Environment.test';
+import eventEmitterTest from './event/EventEmitter.test';
 
 export default function testsuite() {
   errorCodeTest();
@@ -26,4 +27,5 @@ export default function testsuite() {
   componentManagerTest();
   componentExceptionTest();
   environmentTest();
+  eventEmitterTest();
 }

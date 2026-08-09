@@ -2,6 +2,7 @@ package com.sniper.coconut.component
 
 import android.content.Context
 import android.webkit.WebView
+import com.sniper.coconut.event.EventEmitter
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -15,6 +16,14 @@ class ComponentContext(
     val applicationContext: Context,
     val coroutineScope: CoroutineScope
 ) {
+
+    /**
+     * Shared EventEmitter for native → H5 push.
+     * Initialized by ComponentManager alongside this context.
+     */
+    @Volatile
+    lateinit var eventEmitter: EventEmitter
+        internal set
     /**
      * SDK version string, set during SDK configuration
      */

@@ -1,5 +1,6 @@
 import { common, UIAbility } from '@kit.AbilityKit';
 import { ComponentHost } from './ComponentHost';
+import { EventEmitter } from '../event/EventEmitter';
 
 /**
  * Component Context
@@ -10,6 +11,7 @@ export class ComponentContext {
   readonly context: common.UIAbilityContext;
   sdkVersion: string = '2.0.0';
   host: ComponentHost | null = null;
+  readonly eventEmitter: EventEmitter = new EventEmitter();
 
   constructor(context: common.UIAbilityContext) {
     this.context = context;

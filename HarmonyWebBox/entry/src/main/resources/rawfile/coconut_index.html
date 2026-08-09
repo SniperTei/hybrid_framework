@@ -78,6 +78,15 @@
     </div>
   </section>
 
+  <section>
+    <h2>事件订阅（原生 → H5 推送）</h2>
+    <div class="btns">
+      <button class="btn-d" onclick="onSubscribe()">订阅 test.echo</button>
+      <button class="btn-d" onclick="onEcho()">Echo（500ms 后回推）</button>
+      <button class="btn-c" onclick="onUnsubscribe()">取消订阅</button>
+    </div>
+  </section>
+
   <div class="panel">
     <h3>最近一次请求（H5 → 原生）</h3>
     <pre id="reqView" class="muted">—</pre>
@@ -85,6 +94,10 @@
   <div class="panel">
     <h3>原生返回的响应（原生 → H5）</h3>
     <pre id="respView" class="muted">—</pre>
+  </div>
+  <div class="panel">
+    <h3>事件投递（native → H5，window.__coconutEvent）</h3>
+    <pre id="eventView" class="muted">—</pre>
   </div>
 
   <script>
@@ -193,6 +206,40 @@
     window.__coconutIOSCallback = function (json) { BridgeTest._handleResponse(json); };
     window.__coconutHarmonyCallback = function (json) { BridgeTest._handleResponse(json); };
 
+    // 事件推送入口（三端共用，原生 emit 时通过 evaluateJavaScript 调用）
+    var EventSub = {
+      _seq: 0,
+      _subs: {},          // subscriptionId -> { topic }
+      _current: null,     // 最近一次 subscribe 返回的 id（demo 用）
+      subscribe: function (topic) {
+        var id = 'sub_demo_' + (++this._seq);
+        this._subs[id] = { topic: topic };
+        this._current = id;
+        // 直接走 BridgeTest.call —— 同步返回 ack，事件后续由 native emit
+        BridgeTest.call('event.subscribe', { topic: topic, subscriptionId: id }).then(function (resp) {
+          setEventView({ stage: 'subscribe ack', subscriptionId: id, resp: resp });
+        });
+        return id;
+      },
+      unsubscribe: function (id) {
+        var target = id || this._current;
+        if (!target) { setEventView({ stage: 'unsubscribe', error: 'no active subscription' }); return; }
+        delete this._subs[target];
+        BridgeTest.call('event.unsubscribe', { subscriptionId: target }).then(function (resp) {
+          setEventView({ stage: 'unsubscribe ack', subscriptionId: target, resp: resp });
+        });
+        if (this._current === target) this._current = null;
+      },
+      dispatch: function (eventJson) {
+        var event;
+        try { event = JSON.parse(eventJson); } catch (e) { setEventView({ error: 'parse failed', raw: eventJson }); return; }
+        var entry = event && this._subs[event.subscriptionId];
+        if (!entry) { return; }  // not subscribed here (or stale)
+        setEventView({ stage: 'event received', event: event });
+      }
+    };
+    window.__coconutEvent = function (json) { EventSub.dispatch(json); };
+
     // ---------- 启动：探测平台 ----------
     BridgeTest.env = BridgeTest.detect();
     (function renderPlatform() {
@@ -231,6 +278,15 @@
       v.textContent = JSON.stringify(display, null, 2);
       v.className = isError ? 'err' : 'ok';
     }
+    function setEventView(obj) {
+      var v = document.getElementById('eventView');
+      v.textContent = JSON.stringify(obj, null, 2);
+      // "event received" -> ok, "error" -> err, otherwise muted
+      var cls = 'muted';
+      if (obj && obj.stage === 'event received') cls = 'ok';
+      else if (obj && obj.error) cls = 'err';
+      v.className = cls;
+    }
 
     // ---------- 按钮回调 ----------
     function onCall(method, params) {
@@ -252,6 +308,18 @@
           try { console.log('读到:', JSON.parse(resp.result).value); } catch (e) {}
         }
       });
+    }
+    function onSubscribe() {
+      var id = EventSub.subscribe('test.echo');
+      setEventView({ stage: 'subscribe sent', subscriptionId: id, topic: 'test.echo' });
+    }
+    function onEcho() {
+      BridgeTest.call('event.echo', { hello: 'world' }).then(function (resp) {
+        setEventView({ stage: 'echo ack', resp: resp });
+      });
+    }
+    function onUnsubscribe() {
+      EventSub.unsubscribe();
     }
   </script>
 </body>

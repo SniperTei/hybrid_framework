@@ -20,13 +20,15 @@
 
 ## 1. 组件可用性矩阵
 
-> 当前活跃组件只有 2 个（commit `3b3b6de` / `8a1437f` / `95b632a`，2026-07-26 三端 trim）。
+> 当前活跃组件有 3 个。device + storage 来自 commit `3b3b6de` / `8a1437f` / `95b632a`（2026-07-26 三端 trim）；
+> event 为 2026-08-09 新增（native → H5 push 能力）。
 > 已删除的 12 个组件契约保留在文末「附录 A」供 git 历史参考。
 
 | 组件 | iOS | Android | Harmony | 状态 |
 |---|:---:|:---:|:---:|---|
 | device | ✅ | ✅ | ✅ | 活跃 |
 | storage | ✅ | ✅ | ✅ | 活跃 |
+| event | ✅ | ✅ | ✅ | 活跃（v2.3.0 新增） |
 
 ---
 
@@ -106,7 +108,59 @@
 
 ---
 
-### 4.3 dialog（已删除）
+### 4.3 event ✅ native → H5 推送通道
+
+**目标**：H5 可以订阅 native 端发生的事件（如网络切换、App 前后台切换、推送到达）。Native 检测到事件时通过 `window.__coconutEvent(json)` 主动推送。
+
+**核心约定**
+- 订阅走现有 `call('event.subscribe', ...)`，复用 Bridge 安全管线（Token / 域名 / 限流）。
+- `subscriptionId` 由 **H5 端生成**（同步登记本地 callback 后再发请求），消除 iOS/Harmony 异步响应窗口的事件丢失竞态。
+- 仅 native 可 emit；H5 不能 publish（避免循环 / 跨 H5 通信复杂度）。
+- 不支持 topic 通配符，精确字符串匹配。
+- 页面 reload / 导航时 native 端必须 `clearAllSubscriptions()`，否则 stale emit 会投递到新页面（Harmony 关键修复，三端统一在 `onPageStarted` / `didStartProvisionalNavigation` / `onPageBegin` 触发）。
+
+**标准签名**
+
+| 方法 | params | returns | 副作用 |
+|---|---|---|---|
+| `subscribe` | `topic*(string), subscriptionId*(string)` | `{subscriptionId, topic}` | native 端登记订阅 |
+| `unsubscribe` | `subscriptionId*(string)` | `{subscriptionId, success:true}` | native 端移除订阅 |
+| `echo` | `data:object`（透传） | `{scheduled:true, topic:'test.echo'}` | 500ms 后 emit `test.echo` 事件，payload 为入参 |
+
+**事件推送通道（独立于 Bridge response）**
+
+Native emit 通过：
+```js
+window.__coconutEvent('{"subscriptionId":"sub_xxx","topic":"test.echo","data":{...}}')
+```
+- 单 JSON 字符串参数（与 `__coconutIOSCallback` / `__coconutHarmonyCallback` 一致）。
+- 三端共用同名回调，由 `coconut.js` 持久注册（与 `__coconutIOSCallback` 同生命周期）。
+- **不走 Bridge 安全管线**（native trusted source）。
+
+**H5 API（coconut.js v2.3.0+）**
+
+```js
+// 订阅 — 同步返回 subscriptionId，事件到达时 callback 被调用
+const subId = Coconut.subscribe('network.change', (event) => {
+  console.log(event.topic, event.data);
+});
+// 取消订阅
+Coconut.unsubscribe(subId);
+// 自验证：500ms 后触发 test.echo 事件
+Coconut.call('event.echo', { hello: 'world' });
+```
+
+**事件 payload shape（投递到 callback）**
+
+```json
+{ "subscriptionId": "sub_xxx", "topic": "test.echo", "data": <any> }
+```
+
+**测试覆盖**：Android 9 / iOS 9 / Harmony 9 case（subscribe+emit、unsubscribe、多订阅者、topic 不匹配、echo round-trip、无 jsExecutor 静默、clearAll、空参数拒绝、JS 转义）。
+
+---
+
+### 4.4 dialog（已删除）
 
 > dialog 等 12 个组件已从 main 删除（commit `3b3b6de` / `8a1437f` / `95b632a`，2026-07-26）。
 > 完整契约和实现要点移到**附录 A**，git 历史可找回完整源码。
@@ -115,11 +169,17 @@
 
 ## 5. 验收方式
 
-用三端共享的 `coconut_index.html` 点一遍按钮（当前只有 device + storage 两组）：
+用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + event 三组）：
 - 返回 `code:'000000'` 且 result 字段符合本契约 → 合规 ✅
 - 字段缺失/命名不符 → 不合规 ❌
 
 该 HTML 即 conformance test。
+
+事件端到端验证流程：
+1. 点「订阅 test.echo」→ 期望 eventView 显示 `subscribe ack`
+2. 点「Echo」→ 500ms 后 eventView 显示 `event received`，payload 含 `{hello:'world'}`
+3. 点「取消订阅」→ eventView 显示 `unsubscribe ack`，再点 Echo 应**无**事件投递
+4. Reload WebView → 再次 Subscribe → native 端 registry 已清空（无 stale 投递）
 
 ---
 
@@ -207,4 +267,4 @@ git log --oneline f90070e..1547473
 3. 恢复配套基础设施（FileProvider / 权限调度 / Info.plist 等）
 4. 把本附录的对应行移回第 4 节
 5. 在 `coconut_index.html`（三端字节级同步）加回测试按钮
-6. 三端跑测试套件验证（iOS 64 / Android 61 / Harmony 112，目标数会回升）
+6. 三端跑测试套件验证（当前基线：iOS 73 / Android 70 / Harmony 121，目标数会随组件恢复回升）

@@ -1,5 +1,6 @@
 import { CoconutSDK, CoconutWebPage } from '@coconut/sdk';
 import { DeviceComponent } from '../components/DeviceComponent';
+import { EventComponent } from '../components/EventComponent';
 import { StorageComponent } from '../components/StorageComponent';
 import { VerifyDialog, VerifyDialogConfig } from '../components/VerifyDialog';
 import { SecondPage } from './SecondPage';
@@ -36,7 +37,8 @@ struct Index {
     // Register all components
     CoconutSDK.registerComponents([
       new DeviceComponent(),
-      new StorageComponent()
+      new StorageComponent(),
+      new EventComponent()
     ]);
   }
 
