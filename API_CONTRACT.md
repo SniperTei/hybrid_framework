@@ -20,22 +20,13 @@
 
 ## 1. 组件可用性矩阵
 
-| 组件 | iOS | Android | Harmony | 标准化决策 |
+> 当前活跃组件只有 2 个（commit `3b3b6de` / `8a1437f` / `95b632a`，2026-07-26 三端 trim）。
+> 已删除的 12 个组件契约保留在文末「附录 A」供 git 历史参考。
+
+| 组件 | iOS | Android | Harmony | 状态 |
 |---|:---:|:---:|:---:|---|
-| device | ✅ | ✅ | ✅ | 三端必备 |
-| network | ✅ | ✅ | ✅ | 三端必备 |
-| storage | ✅ | ✅ | ✅ | 三端必备 |
-| system | ✅ | ✅ | ✅ | 三端必备 |
-| security | ✅ | ✅ | ✅ | 三端必备 |
-| dialog | ✅ | ✅ | ✅ | 三端必备 |
-| permission | ✅ | ✅ | ✅ | 三端必备 |
-| resource | ✅ | ✅ | ✅ | **可选 / 平台特定**（热更新 vs 本地资源加载语义不同，未标准化） |
-| router | ✅ | ✅ | ✅ | 三端必备 |
-| performance | ✅ | ✅ | ✅ | 三端必备 |
-| clipboard | ✅ | ✅ | ✅ | 三端必备 |
-| stack | ✅ | ✅ | ✅ | 三端必备 |
-| **camera** | ✅ | ✅ | ✅ | 三端必备（Android 已补齐，scanQRCode 暂返回 not-supported） |
-| **mytest** | ✅ | ✅ | ✅ | 三端必备（冒烟测试脚手架，已补齐 Android/Harmony） |
+| device | ✅ | ✅ | ✅ | 活跃 |
+| storage | ✅ | ✅ | ✅ | 活跃 |
 
 ---
 
@@ -115,196 +106,47 @@
 
 ---
 
-### 4.3 dialog ✅ 命名已对齐
+### 4.3 dialog（已删除）
 
-**标准签名**
-
-| 方法 | params | returns |
-|---|---|---|
-| `alert` | `title, message, buttonText` | `confirmed` |
-| `confirm` | `title, message, confirmText, cancelText` | `confirmed` |
-| `toast` | `message*(string), duration(number,秒), position` | `success` |
-| `showLoading` | `message` | `success` |
-| `hideLoading` | — | `success` |
-| `prompt` | `title, message, placeholder, confirmText, cancelText` | `confirmed, input` |
-
-**对齐结果** ✅ P0-2 已完成
-- confirm 按钮参数：三端统一 `confirmText`（Android/Harmony 原 `okText` 已改名）。
-- toast 方法名：三端统一 `toast`（Harmony 原 `showToast` 已改名）。
-- toast duration 类型：三端统一数字秒（Android 按阈值映射 native SHORT/LONG；Harmony `秒*1000`）。
-- 返回字段：三端统一 `success`（iOS 原 `shown`/`hidden` 已改名）。
-- **遗留**：`prompt` 仅 Harmony 实现，待决策保留三端补齐或从 Harmony 删除。
+> dialog 等 12 个组件已从 main 删除（commit `3b3b6de` / `8a1437f` / `95b632a`，2026-07-26）。
+> 完整契约和实现要点移到**附录 A**，git 历史可找回完整源码。
 
 ---
 
-### 4.4 clipboard
+## 5. 验收方式
 
-**标准签名**
+用三端共享的 `coconut_index.html` 点一遍按钮（当前只有 device + storage 两组）：
+- 返回 `code:'000000'` 且 result 字段符合本契约 → 合规 ✅
+- 字段缺失/命名不符 → 不合规 ❌
 
-| 方法 | params | returns |
-|---|---|---|
-| `getText` | — | `text, hasText` |
-| `setText` | `text*(string)` | `success` |
-| `hasText` | — | `hasText` |
-| `clear` | — | `success` |
-
-**对齐结果** ✅ P2-10 已完成
-- iOS `getText` 已返回 `hasText`（原即如此）；Android/Harmony 已补齐。
-- `clear` 三端都已实现（iOS/Android 新增，Harmony 原有）。
+该 HTML 即 conformance test。
 
 ---
 
-### 4.5 permission 🔴 返回值分歧
+## 附录 A：已删除组件契约（历史参考）
 
-**标准签名**
+> 以下 12 个组件在 2026-07-26 的三端 trim（commit `3b3b6de` / `8a1437f` / `95b632a`）中从 main 删除。
+> 当前业务只用到 device + storage。下述契约保留供未来重新激活组件时直接复用，无需重新设计。
+> 完整源码与配套基础设施（FileProvider / PermissionResultDispatcher / QrScannerActivity / file_paths.xml / Info.plist 权限声明 等）都在 git 历史里，`git log --grep=<组件名>` 可定位。
 
-| 方法 | params | returns |
+### A.1 简表
+
+| 组件 | 主要方法 | 删除时的关键约定 |
 |---|---|---|
-| `check` | `permission*(string)` | `permission, status` |
-| `request` | `permission*(string)` | `permission, status` |
-| `openSettings` | — | `success` |
+| dialog | `alert / confirm / toast / showLoading / hideLoading / prompt` | 三端命名已对齐（`toast` 非 `showToast`，`confirmText` 非 `okText`，`duration` 数字秒，返回 `success`） |
+| clipboard | `getText / setText / hasText / clear` | `getText` 返回 `{text, hasText}`，三端都有 `clear` |
+| permission | `check / request / openSettings` | 统一返回 `{permission, status}`，`status` 枚举：`authorized / denied / restricted / notDetermined / unsupported` |
+| network | `getType / getState / isConnected / request / get / post` | iOS/Android 有 `headers` 入参；Android 失败时应走错误码而非 `statusCode:-1` |
+| router | `open / back / getScheme` | `isNewWindow` 标准用 `boolean`（Harmony 原 string 已对齐） |
+| stack | `push / pop / replace / backTo / getSize / getStack / canGoBack` | `backTo` 支持 `index` 或 `url` 两种寻址 |
+| resource | iOS/Android: `getVersion / checkUpdate / applyUpdate`；Harmony: `load / getResUrl / preload` | **未标准化**：iOS/Android 解决热更新，Harmony 解决本地资源访问，语义不同 |
+| performance | `getMetrics / getMethodStats / getSlowCalls / reset` | Harmony 原 `getStats/getHistory/resetStats` 已对齐到标准名 |
+| security | `getAuditLog / getAuditSummary / getSecurityConfig / clearAuditLog` | `getSecurityConfig` 现在只返回 `bridgeTokenEnabled`（HMAC 已删） |
+| system | `getVersion / getComponentVersion / getAllComponents / checkCapability` | Harmony `getComponentVersion` 应拍平 `{componentInfo:object}` 到标准字段 |
+| camera | `takePhoto / scanQRCode / isSupported / showDialog` | 见下方 A.2 详细合约 |
+| mytest | `ping / echo / add` | Bridge 冒烟测试脚手架 |
 
-`status` 枚举：`authorized | denied | restricted | notDetermined | unsupported`
-
-**对齐结果** ✅ P2-7 已完成
-- 三端统一返回 `{permission, status}` 字符串字段。
-- iOS 原即返回 `status`（信息最丰富：authorized/denied/restricted/notDetermined/limited/unsupported/authorizedWhenInUse）。
-- Android/Harmony 已新增 `status` 字段（取值：authorized / denied / notDetermined），同时保留 `granted` 布尔字段以兼容现有 H5。
-- 方法集差异：Harmony 保留额外 `getAuthorized`（非标准），三端标准方法集为 `check / request / openSettings`。
-
----
-
-### 4.6 network ✅ 基本对齐
-
-**标准签名**
-
-| 方法 | params | returns |
-|---|---|---|
-| `getType` | — | `type` (`none/wifi/cellular/vpn/unknown`) |
-| `getState` | — | `isConnected, type` |
-| `isConnected` | — | `isConnected` |
-| `request` | `url*(string), method, timeout, contentType, body, headers` | `statusCode, body, headers` |
-| `get` | `url*, timeout, contentType, body, headers` | `statusCode, body, headers` |
-| `post` | `url*, timeout, contentType, body, headers` | `statusCode, body, headers` |
-
-**现状差异** 🟡
-- `headers` 入参：iOS/Android 有；Harmony 未明确 → 补齐。
-- Android 失败时返回 `{statusCode:-1, error}`（非标准）→ 统一走错误码而非负数 statusCode。
-
----
-
-### 4.7 router ✅ 基本对齐
-
-**标准签名**
-
-| 方法 | params | returns |
-|---|---|---|
-| `open` | `url*(string), isNewWindow(boolean)` | `routed, type, page/path/url` |
-| `back` | — | `success` |
-| `getScheme` | — | `scheme, nativePrefix, h5Prefix` |
-
-**现状差异** 🟡
-- `isNewWindow` 类型：Android `boolean`；Harmony `string`('true'/'false') → **标准用 boolean**。
-- iOS `open` 缺 `isNewWindow` 参数 → 补齐。
-
----
-
-### 4.8 stack ✅ 方法集已对齐
-
-**标准签名**（以 iOS/Android 为准）
-
-| 方法 | params | returns |
-|---|---|---|
-| `push` | `url*(string)` | `success, action, stackSize` |
-| `pop` | — | `success, action, stackSize` |
-| `replace` | `url*(string)` | `success, action` |
-| `backTo` | `index(number) \| url(string)` | `success, action, stackSize` |
-| `getSize` | — | `size, currentIndex` |
-| `getStack` | — | `currentIndex, totalSize, pages[]` |
-| `canGoBack` | — | `canGoBack` |
-
-**对齐结果** ✅ P1-6 已完成
-- Harmony 已补齐 `backTo` / `getSize` / `getStack` / `canGoBack` 四个标准方法。
-- `backTo` 支持 `index`（0-based）或 `url`（子串匹配）两种寻址。
-- Harmony 保留原有 `getCurrent` / `getAll` / `clear` 作为附加能力（非标准、非契约）。
-
----
-
-### 4.9 resource（暂未标准化，平台特定）
-
-**现状**：三端实现解决不同问题，目前没有标准契约。
-
-| 平台 | 方法 | 解决的场景 |
-|---|---|---|
-| iOS | `getVersion, getAllVersions, checkUpdate, applyUpdate` | 热更新（H5 资源包下载与版本管理） |
-| Android | `getVersion, getAllVersions, checkUpdate, applyUpdate` | 热更新（同 iOS，参数命名略不同） |
-| Harmony | `load, getResUrl, preload` | 本地 `$rawfile` 资源访问 |
-
-**决策**：暂不统一。当前业务不接入热更新，三端实现各自保留但**不视为标准组件**——H5 调用方不应假设 `resource.*` 在三端行为一致。
-- iOS/Android 的热更新骨架（`getVersion/checkUpdate/applyUpdate`）保留为「待激活」状态。
-- Harmony 的本地资源加载保留为「平台扩展」。
-- 等业务有明确方向（热更新或离线包统一管理），再回头定义标准签名并三端对齐。
-
----
-
-### 4.10 performance ✅ 方法名已对齐
-
-**标准签名**（以 iOS/Android 为准）
-
-| 方法 | params | returns |
-|---|---|---|
-| `getMetrics` | — | `uptimeMs, totalCalls, totalSuccess, totalFail, successRate, methodCount` |
-| `getMethodStats` | `method, all(boolean)` | `{方法级统计}` 或 `{methods[]}` |
-| `getSlowCalls` | `threshold(number,ms)` | `{threshold, slowCallCount, slowCalls[]}` |
-| `reset` | — | `success` |
-
-**对齐结果** ✅ P0-3 已完成
-- Harmony 原 `getStats/getHistory/resetStats` 已重命名为 `getMetrics/getMethodStats/getSlowCalls/reset`。
-- Harmony `getHistory` 的「按 method 过滤历史」语义并入 `getMethodStats`（per-method stats），慢调语义由新 `getSlowCalls(threshold)` 承担（top 50、降序）。
-- 返回字段对齐：`getMetrics` 扁平化（不再嵌套 methods 数组），`getSlowCalls` 用 `{threshold, slowCallCount, slowCalls[]}`。
-
----
-
-### 4.11 security ✅ 对齐良好
-
-**标准签名**
-
-| 方法 | params | returns |
-|---|---|---|
-| `getAuditLog` | `type, limit(number)` | `count, entries[]` |
-| `getAuditSummary` | — | `totalEvents, summary[]` |
-| `getSecurityConfig` | — | `bridgeTokenEnabled` |
-| `clearAuditLog` | — | `success` |
-
-三端基本一致，仅需统一返回字段名（Harmony `summary` 是 object，iOS/Android 是 array → 统一 array）。
-
----
-
-### 4.12 system ✅ 基本对齐
-
-**标准签名**
-
-| 方法 | params | returns |
-|---|---|---|
-| `getVersion` | — | `sdkVersion, timestamp` |
-| `getComponentVersion` | `name*` | `name, version, description, initialized` |
-| `getAllComponents` | — | `count, components[]` |
-| `checkCapability` | `method*` | `method, available, componentRegistered, componentInitialized` |
-
-**现状差异** 🟡 Harmony `getComponentVersion` 返回 `{componentInfo:object}`（包了一层）→ 拍平为标准字段。
-
----
-
-### 4.13 camera ✅ 三端已对齐（含 uri 字段、权限门、ZXing scanQRCode）
-
-**标准签名**
-
-| 方法 | params | returns |
-|---|---|---|
-| `takePhoto` | `frontCamera(boolean)` | `success, uri?, base64?, message?` |
-| `scanQRCode` | `qrOnly(boolean), enableAlbum(boolean)` | `success, codeType?, originalValue?, message?` |
-| `isSupported` | — | `takePhoto, scanQRCode` |
-| `showDialog` | `title, message, confirmText, cancelText` | `confirmed` |
+### A.2 camera 详细合约（最复杂，单列）
 
 **返回 shape 约定（三端必须一致）**
 
@@ -331,69 +173,38 @@
 **权限拒绝走业务层**（不走 Bridge error code）：
 - 三端在 takePhoto / scanQRCode 入口都做相机权限预检。
 - 拒绝时返回 `code:"000000"` + `result.success:false` + `result.message:"Camera permission denied"`。
-- 理由：`code:"200003"` 是 Bridge 安全层（Token / 域名）专用；权限提示是业务结果。混在一起 H5 错误处理会乱。这是 13 个组件一致的模式。
+- 理由：`code:"200003"` 是 Bridge 安全层（Token / 域名）专用；权限提示是业务结果。混在一起 H5 错误处理会乱。这是组件层的通用模式。
 
-**对齐结果** ✅ 已三端对齐
-- iOS：`AVCaptureDevice.authorizationStatus(for: .video)` 预检；JPEG 写 `NSTemporaryDirectory()` 返回 `file://` uri。`Info.plist` 必须声明 `NSCameraUsageDescription`（demo app 已加）。
-- Android：`ContextCompat.checkSelfPermission` + 新建 `PermissionResultDispatcher`（coconut-core）路由 `onRequestPermissionsResult`；JPEG 写 `cacheDir/coconut_photos/`，通过 `FileProvider`（authority `${applicationId}.fileprovider`）返回 `content://` uri。需在 manifest 声明 `<uses-permission android:name="android.permission.CAMERA" />` + FileProvider + `<cache-path>`（demo app 已加）。
-- Android `scanQRCode`：用 **ML Kit barcode-scanning (bundled)**（官方、模型打进 APK、**无 GMS 依赖**，HMS-only / 无 GMS 设备能跑）+ **CameraX**（AndroidX Jetpack，相机预览）。自定义 `QrScannerActivity` 持有相机预览 + 调 ML Kit 解码。ML Kit 的 int 格式常量映射成跨平台字符串名（`FORMAT_QR_CODE` → `"QR_CODE"`）以保持 shape 稳定。
+**实现要点**（重新激活时直接用）
+- iOS：`AVCaptureDevice.authorizationStatus(for: .video)` 预检；JPEG 写 `NSTemporaryDirectory()` 返回 `file://` uri。`Info.plist` 必须声明 `NSCameraUsageDescription`。
+- Android：`ContextCompat.checkSelfPermission` + `PermissionResultDispatcher`（coconut-core）路由 `onRequestPermissionsResult`；JPEG 写 `cacheDir/coconut_photos/`，通过 `FileProvider`（authority `${applicationId}.fileprovider`）返回 `content://` uri。manifest 需声明 `<uses-permission android:name="android.permission.CAMERA" />` + FileProvider + `<cache-path>`。
+- Android `scanQRCode`：用 **ML Kit barcode-scanning (bundled)**（无 GMS 依赖，HMS-only 设备能跑）+ **CameraX**。自定义 `QrScannerActivity` 持有相机预览 + 调 ML Kit 解码。ML Kit 的 int 格式常量映射成跨平台字符串名（`FORMAT_QR_CODE` → `"QR_CODE"`）以保持 shape 稳定。
   - 体积增量 ~5MB（ML Kit 模型 ~2.5MB + CameraX ~1.5MB + 预览 UI）。
   - 不用 ZXing 是因为想尽量用官方库；不用 ML Kit thin 变体（`play-services-mlkit-barcode-scanning`）是因为那个变体才真依赖 GMS。bundled 版本是纯 on-device。
-- Harmony：参考实现，`cameraPicker` 走系统 UI，已满足合约。
+- Harmony：`cameraPicker` 走系统 UI，已满足合约。`isSupported()` 曾硬编码 `true`，重新激活时建议用 `cameraPicker.isPickerSupported(mediaTypes)` 精确化。
 
-**遗留 / 不在 v1 范围**
-- Harmony `isSupported()` 硬编码 `true`，未用 `cameraPicker.isPickerSupported(mediaTypes)` 精确化（follow-up）。
-- 三端相机组件的 instrumented test（Espresso / XCTest UI / Hypium）未覆盖。
-- H5 端合约测试（防三端 shape 漂移）未覆盖。
+### A.3 git 历史定位
 
----
+```bash
+# 找组件源码
+git log --oneline --grep='camera'
+git log --oneline --grep='permission'
+git log --oneline --grep='dialog'
 
-### 4.14 mytest ✅ 已三端补齐
+# 找回单文件
+git log --all --full-history -- '**/CameraComponent.swift'
+git show <commit>:<path>
 
-**标准签名**
+# camera 全套 commits（7 个）
+git log --oneline f90070e..1547473
+```
 
-| 方法 | params | returns |
-|---|---|---|
-| `ping` | — | `pong, timestamp` |
-| `echo` | `message*` | `message` |
-| `add` | `a, b` | `sum` |
+### A.4 重新激活检查清单
 
-三端均已实现，作为 Bridge 冒烟测试脚手架。
-
----
-
-## 5. 对齐工作清单（按优先级）
-
-### P0 — 命名空间级分歧（影响所有调用）
-
-1. ✅ **错误码统一**（已完成）：Android/Harmony 组件层的 `9xxxxx` 全部替换为标准码（`200007` 参数校验 / `200001` 组件未找到 / `100005` 内部错误）。
-2. ✅ **dialog 三处命名统一**（已完成）：`toast`(非 showToast) / `confirmText`(非 okText) / `duration` 数字秒 / 返回 `success`(非 shown)。
-3. ✅ **performance 方法名统一**（已完成）：Harmony `getStats/getHistory/resetStats` → `getMetrics/getMethodStats/getSlowCalls/reset`，并拆分原 `getHistory` 的统计/慢调语义。
-
-### P1 — 组件补齐 ✅ 全部完成
-
-4. ✅ **Android 补 camera 组件**（已完成：takePhoto 走 FileProvider 全分辨率、scanQRCode 走 ZXing、权限门走 PermissionResultDispatcher，与 iOS/Harmony 三端 shape 对齐）。
-5. ✅ **Harmony 补 storage.getSize**（已完成）。
-6. ✅ **Harmony stack 方法集对齐** iOS/Android（已完成：补 backTo/getSize/getStack/canGoBack）。
-7. ✅ **mytest 三端补齐**（已完成：Android + Harmony 新建，参考 iOS）。
-
-### P2 — 签名漂移 ✅ 全部完成
-
-7. ✅ **permission 返回值**（已完成）：Android/Harmony 新增 `status` 字符串字段（保留 `granted` 兼容）。
-8. ✅ **device.getInfo 字段**（已完成）：三端统一返回 `manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight`；`getAll` 统一为 `{device, system, app}` 嵌套。
-9. ✅ **resource 组件**（已决策）：暂不统一，标记为可选/平台特定（见 4.9）。
-10. ✅ **clipboard.getText**（已完成）：Android/Harmony 补 `hasText`；三端补 `clear`。
-
-### P3 — 壳工程
-
-11. **iOS demo 接入 WebView**（ViewController 目前为空），加载 coconut_index.html + 注入 bridgeToken。
-
----
-
-## 6. 验收方式
-
-每个 P0/P1 改完后，用三端共享的 `coconut_index.html` 点一遍按钮：
-- 返回 `code:'000000'` 且 result 字段符合本契约 → 合规 ✅
-- 字段缺失/命名不符 → 不合规 ❌
-
-该 HTML 即 conformance test。
+重新引入某组件时：
+1. 从 git 找回源码（按 A.3）
+2. 三端同步加回（不要只加一端）
+3. 恢复配套基础设施（FileProvider / 权限调度 / Info.plist 等）
+4. 把本附录的对应行移回第 4 节
+5. 在 `coconut_index.html`（三端字节级同步）加回测试按钮
+6. 三端跑测试套件验证（iOS 64 / Android 61 / Harmony 112，目标数会回升）
