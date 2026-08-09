@@ -28,14 +28,14 @@ hybrid_framework/
 ├── coconutWebBox/         # H5 SDK：coconut.js（JS Bridge 客户端）
 ├── iOSWebBox/             # iOS 宿主 App + CoconutSDK SPM 包
 │   ├── CoconutSDK/        # SPM 包（框架）
-│   └── iOSWebBox/         # 宿主 App（持有 14 个组件）
+│   └── iOSWebBox/         # 宿主 App（持有 3 个组件：device / storage / event）
 ├── AndroidWebBox/         # Android 宿主 App + CoconutSDK Gradle 模块
 │   ├── coconut-core/      # 核心库（Bridge / Component / Security）
 │   ├── coconut-sdk/       # SDK 入口 + WebView 封装
-│   └── app/               # 宿主 App（持有 14 个组件）
+│   └── app/               # 宿主 App（持有 3 个组件：device / storage / event）
 ├── HarmonyWebBox/         # HarmonyOS 宿主 App + CoconutSDK HAR
 │   ├── CoconutSDK/        # HAR 库（框架）
-│   └── entry/             # HAP 宿主 App（持有 14 个组件）
+│   └── entry/             # HAP 宿主 App（持有 3 个组件：device / storage / event）
 ├── ARCHITECTURE.md        # 三端架构对照（详细模块图 / Bridge / 安全管线）
 └── API_CONTRACT.md        # 三端 API 契约（组件方法签名、错误码、安全机制）
 ```
@@ -101,9 +101,9 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
-| iOS | XCTest | 64 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
-| Android | JUnit (JVM) | 61 | `./gradlew :coconut-core:testDebugUnitTest` |
-| Harmony | Hypium (on-device) | 112 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
+| iOS | XCTest | 73 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
+| Android | JUnit (JVM) | 70 | `./gradlew :coconut-core:testDebugUnitTest` |
+| Harmony | Hypium (on-device) | 121 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
 
@@ -133,10 +133,18 @@ H5 call(component.method, params, bridgeToken)
 
 ## 相关文档
 
+**架构 / 契约**：
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — 三端模块结构、Bridge 通信、组件注册、安全管线对照
 - [`API_CONTRACT.md`](./API_CONTRACT.md) — 组件方法签名、错误码命名空间、安全机制详细规范
+
+**接入 / 用法**：
 - [`coconutWebBox/README.md`](./coconutWebBox/README.md) — H5 端 JS Bridge 用法
 - [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md) — Android 项目接入指南
+
+**测试**：
+- [`iOSWebBox/docs/EVENT_E2E_TEST.md`](./iOSWebBox/docs/EVENT_E2E_TEST.md) — iOS Event 订阅端到端测试（单元 + UI + Safari Inspector）
+- [`AndroidWebBox/docs/EVENT_E2E_TEST.md`](./AndroidWebBox/docs/EVENT_E2E_TEST.md) — Android Event 订阅端到端测试（单元 + UI + CDP 自动化）
+- [`HarmonyWebBox/docs/EVENT_E2E_TEST.md`](./HarmonyWebBox/docs/EVENT_E2E_TEST.md) — Harmony Event 订阅端到端测试（Hypium + UI + UiTest）
 - [`HarmonyWebBox/scripts/run-harmony-tests.sh`](./HarmonyWebBox/scripts/run-harmony-tests.sh) — Harmony 测试一键脚本
 
 ---
