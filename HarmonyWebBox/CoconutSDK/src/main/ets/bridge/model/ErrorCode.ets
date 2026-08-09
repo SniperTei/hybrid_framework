@@ -30,9 +30,6 @@ export class ErrorCode {
   static readonly RATE_LIMIT_EXCEEDED: string = '200009';
 
   // Security errors
-  static readonly SIGNATURE_INVALID: string = '300001';
-  static readonly SIGNATURE_EXPIRED: string = '300002';
-  static readonly NONCE_REUSED: string = '300003';
   static readonly BRIDGE_TOKEN_INVALID: string = '300004';
 
   static getDescription(code: string): string {
@@ -51,9 +48,6 @@ export class ErrorCode {
     if (code === '200007') return 'Parameter validation failed';
     if (code === '200008') return 'Component not initialized';
     if (code === '200009') return 'Rate limit exceeded';
-    if (code === '300001') return 'Signature invalid';
-    if (code === '300002') return 'Signature expired';
-    if (code === '300003') return 'Nonce reused';
     if (code === '300004') return 'Bridge token invalid';
     return 'Unknown error';
   }

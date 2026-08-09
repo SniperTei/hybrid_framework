@@ -13,7 +13,7 @@ public final class BridgeDispatcher {
     public init() {}
 
     /// Process a single bridge call end-to-end:
-    /// parse → method format check → token → signature → domain → rate limit →
+    /// parse → method format check → token → domain → rate limit →
     /// params size → component dispatch → response.
     @MainActor
     public func handleCall(_ jsonData: String, currentUrl: String) async -> String {
@@ -35,9 +35,6 @@ public final class BridgeDispatcher {
 
         let params = request["params"] as? [String: Any]
         let bridgeToken = request["bridgeToken"] as? String ?? ""
-        let timestamp = request["timestamp"] as? Int64 ?? 0
-        let nonce = request["nonce"] as? String ?? ""
-        let sign = request["sign"] as? String ?? ""
 
         // 2. Bridge Token validation
         if !BridgeTokenManager.shared.validateToken(bridgeToken) {
@@ -49,28 +46,7 @@ public final class BridgeDispatcher {
             return BridgeResponse.error(id: id, code: ErrorCode.BRIDGE_TOKEN_INVALID, message: "Invalid bridge token").toJSON()
         }
 
-        // 3. Request signature validation
-        let paramsJson = params != nil ? (try? String(data: JSONSerialization.data(withJSONObject: params!), encoding: .utf8)) ?? "" : ""
-        let signResult = RequestSignatureValidator.shared.validate(
-            method: method, id: id, timestamp: timestamp,
-            nonce: nonce, paramsJson: paramsJson, sign: sign
-        )
-        switch signResult {
-        case .invalid(let errorCode, let message):
-            let eventType: String
-            switch errorCode {
-            case ErrorCode.SIGNATURE_INVALID: eventType = SecurityAuditLog.EVENT_SIGNATURE_INVALID
-            case ErrorCode.SIGNATURE_EXPIRED: eventType = SecurityAuditLog.EVENT_SIGNATURE_EXPIRED
-            case ErrorCode.NONCE_REUSED: eventType = SecurityAuditLog.EVENT_NONCE_REUSED
-            default: eventType = SecurityAuditLog.EVENT_SIGNATURE_INVALID
-            }
-            SecurityAuditLog.shared.record(eventType: eventType, method: method, requestId: id, detail: message)
-            return BridgeResponse.error(id: id, code: errorCode, message: message).toJSON()
-        case .valid:
-            break
-        }
-
-        // 4. Domain whitelist check
+        // 3. Domain whitelist check
         let domainResult = securityValidator.validateDomain(currentUrl)
         if !domainResult.isValid {
             SecurityAuditLog.shared.record(

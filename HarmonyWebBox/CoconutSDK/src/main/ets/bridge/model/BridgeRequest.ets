@@ -8,9 +8,6 @@ export class BridgeRequest {
   method: string = '';
   params: string = ''; // raw JSON string
   id: string = '';
-  timestamp: number = 0;
-  nonce: string = '';
-  sign: string = '';
   bridgeToken: string = '';
 
   private static readonly METHOD_REGEX = /^[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*$/;
@@ -108,46 +105,6 @@ export class BridgeRequest {
       const valEnd = json.indexOf('"', valStart);
       if (valEnd !== -1) {
         req.id = json.substring(valStart, valEnd);
-      }
-    }
-
-    // Extract timestamp
-    const tsPattern = '"timestamp":';
-    const tsIdx = json.indexOf(tsPattern);
-    if (tsIdx !== -1) {
-      const valStart = tsIdx + tsPattern.length;
-      let valEnd = valStart;
-      while (valEnd < json.length && json[valEnd] !== ',' && json[valEnd] !== '}') {
-        valEnd++;
-      }
-      const numStr = json.substring(valStart, valEnd).trim();
-      if (numStr.length > 0) {
-        const parsed = parseInt(numStr);
-        if (!isNaN(parsed)) {
-          req.timestamp = parsed;
-        }
-      }
-    }
-
-    // Extract nonce
-    const noncePattern = '"nonce":"';
-    const nonceStart = json.indexOf(noncePattern);
-    if (nonceStart !== -1) {
-      const valStart = nonceStart + noncePattern.length;
-      const valEnd = json.indexOf('"', valStart);
-      if (valEnd !== -1) {
-        req.nonce = json.substring(valStart, valEnd);
-      }
-    }
-
-    // Extract sign
-    const signPattern = '"sign":"';
-    const signStart = json.indexOf(signPattern);
-    if (signStart !== -1) {
-      const valStart = signStart + signPattern.length;
-      const valEnd = json.indexOf('"', valStart);
-      if (valEnd !== -1) {
-        req.sign = json.substring(valStart, valEnd);
       }
     }
 

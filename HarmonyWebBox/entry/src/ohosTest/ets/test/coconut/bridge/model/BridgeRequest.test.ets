@@ -80,13 +80,10 @@ export default function bridgeRequestTest() {
 
     describe('fromJson', () => {
       it('parsesValidJson', 0, () => {
-        const json = '{"method":"device.getInfo","params":{"a":1},"id":"req-1","timestamp":123,"nonce":"n1","sign":"s1","bridgeToken":"t1"}';
+        const json = '{"method":"device.getInfo","params":{"a":1},"id":"req-1","bridgeToken":"t1"}';
         const req = BridgeRequest.fromJson(json);
         expect(req.method).assertEqual('device.getInfo');
         expect(req.id).assertEqual('req-1');
-        expect(req.timestamp).assertEqual(123);
-        expect(req.nonce).assertEqual('n1');
-        expect(req.sign).assertEqual('s1');
         expect(req.bridgeToken).assertEqual('t1');
         expect(req.params).assertEqual('{"a":1}');
       });

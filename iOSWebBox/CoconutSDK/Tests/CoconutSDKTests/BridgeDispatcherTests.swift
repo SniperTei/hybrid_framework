@@ -13,9 +13,6 @@ final class BridgeDispatcherTests: XCTestCase {
         try await super.setUp()
         dispatcher = BridgeDispatcher()
 
-        // Isolate from signing checks.
-        RequestSignatureValidator.shared.enabled = false
-
         // Token manager: enabled, with a known token.
         tokenManager.enabled = true
         tokenManager.reset()
@@ -29,7 +26,6 @@ final class BridgeDispatcherTests: XCTestCase {
         await componentManager.cleanup()
         tokenManager.reset()
         tokenManager.enabled = true
-        RequestSignatureValidator.shared.enabled = false
         try await super.tearDown()
     }
 

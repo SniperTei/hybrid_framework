@@ -72,29 +72,6 @@ class CoconutBridgeImpl(
                 )
             }
 
-            // 2.6 Request signature validation
-            val signResult = RequestSignatureValidator.validate(
-                request.method, request.id, request.timestamp, request.nonce,
-                request.params?.toString() ?: "", request.sign
-            )
-            when (signResult) {
-                is RequestSignatureValidator.SignResult.Invalid -> {
-                    Logger.logBridgeCallError(request.method, request.id, signResult.errorCode, signResult.message)
-                    val eventType = when (signResult.errorCode) {
-                        ErrorCode.SIGNATURE_INVALID -> SecurityAuditLog.EVENT_SIGNATURE_INVALID
-                        ErrorCode.SIGNATURE_EXPIRED -> SecurityAuditLog.EVENT_SIGNATURE_EXPIRED
-                        ErrorCode.NONCE_REUSED -> SecurityAuditLog.EVENT_NONCE_REUSED
-                        else -> SecurityAuditLog.EVENT_SIGNATURE_INVALID
-                    }
-                    SecurityAuditLog.record(eventType, request.method, request.id, signResult.message)
-                    return json.encodeToString(
-                        BridgeResponse.serializer(),
-                        BridgeResponse.error(request.id, signResult.errorCode, signResult.message)
-                    )
-                }
-                is RequestSignatureValidator.SignResult.Valid -> { /* pass */ }
-            }
-
             // 3. Domain whitelist check (using cached URL, no WebView access)
             val domainResult = securityValidator.validateDomain(currentUrl)
             if (!domainResult.isValid) {

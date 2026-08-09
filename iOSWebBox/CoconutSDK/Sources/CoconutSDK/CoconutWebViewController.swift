@@ -120,7 +120,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         bridge.securityValidator.rateLimitPerMethod = config.rateLimitPerMethod
         bridge.securityValidator.rateLimitWindowMs = config.rateLimitWindowMs
 
-        Logger.shared.d(tag, "Security config applied: token=\(config.enableBridgeToken), signing=\(config.enableRequestSigning)")
+        Logger.shared.d(tag, "Security config applied: token=\(config.enableBridgeToken)")
     }
 
     // MARK: - Bridge JS Injection
@@ -128,23 +128,20 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     private func injectBridgeJavaScript() {
         guard let webView = webView else { return }
         let token = BridgeTokenManager.shared.getToken()
-        let signingEnabled = RequestSignatureValidator.shared.enabled
 
-        let js = Self.bridgeBootstrapJS(token: token, signingEnabled: signingEnabled)
+        let js = Self.bridgeBootstrapJS(token: token)
         webView.evaluateJavaScript(js)
         Logger.shared.d(tag, "Bridge security config injected (token: \(token.prefix(8))...)")
     }
 
     /// Builds the security-config bootstrap JS injected into the page after navigation finishes.
     /// Extracted to a static method so the script shape is unit-testable without a WebView.
-    private static func bridgeBootstrapJS(token: String, signingEnabled: Bool) -> String {
+    private static func bridgeBootstrapJS(token: String) -> String {
         return """
         (function() {
             if (window.__coconutInitialized) return;
             window.__coconutConfig = {
-                token: '\(token)',
-                signingEnabled: \(signingEnabled),
-                sharedSecret: ''
+                token: '\(token)'
             };
             if (window.Coconut && window.Coconut._loadSecurityConfig) {
                 window.Coconut._loadSecurityConfig();

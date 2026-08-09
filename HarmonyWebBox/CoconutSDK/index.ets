@@ -8,7 +8,6 @@ export { JsonObject, JsonParser } from './src/main/ets/utils/JsonHelper'
 // Bridge
 export { CoconutBridgeImpl } from './src/main/ets/bridge/CoconutBridgeImpl'
 export { BridgeTokenManager } from './src/main/ets/bridge/BridgeTokenManager'
-export { RequestSignatureValidator, SignResult } from './src/main/ets/bridge/RequestSignatureValidator'
 export { BridgeSecurityValidator } from './src/main/ets/bridge/BridgeSecurityValidator'
 export { SecurityAuditLog, AuditEntry } from './src/main/ets/bridge/SecurityAuditLog'
 export { BridgePerformance, CallRecord, MethodStats } from './src/main/ets/bridge/BridgePerformance'

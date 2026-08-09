@@ -22,9 +22,6 @@ export class SecurityAuditLog {
   static readonly EVENT_DOMAIN_REJECTED = 'domain_rejected';
   static readonly EVENT_RATE_LIMITED = 'rate_limited';
   static readonly EVENT_PARAMS_OVERSIZED = 'params_oversized';
-  static readonly EVENT_SIGNATURE_INVALID = 'signature_invalid';
-  static readonly EVENT_SIGNATURE_EXPIRED = 'signature_expired';
-  static readonly EVENT_NONCE_REUSED = 'nonce_reused';
   static readonly EVENT_TOKEN_INVALID = 'token_invalid';
 
   /**

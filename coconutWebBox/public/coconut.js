@@ -3,9 +3,9 @@
  *
  * 与 Android / iOS / HarmonyOS 原生交互的统一 JS 客户端
  * 支持环境：android (sync) / ios (async) / harmony (async) / web (mock)
- * 安全特性：Bridge Token 防护 & HMAC-SHA256 请求签名
+ * 安全特性：Bridge Token 防护
  *
- * @version 2.1.0
+ * @version 2.2.0
  */
 
 (function (global, factory) {
@@ -21,7 +21,7 @@
      * Coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '2.1.0';
+        this.version = '2.2.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -162,15 +162,14 @@
 
     /**
      * 加载安全配置
-     * 从 window.__coconutConfig 读取原生注入的安全参数
+     * 从 window.__coconutConfig 读取原生注入的 bridgeToken
      */
     Coconut.prototype._loadSecurityConfig = function () {
         if (typeof window !== 'undefined' && window.__coconutConfig) {
             this._securityConfig = window.__coconutConfig;
             if (this.debug) {
                 this.log('🔒 Security config loaded: token=' +
-                    (this._securityConfig.token ? '***' : 'none') +
-                    ', signing=' + !!this._securityConfig.signingEnabled);
+                    (this._securityConfig.token ? '***' : 'none'));
             }
         } else {
             this._securityConfig = null;
@@ -178,76 +177,17 @@
     };
 
     /**
-     * 为请求附加安全字段
-     * 返回 Promise，因为 HMAC 计算是异步的
+     * 为请求附加 bridgeToken（同步）
      */
     Coconut.prototype._applySecurity = function (request) {
-        var self = this;
-
         // 延迟加载：首次调用时如果还没拿到原生注入的配置，再读一次
         if (!this._securityConfig && typeof window !== 'undefined' && window.__coconutConfig) {
             this._loadSecurityConfig();
         }
 
         var config = this._securityConfig;
-
-        // 无安全配置时直接返回
-        if (!config) {
-            return Promise.resolve(request);
-        }
-
-        // 1. 附加 bridgeToken
-        if (config.token) {
+        if (config && config.token) {
             request.bridgeToken = config.token;
-        }
-
-        // 2. 签名未启用，直接返回
-        if (!config.signingEnabled || !config.sharedSecret) {
-            return Promise.resolve(request);
-        }
-
-        // 3. 计算 HMAC-SHA256 签名
-        var ts = Date.now();
-        var nonce = ts.toString(36) + '-' + Math.random().toString(36).substr(2, 9);
-        request.timestamp = ts;
-        request.nonce = nonce;
-
-        var paramsStr = JSON.stringify(request.params || {});
-        var payload = request.method + '|' + request.id + '|' + ts + '|' + nonce + '|' + paramsStr;
-
-        return self._computeHmac(config.sharedSecret, payload).then(function (sig) {
-            request.sign = sig;
-            if (self.debug) {
-                self.log('🔐 Request signed:', request.method);
-            }
-            return request;
-        });
-    };
-
-    /**
-     * HMAC-SHA256 计算（Web Crypto API）
-     */
-    Coconut.prototype._computeHmac = function (key, message) {
-        try {
-            var encoder = new TextEncoder();
-            var keyData = encoder.encode(key);
-            var msgData = encoder.encode(message);
-
-            return crypto.subtle.importKey(
-                'raw', keyData,
-                { name: 'HMAC', hash: 'SHA-256' },
-                false, ['sign']
-            ).then(function (cryptoKey) {
-                return crypto.subtle.sign('HMAC', cryptoKey, msgData);
-            }).then(function (sig) {
-                var arr = Array.from(new Uint8Array(sig));
-                return arr.map(function (b) {
-                    return b.toString(16).padStart(2, '0');
-                }).join('');
-            });
-        } catch (e) {
-            this.error('HMAC computation failed:', e);
-            return Promise.reject(e);
         }
     };
 
@@ -285,15 +225,8 @@
             }
         }, to);
 
-        this._applySecurity(request).then(function (securedRequest) {
-            self._sendBridgeRequest(securedRequest);
-        }).catch(function (error) {
-            self.error('Security apply failed:', error);
-            if (callback) {
-                callback({ id: requestId, code: '100005', message: 'Security error: ' + error.message, result: null }, true);
-                self.cleanupRequest(requestId);
-            }
-        });
+        this._applySecurity(request);
+        this._sendBridgeRequest(request);
 
         if (this.debug) {
             this.log('📤 Call:', method, params);

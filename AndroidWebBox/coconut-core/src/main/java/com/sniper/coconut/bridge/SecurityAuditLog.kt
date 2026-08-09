@@ -28,9 +28,6 @@ object SecurityAuditLog {
     const val EVENT_DOMAIN_REJECTED = "domain_rejected"
     const val EVENT_RATE_LIMITED = "rate_limited"
     const val EVENT_PARAMS_OVERSIZED = "params_oversized"
-    const val EVENT_SIGNATURE_INVALID = "signature_invalid"
-    const val EVENT_SIGNATURE_EXPIRED = "signature_expired"
-    const val EVENT_NONCE_REUSED = "nonce_reused"
     const val EVENT_TOKEN_INVALID = "token_invalid"
 
     /**

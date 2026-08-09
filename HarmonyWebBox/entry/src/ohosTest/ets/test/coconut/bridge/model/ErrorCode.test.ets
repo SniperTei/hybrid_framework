@@ -24,9 +24,6 @@ export default function errorCodeTest() {
         ErrorCode.PARAM_VALIDATION_FAILED,
         ErrorCode.COMPONENT_NOT_INITIALIZED,
         ErrorCode.RATE_LIMIT_EXCEEDED,
-        ErrorCode.SIGNATURE_INVALID,
-        ErrorCode.SIGNATURE_EXPIRED,
-        ErrorCode.NONCE_REUSED,
         ErrorCode.BRIDGE_TOKEN_INVALID,
       ];
       for (let i = 0; i < codes.length; i++) {
@@ -55,9 +52,6 @@ export default function errorCodeTest() {
         ErrorCode.PARAM_VALIDATION_FAILED,
         ErrorCode.COMPONENT_NOT_INITIALIZED,
         ErrorCode.RATE_LIMIT_EXCEEDED,
-        ErrorCode.SIGNATURE_INVALID,
-        ErrorCode.SIGNATURE_EXPIRED,
-        ErrorCode.NONCE_REUSED,
         ErrorCode.BRIDGE_TOKEN_INVALID,
       ];
       const seen = new Set<string>();
@@ -82,9 +76,6 @@ export default function errorCodeTest() {
     });
 
     it('securityErrors_startWithThree', 0, () => {
-      expect(ErrorCode.SIGNATURE_INVALID.startsWith('3')).assertTrue();
-      expect(ErrorCode.SIGNATURE_EXPIRED.startsWith('3')).assertTrue();
-      expect(ErrorCode.NONCE_REUSED.startsWith('3')).assertTrue();
       expect(ErrorCode.BRIDGE_TOKEN_INVALID.startsWith('3')).assertTrue();
     });
 
@@ -92,8 +83,7 @@ export default function errorCodeTest() {
       expect(ErrorCode.getDescription(ErrorCode.SUCCESS)).assertEqual('Success');
       expect(ErrorCode.getDescription(ErrorCode.PARSE_ERROR)).assertEqual('Parse error');
       expect(ErrorCode.getDescription(ErrorCode.METHOD_NOT_FOUND)).assertEqual('Method not found');
-      expect(ErrorCode.getDescription(ErrorCode.SIGNATURE_INVALID)).assertEqual('Signature invalid');
-      expect(ErrorCode.getDescription(ErrorCode.NONCE_REUSED)).assertEqual('Nonce reused');
+      expect(ErrorCode.getDescription(ErrorCode.BRIDGE_TOKEN_INVALID)).assertEqual('Bridge token invalid');
       expect(ErrorCode.getDescription(ErrorCode.RATE_LIMIT_EXCEEDED)).assertEqual('Rate limit exceeded');
     });
 

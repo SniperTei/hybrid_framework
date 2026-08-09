@@ -4,7 +4,6 @@ import { ComponentManager } from './ets/component/ComponentManager';
 import { ComponentContext } from './ets/component/ComponentContext';
 import { CoconutBridgeImpl } from './ets/bridge/CoconutBridgeImpl';
 import { BridgeTokenManager } from './ets/bridge/BridgeTokenManager';
-import { RequestSignatureValidator } from './ets/bridge/RequestSignatureValidator';
 import { CoconutPlugin } from './ets/component/CoconutPlugin';
 import { Logger } from './ets/utils/Logger';
 import { JsonObject } from './ets/utils/JsonHelper';
@@ -77,9 +76,6 @@ export class CoconutSDK {
     }
 
     BridgeTokenManager.enabled = CoconutSDK._config.enableBridgeToken;
-    RequestSignatureValidator.enabled = CoconutSDK._config.enableRequestSigning;
-    RequestSignatureValidator.sharedSecret = CoconutSDK._config.bridgeSharedSecret;
-    RequestSignatureValidator.timestampToleranceMs = CoconutSDK._config.signingTimestampToleranceMs;
 
     Logger.i('CoconutSDK', 'CoconutSDK configured');
   }
@@ -137,8 +133,6 @@ export class CoconutSDK {
   static getSecurityConfig(): string {
     const builder = new JsonObject();
     builder.put('token', BridgeTokenManager.getToken());
-    builder.putBool('signingEnabled', RequestSignatureValidator.enabled);
-    builder.put('sharedSecret', RequestSignatureValidator.sharedSecret);
     return builder.build();
   }
 
@@ -150,7 +144,6 @@ export class CoconutSDK {
     Logger.d('CoconutSDK', 'Cleaning up CoconutSDK...');
     await ComponentManager.getInstance().cleanup();
     BridgeTokenManager.reset();
-    RequestSignatureValidator.reset();
     CoconutSDK._bridge = null;
     CoconutSDK._isInitialized = false;
     Logger.i('CoconutSDK', 'CoconutSDK cleaned up');

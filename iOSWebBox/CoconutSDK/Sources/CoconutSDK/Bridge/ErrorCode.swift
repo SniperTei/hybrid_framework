@@ -22,9 +22,6 @@ public struct ErrorCode {
     public static let RATE_LIMIT_EXCEEDED = "200009"
 
     // Security errors (300001-300004)
-    public static let SIGNATURE_INVALID = "300001"
-    public static let SIGNATURE_EXPIRED = "300002"
-    public static let NONCE_REUSED = "300003"
     public static let BRIDGE_TOKEN_INVALID = "300004"
 
     public static func getDescription(_ code: String) -> String {
@@ -43,9 +40,6 @@ public struct ErrorCode {
         case PARAM_VALIDATION_FAILED: return "Parameter validation failed"
         case COMPONENT_NOT_INITIALIZED: return "Component not initialized"
         case RATE_LIMIT_EXCEEDED: return "Rate limit exceeded"
-        case SIGNATURE_INVALID: return "Signature invalid"
-        case SIGNATURE_EXPIRED: return "Signature expired"
-        case NONCE_REUSED: return "Nonce reused"
         case BRIDGE_TOKEN_INVALID: return "Bridge token invalid"
         default: return "Unknown error"
         }

@@ -128,9 +128,6 @@ object ErrorCode {
     const val RATE_LIMIT_EXCEEDED = "200009"
 
     // Security errors (300001-300004)
-    const val SIGNATURE_INVALID = "300001"
-    const val SIGNATURE_EXPIRED = "300002"
-    const val NONCE_REUSED = "300003"
     const val BRIDGE_TOKEN_INVALID = "300004"
 
     // Error code descriptions
@@ -149,9 +146,6 @@ object ErrorCode {
         PARAM_VALIDATION_FAILED -> "Parameter validation failed"
         COMPONENT_NOT_INITIALIZED -> "Component not initialized"
         RATE_LIMIT_EXCEEDED -> "Rate limit exceeded"
-        SIGNATURE_INVALID -> "Signature invalid"
-        SIGNATURE_EXPIRED -> "Signature expired"
-        NONCE_REUSED -> "Nonce reused"
         BRIDGE_TOKEN_INVALID -> "Bridge token invalid"
         else -> "Unknown error"
     }

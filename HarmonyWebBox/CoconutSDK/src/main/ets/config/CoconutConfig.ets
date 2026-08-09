@@ -28,9 +28,6 @@ export class CoconutConfig {
 
   // Security enhancement
   enableBridgeToken: boolean = true;
-  enableRequestSigning: boolean = false;
-  bridgeSharedSecret: string = '';
-  signingTimestampToleranceMs: number = 5 * 60 * 1000;
 
   // SDK version
   sdkVersion: string = '2.0.0';

@@ -4,7 +4,6 @@ import bridgeResponseTest from './bridge/model/BridgeResponse.test';
 import securityResultTest from './bridge/model/SecurityResult.test';
 import jsonHelperTest from './utils/JsonHelper.test';
 import bridgeTokenManagerTest from './bridge/BridgeTokenManager.test';
-import requestSignatureValidatorTest from './bridge/RequestSignatureValidator.test';
 import bridgeSecurityValidatorTest from './bridge/BridgeSecurityValidator.test';
 import bridgePerformanceTest from './bridge/BridgePerformance.test';
 import securityAuditLogTest from './bridge/SecurityAuditLog.test';
@@ -20,7 +19,6 @@ export default function testsuite() {
   securityResultTest();
   jsonHelperTest();
   bridgeTokenManagerTest();
-  requestSignatureValidatorTest();
   bridgeSecurityValidatorTest();
   bridgePerformanceTest();
   securityAuditLogTest();

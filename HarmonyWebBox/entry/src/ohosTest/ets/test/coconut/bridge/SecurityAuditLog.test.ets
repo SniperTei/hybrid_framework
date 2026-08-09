@@ -40,7 +40,7 @@ export default function securityAuditLogTest() {
     });
 
     it('clear_emptiesEntries', 0, () => {
-      SecurityAuditLog.record(SecurityAuditLog.EVENT_NONCE_REUSED, 'm', '1', '');
+      SecurityAuditLog.record(SecurityAuditLog.EVENT_TOKEN_INVALID, 'm', '1', '');
       expect(SecurityAuditLog.getEntries().length > 0).assertTrue();
       SecurityAuditLog.clear();
       expect(SecurityAuditLog.getEntries().length).assertEqual(0);
@@ -49,7 +49,7 @@ export default function securityAuditLogTest() {
     it('fifo_cap_at500_entries', 0, () => {
       SecurityAuditLog.clear();
       for (let i = 0; i < 510; i++) {
-        SecurityAuditLog.record(SecurityAuditLog.EVENT_SIGNATURE_INVALID, `m.${i}`, `id-${i}`, '');
+        SecurityAuditLog.record(SecurityAuditLog.EVENT_TOKEN_INVALID, `m.${i}`, `id-${i}`, '');
       }
       const entries = SecurityAuditLog.getEntries();
       expect(entries.length).assertEqual(500);

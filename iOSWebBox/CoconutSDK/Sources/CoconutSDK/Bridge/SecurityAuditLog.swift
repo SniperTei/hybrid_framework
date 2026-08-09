@@ -8,9 +8,6 @@ public class SecurityAuditLog: @unchecked Sendable {
     public static let EVENT_DOMAIN_REJECTED = "DOMAIN_REJECTED"
     public static let EVENT_RATE_LIMITED = "RATE_LIMITED"
     public static let EVENT_PARAMS_OVERSIZED = "PARAMS_OVERSIZED"
-    public static let EVENT_SIGNATURE_INVALID = "SIGNATURE_INVALID"
-    public static let EVENT_SIGNATURE_EXPIRED = "SIGNATURE_EXPIRED"
-    public static let EVENT_NONCE_REUSED = "NONCE_REUSED"
     public static let EVENT_TOKEN_INVALID = "TOKEN_INVALID"
 
     public struct AuditEntry {

@@ -22,7 +22,6 @@ import androidx.appcompat.widget.Toolbar
 import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.bridge.CoconutBridgeImpl
 import com.sniper.coconut.bridge.BridgeTokenManager
-import com.sniper.coconut.bridge.RequestSignatureValidator
 import com.sniper.coconut.component.ComponentHost
 import com.sniper.coconut.component.ComponentManager
 import com.sniper.coconut.resource.OfflineResourceManager
@@ -360,9 +359,6 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
             // Security enhancement settings
             BridgeTokenManager.enabled = cfg.enableBridgeToken
-            RequestSignatureValidator.enabled = cfg.enableRequestSigning
-            RequestSignatureValidator.sharedSecret = cfg.bridgeSharedSecret
-            RequestSignatureValidator.timestampToleranceMs = cfg.signingTimestampToleranceMs
         }
 
         // Generate bridge token for this session
@@ -422,17 +418,13 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
     protected open fun injectBridgeJavaScript() {
         val bridgeToken = if (BridgeTokenManager.enabled) BridgeTokenManager.getToken() else ""
-        val signingEnabled = RequestSignatureValidator.enabled
-        val sharedSecret = if (signingEnabled) RequestSignatureValidator.sharedSecret else ""
 
         val javascript = """
             (function() {
                 if (window.__coconutInitialized) return;
 
                 window.__coconutConfig = {
-                    token: '$bridgeToken',
-                    signingEnabled: $signingEnabled,
-                    sharedSecret: '$sharedSecret'
+                    token: '$bridgeToken'
                 };
 
                 if (window.Coconut && window.Coconut._loadSecurityConfig) {

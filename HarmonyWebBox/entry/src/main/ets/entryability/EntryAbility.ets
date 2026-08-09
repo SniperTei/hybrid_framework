@@ -14,7 +14,6 @@ export default class EntryAbility extends UIAbility {
     CoconutSDK.configure((config) => {
       config.isDebugMode = true;
       config.enableBridgeToken = true;
-      config.enableRequestSigning = false;
     });
 
     PopupUtil.init(this.context);

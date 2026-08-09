@@ -27,18 +27,18 @@ class SecurityAuditLogTest {
     @Test
     fun record_addsEntry() {
         SecurityAuditLog.record(
-            eventType = SecurityAuditLog.EVENT_SIGNATURE_INVALID,
+            eventType = SecurityAuditLog.EVENT_TOKEN_INVALID,
             method = "device.getInfo",
             requestId = "r1",
-            detail = "bad signature"
+            detail = "bad token"
         )
         val entries = SecurityAuditLog.getEntries()
         assertEquals(1, entries.size)
         val entry = entries.first()
-        assertEquals(SecurityAuditLog.EVENT_SIGNATURE_INVALID, entry.eventType)
+        assertEquals(SecurityAuditLog.EVENT_TOKEN_INVALID, entry.eventType)
         assertEquals("device.getInfo", entry.method)
         assertEquals("r1", entry.requestId)
-        assertEquals("bad signature", entry.detail)
+        assertEquals("bad token", entry.detail)
         assertTrue(entry.timestamp > 0)
     }
 
@@ -58,13 +58,13 @@ class SecurityAuditLogTest {
 
     @Test
     fun getSummary_returnsCountBySeverity() {
-        SecurityAuditLog.record(SecurityAuditLog.EVENT_SIGNATURE_INVALID, "m", "r1", "d")
-        SecurityAuditLog.record(SecurityAuditLog.EVENT_SIGNATURE_INVALID, "m", "r2", "d")
-        SecurityAuditLog.record(SecurityAuditLog.EVENT_NONCE_REUSED, "m", "r3", "d")
+        SecurityAuditLog.record(SecurityAuditLog.EVENT_TOKEN_INVALID, "m", "r1", "d")
+        SecurityAuditLog.record(SecurityAuditLog.EVENT_TOKEN_INVALID, "m", "r2", "d")
+        SecurityAuditLog.record(SecurityAuditLog.EVENT_DOMAIN_REJECTED, "m", "r3", "d")
 
         val summary = SecurityAuditLog.getSummary()
-        assertEquals(2, summary[SecurityAuditLog.EVENT_SIGNATURE_INVALID])
-        assertEquals(1, summary[SecurityAuditLog.EVENT_NONCE_REUSED])
+        assertEquals(2, summary[SecurityAuditLog.EVENT_TOKEN_INVALID])
+        assertEquals(1, summary[SecurityAuditLog.EVENT_DOMAIN_REJECTED])
     }
 
     @Test

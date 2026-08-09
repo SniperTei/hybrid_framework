@@ -3,7 +3,6 @@ import { BridgeRequest } from './model/BridgeRequest';
 import { BridgeResponse } from './model/BridgeResponse';
 import { ErrorCode } from './model/ErrorCode';
 import { BridgeTokenManager } from './BridgeTokenManager';
-import { RequestSignatureValidator } from './RequestSignatureValidator';
 import { BridgeSecurityValidator } from './BridgeSecurityValidator';
 import { SecurityAuditLog } from './SecurityAuditLog';
 import { BridgePerformance } from './BridgePerformance';
@@ -67,24 +66,6 @@ export class CoconutBridgeImpl {
         Logger.logBridgeCallError(request.method, request.id, ErrorCode.BRIDGE_TOKEN_INVALID, 'Invalid bridge token');
         SecurityAuditLog.record(SecurityAuditLog.EVENT_TOKEN_INVALID, request.method, request.id, 'Invalid or missing bridge token');
         const resp = BridgeResponse.error(request.id, ErrorCode.BRIDGE_TOKEN_INVALID, 'Invalid bridge token');
-        this.sendResponse(webController, resp);
-        return;
-      }
-
-      // 2.6 Request signature validation
-      const paramsStr = request.params;
-      const signResult = await RequestSignatureValidator.validate(
-        request.method, request.id, request.timestamp, request.nonce, paramsStr, request.sign
-      );
-      if (!signResult.isValid) {
-        Logger.logBridgeCallError(request.method, request.id, signResult.errorCode, signResult.message);
-        const eventType = signResult.errorCode === ErrorCode.SIGNATURE_INVALID ?
-          SecurityAuditLog.EVENT_SIGNATURE_INVALID :
-          signResult.errorCode === ErrorCode.SIGNATURE_EXPIRED ?
-            SecurityAuditLog.EVENT_SIGNATURE_EXPIRED :
-            SecurityAuditLog.EVENT_NONCE_REUSED;
-        SecurityAuditLog.record(eventType, request.method, request.id, signResult.message);
-        const resp = BridgeResponse.error(request.id, signResult.errorCode, signResult.message);
         this.sendResponse(webController, resp);
         return;
       }

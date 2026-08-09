@@ -30,9 +30,6 @@ class ErrorCodeTest {
         ErrorCode.PARAM_VALIDATION_FAILED,
         ErrorCode.COMPONENT_NOT_INITIALIZED,
         ErrorCode.RATE_LIMIT_EXCEEDED,
-        ErrorCode.SIGNATURE_INVALID,
-        ErrorCode.SIGNATURE_EXPIRED,
-        ErrorCode.NONCE_REUSED,
         ErrorCode.BRIDGE_TOKEN_INVALID
     )
 
@@ -110,9 +107,6 @@ class ErrorCodeTest {
     @Test
     fun securityErrors_startWith30000() {
         val securityErrors = listOf(
-            ErrorCode.SIGNATURE_INVALID,
-            ErrorCode.SIGNATURE_EXPIRED,
-            ErrorCode.NONCE_REUSED,
             ErrorCode.BRIDGE_TOKEN_INVALID
         )
         for (code in securityErrors) {

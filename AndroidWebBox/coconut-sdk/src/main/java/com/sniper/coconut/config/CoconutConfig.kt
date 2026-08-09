@@ -96,24 +96,6 @@ class CoconutConfig {
     var enableBridgeToken: Boolean = true
         private set
 
-    /**
-     * Enable HMAC-SHA256 request signature verification
-     */
-    var enableRequestSigning: Boolean = false
-        private set
-
-    /**
-     * Shared secret for HMAC-SHA256 signing
-     */
-    var bridgeSharedSecret: String = ""
-        private set
-
-    /**
-     * Timestamp tolerance for signature verification (milliseconds)
-     */
-    var signingTimestampToleranceMs: Long = 5 * 60 * 1000L
-        private set
-
     // ---- Convenience Getters ----
 
     /**
@@ -180,18 +162,6 @@ class CoconutConfig {
 
     fun setEnableBridgeToken(enable: Boolean) = apply {
         enableBridgeToken = enable
-    }
-
-    fun setEnableRequestSigning(enable: Boolean) = apply {
-        enableRequestSigning = enable
-    }
-
-    fun setBridgeSharedSecret(secret: String) = apply {
-        bridgeSharedSecret = secret
-    }
-
-    fun setSigningTimestampToleranceMs(toleranceMs: Long) = apply {
-        signingTimestampToleranceMs = toleranceMs
     }
 
     /**

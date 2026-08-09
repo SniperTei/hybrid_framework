@@ -20,9 +20,6 @@ final class ErrorCodeTests: XCTestCase {
         ("PARAM_VALIDATION_FAILED", ErrorCode.PARAM_VALIDATION_FAILED),
         ("COMPONENT_NOT_INITIALIZED", ErrorCode.COMPONENT_NOT_INITIALIZED),
         ("RATE_LIMIT_EXCEEDED", ErrorCode.RATE_LIMIT_EXCEEDED),
-        ("SIGNATURE_INVALID", ErrorCode.SIGNATURE_INVALID),
-        ("SIGNATURE_EXPIRED", ErrorCode.SIGNATURE_EXPIRED),
-        ("NONCE_REUSED", ErrorCode.NONCE_REUSED),
         ("BRIDGE_TOKEN_INVALID", ErrorCode.BRIDGE_TOKEN_INVALID),
     ]
 
@@ -84,8 +81,7 @@ final class ErrorCodeTests: XCTestCase {
 
     func testSecurityErrorRange() {
         let securityCodes = [
-            ErrorCode.SIGNATURE_INVALID, ErrorCode.SIGNATURE_EXPIRED,
-            ErrorCode.NONCE_REUSED, ErrorCode.BRIDGE_TOKEN_INVALID
+            ErrorCode.BRIDGE_TOKEN_INVALID
         ]
         for code in securityCodes {
             XCTAssertTrue(code.hasPrefix("30000"), "\(code) not in 300001-300004 range")
