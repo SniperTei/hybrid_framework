@@ -6,7 +6,7 @@ import WebKit
 public class ComponentContext {
 
     public let applicationContext: UIApplication
-    public var sdkVersion: String = "1.0.0"
+    public var sdkVersion: String = "2.0.0"
 
     weak var host: ComponentHost?
 
