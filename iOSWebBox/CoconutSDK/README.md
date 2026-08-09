@@ -41,7 +41,7 @@ CoconutSDK/                         # SPM 包根
 │   │
 │   └── (待补充)
 │
-└── Tests/CoconutSDKTests/               # 74 个 XCTest case
+└── Tests/CoconutSDKTests/               # 64 个 XCTest case
     ├── BridgeTokenManagerTests.swift
     ├── BridgeSecurityValidatorTests.swift
     ├── BridgePerformanceTests.swift
@@ -161,7 +161,7 @@ H5: Promise resolve
 cd iOSWebBox/CoconutSDK
 xcodebuild test -scheme CoconutSDK \
     -destination 'id=2493097D-3EC4-48C3-8E4D-7C164A11E568'
-# 74 个 case，~0.3s
+# 64 个 case，~0.3s
 ```
 
 测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统 / Config / Logger。**不覆盖** `CoconutWebViewController`（需要 WKWebView 实例，属于 UI 测试范畴）。

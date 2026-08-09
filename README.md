@@ -101,9 +101,9 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
-| iOS | XCTest | 74 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
-| Android | JUnit (JVM) | 72 | `./gradlew :coconut-core:testDebugUnitTest` |
-| Harmony | Hypium (on-device) | 124 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
+| iOS | XCTest | 64 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
+| Android | JUnit (JVM) | 61 | `./gradlew :coconut-core:testDebugUnitTest` |
+| Harmony | Hypium (on-device) | 112 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
 

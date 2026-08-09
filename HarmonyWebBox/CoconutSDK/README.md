@@ -165,7 +165,7 @@ H5: Promise resolve
 ```bash
 cd HarmonyWebBox
 ./scripts/run-harmony-tests.sh
-# 124 个 case / 14 suites，~7s on device
+# 112 个 case / 13 suites，~7s on device
 ```
 
 测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统 / Config / Logger / JsonHelper。

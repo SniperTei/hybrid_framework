@@ -17,7 +17,7 @@ Android 端把 CoconutSDK 拆成两个 Gradle 模块：
 | `coconut-sdk` | **SDK 入口 + WebView 封装** | CoconutSDK 单例、CoconutWebActivity、资源管理 |
 
 > 为什么拆？
-> `coconut-core` 可以**纯 JVM 单元测试**（不需要 Robolectric 或真机），覆盖 72 个 case。WebView 相关的封装（`CoconutWebActivity` 等）放 `coconut-sdk`，因为它们需要 `Context` 和 `WebView` 实例。
+> `coconut-core` 可以**纯 JVM 单元测试**（不需要 Robolectric 或真机），覆盖 61 个 case。WebView 相关的封装（`CoconutWebActivity` 等）放 `coconut-sdk`，因为它们需要 `Context` 和 `WebView` 实例。
 
 ```
 AndroidWebBox/
@@ -168,7 +168,7 @@ H5: 拿到 JSON，Promise resolve
 ```bash
 cd AndroidWebBox
 ./gradlew :coconut-core:testDebugUnitTest
-# 72 个 case / 9 suites，~1.5s
+# 61 个 case / 8 suites，~1.5s
 ```
 
 测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统。
