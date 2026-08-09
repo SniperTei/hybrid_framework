@@ -208,10 +208,10 @@ abstract class BaseComponent : CoconutPlugin {
 
 ## 4. 安全管线
 
-每次 H5 → 原生的调用都经过 5 层校验：
+每次 H5 → 原生的调用都经过 3 层校验：
 
 ```
-H5 发起 call(component.method, params, bridgeToken, signature, nonce, timestamp)
+H5 发起 call(component.method, params, bridgeToken)
                               │
                               ▼
 ┌────────────────────────────────────────────────────┐
@@ -219,19 +219,11 @@ H5 发起 call(component.method, params, bridgeToken, signature, nonce, timestam
 │    UUID 会话令牌，注入到 JS 全局变量                  │
 │    每次调用必须带上，跟服务端记录比对                  │
 ├────────────────────────────────────────────────────┤
-│ 2. HMAC-SHA256 签名验证                             │
-│    对 method + params + timestamp + nonce 做 HMAC   │
-│    用共享密钥（可选启用）                            │
-├────────────────────────────────────────────────────┤
-│ 3. Nonce 防重放                                     │
-│    LRU 缓存（容量 1000）记录已用 nonce               │
-│    同一 nonce 第二次调用直接拒绝                     │
-├────────────────────────────────────────────────────┤
-│ 4. 域名白名单                                       │
+│ 2. 域名白名单                                       │
 │    当前 WebView URL 必须在白名单内                   │
 │    防止恶意页面劫持 Bridge                           │
 ├────────────────────────────────────────────────────┤
-│ 5. 限流                                            │
+│ 3. 限流                                            │
 │    按 method 维度计数（默认 100 次/分钟）            │
 │    超限拒绝                                         │
 └────────────────────────────────────────────────────┘
@@ -246,7 +238,6 @@ H5 发起 call(component.method, params, bridgeToken, signature, nonce, timestam
 | 职责 | Android | iOS | Harmony |
 |------|---------|-----|---------|
 | **BridgeToken** | `BridgeTokenManager.kt` | `BridgeTokenManager.swift` | `BridgeTokenManager.ets` |
-| **HMAC 签名** | `RequestSignatureValidator.kt` | `RequestSignatureValidator.swift` | `RequestSignatureValidator.ets` |
 | **域名白名单 + 限流** | `BridgeSecurityValidator.kt` | `BridgeSecurityValidator.swift` | `BridgeSecurityValidator.ets` |
 | **审计日志** | （内置） | `SecurityAuditLog.swift` | `SecurityAuditLog.ets` |
 
@@ -258,13 +249,12 @@ H5 发起 call(component.method, params, bridgeToken, signature, nonce, timestam
 [H5]
   CoconutBridge.call('device.getInfo', {})
       │
-      │ 组装 JSON-RPC 请求：
-      │ { method:'device.getInfo', params:{}, id:42,
-      │   bridgeToken:'xxx', signature:'...', nonce:'...', timestamp:... }
+      │ 组装请求：
+      │ { method:'device.getInfo', params:{}, id:42, bridgeToken:'xxx' }
       ▼
 [Bridge 层]（iOS/Harmony 异步；Android 同步）
       │
-      ├─ 5 层安全校验（见上节）
+      ├─ 3 层安全校验（见上节）
       │
       ├─ 解析 method → "device" + "getInfo"
       │
@@ -346,7 +336,7 @@ CoconutBridge.env.isNative   // 任一原生环境
 | `000000` | 成功 | `SUCCESS` |
 | `100001-100005` | 协议层错误 | `PARSE_ERROR`, `METHOD_NOT_FOUND`, `INVALID_PARAMS`, `INTERNAL_ERROR` |
 | `200001-200009` | 业务错误 | `UNKNOWN_COMPONENT`, `UNKNOWN_FUNCTION`, `PERMISSION_DENIED`, `TIMEOUT`, `PARAM_VALIDATION_FAILED`, `RATE_LIMIT_EXCEEDED` |
-| `300001-300004` | 安全错误 | `SIGNATURE_INVALID`, `SIGNATURE_EXPIRED`, `NONCE_REUSED`, `BRIDGE_TOKEN_INVALID` |
+| `300004` | 安全错误 | `BRIDGE_TOKEN_INVALID` |
 
 三端 `ErrorCode` 常量定义一致，详见 `API_CONTRACT.md`。
 
@@ -365,5 +355,5 @@ CoconutBridge.env.isNative   // 任一原生环境
 1. **三端对齐**：API 签名、错误码、安全机制三端必须一致（详见 `API_CONTRACT.md`）
 2. **SDK 纯净**：框架只放 Bridge / 安全 / ComponentManager；组件归 App 装配
 3. **显式注册**：不扫描注解、不硬编码清单；App 决定启用哪些组件
-4. **安全分层**：BridgeToken / HMAC / Nonce / 白名单 / 限流 可独立开关
+4. **安全分层**：BridgeToken / 白名单 / 限流 可独立开关
 5. **业务无关**：CoconutSDK 不含任何业务组件（如 Login），业务组件由 App 自带

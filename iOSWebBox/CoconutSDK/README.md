@@ -35,7 +35,6 @@ CoconutSDK/                         # SPM 包根
 │   │   ├── BridgePerformance.swift      # 调用耗时统计
 │   │   ├── BridgeSecurityValidator.swift# 域名白名单 + 限流 + params 大小
 │   │   ├── BridgeTokenManager.swift     # UUID 会话令牌
-│   │   ├── RequestSignatureValidator.swift # HMAC-SHA256（CryptoKit）
 │   │   ├── SecurityAuditLog.swift       # 安全事件审计
 │   │   ├── ComponentException.swift     # 组件异常类型
 │   │   └── ErrorCode.swift              # 错误码命名空间
@@ -44,7 +43,6 @@ CoconutSDK/                         # SPM 包根
 │
 └── Tests/CoconutSDKTests/               # 74 个 XCTest case
     ├── BridgeTokenManagerTests.swift
-    ├── RequestSignatureValidatorTests.swift
     ├── BridgeSecurityValidatorTests.swift
     ├── BridgePerformanceTests.swift
     ├── SecurityAuditLogTests.swift
@@ -76,7 +74,6 @@ CoconutSDK.configure {
     $0.debugMode = true
     $0.environment = .dev
     $0.enableBridgeToken = true      // 默认 true
-    $0.enableRequestSigning = false  // 默认 false
     $0.allowedDomains = ["example.com"]
 }
 
@@ -147,7 +144,7 @@ H5: webkit.messageHandlers.CoconutBridge.postMessage(jsonRpcRequest)
    ↓
 CoconutBridge.userContentController(... didReceive message:)
    ↓
-BridgeDispatcher：5 层安全校验 → ComponentManager 路由 → 组件 handle
+BridgeDispatcher：3 层安全校验 → ComponentManager 路由 → 组件 handle
    ↓
 BridgeResponseSender: webView.evaluateJavaScript(
     "window.__coconutIOSCallback(\(jsonResponse))"
@@ -167,7 +164,7 @@ xcodebuild test -scheme CoconutSDK \
 # 74 个 case，~0.3s
 ```
 
-测试覆盖：Bridge 模型 / 安全管线（Token / Signature / Security / Audit / Performance） / Component 系统 / Config / Logger。**不覆盖** `CoconutWebViewController`（需要 WKWebView 实例，属于 UI 测试范畴）。
+测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统 / Config / Logger。**不覆盖** `CoconutWebViewController`（需要 WKWebView 实例，属于 UI 测试范畴）。
 
 ---
 

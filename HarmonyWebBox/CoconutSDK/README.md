@@ -35,7 +35,6 @@ CoconutSDK/                                   # HAR 模块根
         │   ├── BridgeSecurityValidator.ets   # 域名白名单 + 限流 + params 大小
         │   ├── BridgeTokenManager.ets        # UUID 会话令牌（util.generateRandomUUID）
         │   ├── BridgePerformance.ets         # 调用耗时统计
-        │   ├── RequestSignatureValidator.ets # HMAC-SHA256（cryptoFramework）
         │   ├── SecurityAuditLog.ets          # 安全事件审计
         │   └── model/
         │       ├── BridgeRequest.ets         # JSON-RPC 请求模型
@@ -74,7 +73,6 @@ CoconutSDK.configure((config) => {
   config.isDebugMode = true;
   config.environment = Environment.DEV;
   config.enableBridgeToken = true;       // 默认 true
-  config.enableRequestSigning = false;   // 默认 false
   // config.allowedDomains = ['example.com'];
 });
 
@@ -153,7 +151,7 @@ H5: window.CoconutHarmonyBridge.call(jsonRpcRequest)  // 返回 Promise
    ↓
 javaScriptProxy 拦截 → CoconutBridgeImpl.call(request)
    ↓
-5 层安全校验 → ComponentManager 路由 → 组件 handle
+3 层安全校验 → ComponentManager 路由 → 组件 handle
    ↓
 webview.runJavaScript(`window.__coconutHarmonyCallback(${json})`)
    ↓
@@ -170,7 +168,7 @@ cd HarmonyWebBox
 # 124 个 case / 14 suites，~7s on device
 ```
 
-测试覆盖：Bridge 模型 / 安全管线（Token / Signature / Security / Audit / Performance） / Component 系统 / Config / Logger / JsonHelper。
+测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统 / Config / Logger / JsonHelper。
 
 测试**必须真机/模拟器**跑（crypto/UUID/fileIo 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `HarmonyWebBox/docs/hypium-report-YYYY-MM-DD.md`。
 
@@ -201,6 +199,5 @@ HAR 模块通过 `oh-package.json5` 引用。在你的 entry 模块的 `oh-packa
    - 不能用 untyped object literal（`{}`），改用 `new Object()` 或显式 class
    - `throw` 必须是 `Error` 子类
    - 组件 mock 必须用 class 实现
-3. **cryptoFramework HMAC spec 不能拼字符串**：必须 `createSymKeyGenerator('HMAC')` + `createMac('SHA256')` 分开调，不能 `'HMAC|SHA256|SHA256'`（运行时抛错）。
-4. **`promptAction.BaseDialogOptions` 没有 `onDidDismiss`**：dismiss 回调要在 `closeCustomDialog` 之后手动触发（详见 `entry/src/main/ets/utils/PopupUtil.ets`）。
-5. **`fileIo.writeSync` 拒收 `Uint8Array`**，要传 `bytes.buffer`（ArrayBuffer）。`fileIo.accessSync` 在 HarmonyOS 6.1 不抛错，判存在用 `statSync`。
+3. **`promptAction.BaseDialogOptions` 没有 `onDidDismiss`**：dismiss 回调要在 `closeCustomDialog` 之后手动触发（详见 `entry/src/main/ets/utils/PopupUtil.ets`）。
+4. **`fileIo.writeSync` 拒收 `Uint8Array`**，要传 `bytes.buffer`（ArrayBuffer）。`fileIo.accessSync` 在 HarmonyOS 6.1 不抛错，判存在用 `statSync`。

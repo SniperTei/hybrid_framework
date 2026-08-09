@@ -10,10 +10,10 @@
 
 | 项 | 规范 |
 |---|---|
-| 协议 | JSON-RPC 2.0 |
-| 请求 | `{ jsonrpc:'2.0', method:'组件.方法', params:{...}, id, bridgeToken }` |
-| 响应 | `{ jsonrpc:'2.0', id, code:'000000', message, result:'<JSON字符串>' }` |
-| 安全层 | bridgeToken + HMAC-SHA256 签名 + 域名白名单 + nonce 防重放 + 限流 |
+| 协议 | 类 JSON-RPC（无版本字段） |
+| 请求 | `{ method:'组件.方法', params:{...}, id, bridgeToken }` |
+| 响应 | `{ id, code:'000000', message, result:'<JSON字符串>' }` |
+| 安全层 | bridgeToken + 域名白名单 + 限流 |
 | 桥协议 | iOS=异步(postMessage) / Android=同步(JavascriptInterface) / Harmony=异步(javaScriptProxy) |
 
 ---
@@ -273,7 +273,7 @@
 |---|---|---|
 | `getAuditLog` | `type, limit(number)` | `count, entries[]` |
 | `getAuditSummary` | — | `totalEvents, summary[]` |
-| `getSecurityConfig` | — | `bridgeTokenEnabled, requestSigningEnabled, signingTimestampToleranceMs` |
+| `getSecurityConfig` | — | `bridgeTokenEnabled` |
 | `clearAuditLog` | — | `success` |
 
 三端基本一致，仅需统一返回字段名（Harmony `summary` 是 object，iOS/Android 是 array → 统一 array）。
@@ -331,7 +331,7 @@
 **权限拒绝走业务层**（不走 Bridge error code）：
 - 三端在 takePhoto / scanQRCode 入口都做相机权限预检。
 - 拒绝时返回 `code:"000000"` + `result.success:false` + `result.message:"Camera permission denied"`。
-- 理由：`code:"200003"` 是 Bridge 安全层（Token / HMAC / 域名）专用；权限提示是业务结果。混在一起 H5 错误处理会乱。这是 13 个组件一致的模式。
+- 理由：`code:"200003"` 是 Bridge 安全层（Token / 域名）专用；权限提示是业务结果。混在一起 H5 错误处理会乱。这是 13 个组件一致的模式。
 
 **对齐结果** ✅ 已三端对齐
 - iOS：`AVCaptureDevice.authorizationStatus(for: .video)` 预检；JPEG 写 `NSTemporaryDirectory()` 返回 `file://` uri。`Info.plist` 必须声明 `NSCameraUsageDescription`（demo app 已加）。

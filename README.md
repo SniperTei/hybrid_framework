@@ -114,18 +114,16 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 - **三端对齐**：API 签名、错误码、安全机制三端必须一致（详见 [`API_CONTRACT.md`](./API_CONTRACT.md)）
 - **SDK 纯净**：框架不含任何具体组件，组件由 App 装配
 - **显式注册**：不扫描注解、不硬编码清单，App 决定启用哪些组件
-- **安全分层**：BridgeToken / HMAC 签名 / Nonce 防重放 / 域名白名单 / 限流，**五层均可独立开关**
+- **安全分层**：BridgeToken / 域名白名单 / 限流，**三层均可独立开关**
 
-每次 H5 → 原生的调用都经过这 5 层安全校验（详见 [`ARCHITECTURE.md`](./ARCHITECTURE.md#4-安全管线)）：
+每次 H5 → 原生的调用都经过这 3 层安全校验（详见 [`ARCHITECTURE.md`](./ARCHITECTURE.md#4-安全管线)）：
 
 ```
-H5 call(component.method, params, bridgeToken, signature, nonce, timestamp)
+H5 call(component.method, params, bridgeToken)
    ↓
 1. BridgeToken   UUID 会话令牌
-2. HMAC-SHA256   请求签名（可选启用）
-3. Nonce LRU     防重放（容量 1000）
-4. 域名白名单    防恶意页面劫持
-5. 限流         默认 100 次/分钟/method
+2. 域名白名单    防恶意页面劫持
+3. 限流         默认 100 次/分钟/method
    ↓
 通过 → ComponentManager 路由到具体组件
 失败 → 返回对应 ErrorCode

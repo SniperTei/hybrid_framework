@@ -29,7 +29,6 @@ AndroidWebBox/
 │       │   ├── BridgeSecurityValidator.kt       # 域名白名单 + 限流 + params 大小
 │       │   ├── BridgeTokenManager.kt            # UUID 会话令牌
 │       │   ├── BridgePerformance.kt             # 调用耗时统计
-│       │   ├── RequestSignatureValidator.kt     # HMAC-SHA256（javax.crypto）
 │       │   ├── SecurityAuditLog.kt              # 安全事件审计
 │       │   └── model/
 │       │       ├── BridgeRequest.kt             # JSON-RPC 请求模型
@@ -85,7 +84,6 @@ CoconutSDK.configure {
     isDebugMode = true
     environment = Environment.DEV
     enableBridgeToken = true       // 默认 true
-    enableRequestSigning = false   // 默认 false
     allowedDomains = listOf("example.com")
 }
 
@@ -154,7 +152,7 @@ H5: AndroidBridge.call(jsonRpcRequest)
    ↓ 阻塞
 CoconutBridgeImpl.call(request): String
    ↓
-5 层安全校验 → ComponentManager 路由 → 组件 handle
+3 层安全校验 → ComponentManager 路由 → 组件 handle
    ↓
 return jsonResponse  // 同步返回 JSON 字符串
    ↓
@@ -173,7 +171,7 @@ cd AndroidWebBox
 # 72 个 case / 9 suites，~1.5s
 ```
 
-测试覆盖：Bridge 模型 / 安全管线（Token / Signature / Security / Audit / Performance） / Component 系统。
+测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统。
 
 **只测 `coconut-core`**：所有 `coconut-sdk` 类都需要 `Context` 或 `WebView`，无法纯 JVM 测，属于 instrumented test 范畴。
 
