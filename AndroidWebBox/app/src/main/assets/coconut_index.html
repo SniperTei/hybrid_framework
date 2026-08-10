@@ -206,35 +206,27 @@
     window.__coconutIOSCallback = function (json) { BridgeTest._handleResponse(json); };
     window.__coconutHarmonyCallback = function (json) { BridgeTest._handleResponse(json); };
 
-    // 事件推送入口（三端共用，原生 emit 时通过 evaluateJavaScript 调用）
+    // 事件订阅（on/off + emit，三端共用同一回调名）
     var EventSub = {
-      _seq: 0,
-      _subs: {},          // subscriptionId -> { topic }
-      _current: null,     // 最近一次 subscribe 返回的 id（demo 用）
-      subscribe: function (topic) {
-        var id = 'sub_demo_' + (++this._seq);
-        this._subs[id] = { topic: topic };
-        this._current = id;
-        // 直接走 BridgeTest.call —— 同步返回 ack，事件后续由 native emit
-        BridgeTest.call('event.subscribe', { topic: topic, subscriptionId: id }).then(function (resp) {
-          setEventView({ stage: 'subscribe ack', subscriptionId: id, resp: resp });
+      _topic: null,       // 当前已订阅的 topic（demo 只测一个）
+      on: function (topic) {
+        this._topic = topic;
+        BridgeTest.call('event.on', { topic: topic }).then(function (resp) {
+          setEventView({ stage: 'on ack', topic: topic, resp: resp });
         });
-        return id;
       },
-      unsubscribe: function (id) {
-        var target = id || this._current;
-        if (!target) { setEventView({ stage: 'unsubscribe', error: 'no active subscription' }); return; }
-        delete this._subs[target];
-        BridgeTest.call('event.unsubscribe', { subscriptionId: target }).then(function (resp) {
-          setEventView({ stage: 'unsubscribe ack', subscriptionId: target, resp: resp });
+      off: function () {
+        if (!this._topic) { setEventView({ stage: 'off', error: 'no active subscription' }); return; }
+        var target = this._topic;
+        this._topic = null;
+        BridgeTest.call('event.off', { topic: target }).then(function (resp) {
+          setEventView({ stage: 'off ack', topic: target, resp: resp });
         });
-        if (this._current === target) this._current = null;
       },
       dispatch: function (eventJson) {
         var event;
         try { event = JSON.parse(eventJson); } catch (e) { setEventView({ error: 'parse failed', raw: eventJson }); return; }
-        var entry = event && this._subs[event.subscriptionId];
-        if (!entry) { return; }  // not subscribed here (or stale)
+        if (!event || event.topic !== this._topic) { return; }  // 已 off 或 topic 不匹配
         setEventView({ stage: 'event received', event: event });
       }
     };
@@ -310,8 +302,8 @@
       });
     }
     function onSubscribe() {
-      var id = EventSub.subscribe('test.echo');
-      setEventView({ stage: 'subscribe sent', subscriptionId: id, topic: 'test.echo' });
+      EventSub.on('test.echo');
+      setEventView({ stage: 'on sent', topic: 'test.echo' });
     }
     function onEcho() {
       BridgeTest.call('event.echo', { hello: 'world' }).then(function (resp) {
@@ -319,7 +311,7 @@
       });
     }
     function onUnsubscribe() {
-      EventSub.unsubscribe();
+      EventSub.off();
     }
   </script>
 </body>

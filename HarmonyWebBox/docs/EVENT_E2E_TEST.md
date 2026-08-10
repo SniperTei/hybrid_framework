@@ -11,9 +11,9 @@
 
 | # | 行为 | 期望结果 |
 |---|---|---|
-| 1 | Subscribe | native ack 回到 H5，subscriptionId 正确 |
+| 1 | On | native ack 回到 H5，topic 正确 |
 | 2 | Echo 后 500ms 收到事件 | `window.__coconutEvent` 被调用，payload 含 `{hello:'world'}` |
-| 3 | Unsubscribe 后不再投递 | 再次 Echo，H5 无事件回调 |
+| 3 | Off 后不再投递 | 再次 Echo，H5 无事件回调 |
 | 4 | 页面 reload 后无 stale 投递 | reload 触发 `clearAll()`，新页面再 Echo（未订阅）无事件 |
 
 > **第 4 项是 Harmony 端的关键修复点**：早期实现 reload 后 stale emit 投递到新页面上下文（H5 端 callback 已失效但 native registry 还在）。`onPageBegin` 钩 `clearAll()` 是必须的。
@@ -27,7 +27,7 @@
 ```bash
 # 真机：开 USB 调试；模拟器：DevEco Studio 启动
 HDC="/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc"
-$HDC list targets
+$HDC list target
 # 期望至少一条记录，例如：
 # Connect Server Holder   127.0.0.1:5555
 ```
@@ -60,7 +60,7 @@ $HDC install -r entry/build/default/outputs/default/entry-default-signed.hap
 
 ## 方式 A：Hypium 单元测试（自动，~7s，推荐）
 
-最快的反馈。覆盖 `EventEmitter` 的 9 个 case（真机测试，在设备上跑）。
+最快的反馈。覆盖 `EventEmitter` 的 10 个 case（真机测试，在设备上跑）。
 
 ### A.1 一键脚本（推荐）
 
@@ -83,18 +83,19 @@ hvigorw --mode module -p module=entry@ohosTest -p product=default assembleHap
 $HDC install -r entry/build/default/outputs/ohosTest/entry-ohosTest-signed.hap
 $HDC shell aa test -b com.example.harmonywebbox -m entry_test \
   -s unittest /ets/testrunner/OpenHarmonyTestRunner
-# 末尾输出 OHOS_REPORT_RESULT: stream=Tests run: 121, Failure: 0, Error: 0, Pass: 121
+# 末尾输出 OHOS_REPORT_RESULT: stream=Tests run: 122, Failure: 0, Error: 0, Pass: 122
 ```
 
-**期望**：121 个测试全部通过，其中 `EventEmitter.test.ets` 9 个：
-- subscribe + emit 投递成功
-- unsubscribe 后不再投递
-- 同 topic 多订阅者都收到
+**期望**：122 个测试全部通过，其中 `EventEmitter.test.ets` 10 个：
+- on + emit 投递成功
+- off 后不再投递
+- 同 topic 二次 on 覆盖前一次
 - topic 不匹配不投递
 - echo round-trip
 - 无 jsExecutor 静默丢弃
 - clearAll 清空
-- 空参数拒绝
+- 空 topic 拒绝
+- off 未订阅的 topic 是 no-op
 - JS 字符串转义正确
 
 **注意**：
@@ -161,13 +162,12 @@ CoconutWebPage Page end: ...
 
 期望 eventView 显示：
 ```json
-{ "stage": "subscribe ack", "subscriptionId": "sub_demo_1", "resp": { "code": "000000", ... } }
+{ "stage": "on ack", "topic": "test.echo", "resp": { "code": "000000", ... } }
 ```
 
 hilog：
 ```
-EventComponent Subscribe: topic=test.echo, subscriptionId=sub_demo_1
-EventEmitter Subscribed: sub_demo_1 -> test.echo
+EventEmitter On: test.echo (total=1)
 ```
 
 #### 步骤 2：点「Echo（500ms 后回推）」（紫色按钮）
@@ -177,7 +177,6 @@ EventEmitter Subscribed: sub_demo_1 -> test.echo
 {
   "stage": "event received",
   "event": {
-    "subscriptionId": "sub_demo_1",
     "topic": "test.echo",
     "data": { "hello": "world" }
   }
@@ -186,20 +185,17 @@ EventEmitter Subscribed: sub_demo_1 -> test.echo
 
 hilog：
 ```
-EventComponent Echo scheduled, topic=test.echo, delay=500ms
-EventEmitter Emitting to 1 subscriber(s) for topic: test.echo
-EventEmitter Dispatched JS to subscriber sub_demo_1
+EventEmitter Emitted 'test.echo'
 ```
 
 #### 步骤 3：点「取消订阅」（红色按钮）
 
 期望：
 ```
-EventComponent Unsubscribe: subscriptionId=sub_demo_1
-EventEmitter Unsubscribed: sub_demo_1
+EventEmitter Off: test.echo (total=0)
 ```
 
-eventView 显示 unsubscribe ack。
+eventView 显示 off ack。
 
 #### 步骤 4：再次点「Echo」
 
@@ -207,8 +203,7 @@ eventView 显示 unsubscribe ack。
 - eventView **保持上一步状态不变**
 - hilog：
   ```
-  EventComponent Echo scheduled, topic=test.echo, delay=500ms
-  EventEmitter Emitting to 0 subscriber(s) for topic: test.echo
+  EventEmitter emit no subscriber: test.echo
   ```
 
 #### 步骤 5（关键）：reload 页面，验证无 stale 投递
@@ -224,13 +219,12 @@ reload 后**不要**再点「订阅」，直接点「Echo」：
 CoconutWebPage Page begin: file:///...
 EventEmitter Cleared 1 subscription(s)   ← onPageBegin 钩子触发清空
 CoconutWebPage Page end: ...
-EventComponent Echo scheduled, topic=test.echo, delay=500ms
-EventEmitter Emitting to 0 subscriber(s) for topic: test.echo
+EventEmitter emit no subscriber: test.echo
 ```
 
 eventView **无事件被投递**。
 
-如果 reload 后还能看到 `Emitting to 1 subscriber(s)`，说明 `onPageBegin` 钩子没接好 clearAll —— 这是 Harmony 上踩过的关键坑。
+如果 reload 后还能看到 `Emitted 'test.echo'`，说明 `onPageBegin` 钩子没接好 clearAll —— 这是 Harmony 上踩过的关键坑。
 
 ---
 
@@ -253,7 +247,7 @@ import { Driver } from '@ohos.UiTest';
 
 export default function eventE2ETest() {
   describe('EventE2E', () => {
-    it('subscribe_echo_unsubscribe', 0, async () => {
+    it('on_echo_off', 0, async () => {
       const driver = Driver.create();
       await driver.assertComponentExist(ON.text('订阅 test.echo'));
       await driver.press(ON.text('订阅 test.echo'));
@@ -280,11 +274,11 @@ export default function eventE2ETest() {
 
 完整端到端验证完成的标准（每条都打勾）：
 
-- [ ] 方式 A：`bash scripts/run-harmony-tests.sh --no-report` 121 个测试全过，含 EventEmitter 9 个
+- [ ] 方式 A：`bash scripts/run-harmony-tests.sh --no-report` 122 个测试全过，含 EventEmitter 10 个
 - [ ] 方式 B.2：启动日志显示 Components registered 含 event + onPageBegin 触发 clearAll
-- [ ] 方式 B 步骤 1：Subscribe ack 显示在 eventView
+- [ ] 方式 B 步骤 1：On ack 显示在 eventView
 - [ ] 方式 B 步骤 2：500ms 后 eventView 显示 `event received` + 正确 payload
-- [ ] 方式 B 步骤 3：Unsubscribe ack 显示
+- [ ] 方式 B 步骤 3：Off ack 显示
 - [ ] 方式 B 步骤 4：再次 Echo 无事件投递
 - [ ] 方式 B 步骤 5：reload 后 native registry 清空，再 Echo 无 stale 投递
 
@@ -294,15 +288,15 @@ export default function eventE2ETest() {
 
 ### 编译错：`Cannot find import 'EventEmitter' from '@coconut/sdk'`
 
-→ HAR 模块不自动 export，需要手动加到 barrel 文件。检查 `HarmonyWebBox/CoconutSDK/index.ets`：
+ HAR 模块不自动 export，需要手动加到 barrel 文件。检查 `HarmonyWebBox/CoconutSDK/index.ets`：
 
 ```typescript
-export { EventEmitter, Subscription, JsExecutor } from './src/main/ets/event/EventEmitter'
+export { EventEmitter, JsExecutor } from './src/main/ets/event/EventEmitter'
 ```
 
 ### 编译错：`arkts-no-nested-funcs`
 
-→ ArkTS 严格模式禁止嵌套函数。测试里 helper 函数必须放 module-level：
+ ArkTS 严格模式禁止嵌套函数。测试里 helper 函数必须放 module-level：
 
 ```typescript
 // ❌ 不行
@@ -317,7 +311,7 @@ describe('xxx', () => { ... });
 
 ### 编译错：`arkts-no-untyped-obj-literals`
 
-→ ArkTS 严格模式禁止无类型 object literal：
+ ArkTS 严格模式禁止无类型 object literal：
 
 ```typescript
 // ❌ 不行
@@ -329,7 +323,7 @@ await obj.init(new Object());
 
 ### 启动日志没出现 `Registering: event v1.0.0`
 
-→ `entry/src/main/ets/pages/Index.ets` 的 `registerComponents` 漏了 `new EventComponent()`：
+ `entry/src/main/ets/pages/Index.ets` 的 `registerComponents` 漏了 `new EventComponent()`：
 
 ```typescript
 CoconutSDK.registerComponents([
@@ -341,7 +335,7 @@ CoconutSDK.registerComponents([
 
 ### 启动日志有 `Page begin` 后**没有** `Cleared 0 subscription(s)`
 
-→ `onPageBegin` 钩子漏接了 clearAll。检查 `CoconutWebPage.ets`：
+ `onPageBegin` 钩子漏接了 clearAll。检查 `CoconutWebPage.ets`：
 
 ```typescript
 .onPageBegin((event) => {
@@ -356,16 +350,16 @@ CoconutSDK.registerComponents([
 })
 ```
 
-### 点 Echo 后 native 日志有 `Emitting to 1 subscriber(s)`，但 H5 端 eventView 不更新
+### 点 Echo 后 native 日志有 `Emitted 'test.echo'`，但 H5 端 eventView 不更新
 
-→ 可能是：
-1. `webController.runJavaScript(script)` 调用失败 —— 看 hilog 有没有 `Failed to runJavaScript` 报错
+ 可能是：
+1. `webController.runJavaScript(script)` 调用失败 —— 看 hilog 有没有 `Failed to dispatch event` 报错
 2. H5 端 `__coconutEvent` 没注册 —— 看 `coconut_index.html` 是否含 `window.__coconutEvent = function (json) { EventSub.dispatch(json); };`
 3. **测试位置错**：Harmony 的 ohosTest 必须在 `entry` 模块下（**不在 HAR 模块**），import 用 `@coconut/sdk`
 
 ### reload 后还能看到事件投递（stale emit bug）
 
-→ `onPageBegin` 钩子没接好 clearAll。**这是 Harmony 上踩过的关键坑**，必须修复后才能上线。
+ `onPageBegin` 钩子没接好 clearAll。**这是 Harmony 上踩过的关键坑**，必须修复后才能上线。
 
 ---
 

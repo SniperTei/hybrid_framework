@@ -7,8 +7,8 @@ public let EVENT_TOPIC_TEST_ECHO = "test.echo"
 /**
  * Event Component
  *
- * Exposes subscribe/unsubscribe to H5 (delegating to the shared EventEmitter)
- * and a self-test `echo` method that emits a `test.echo` event after 500ms.
+ * Exposes on/off to H5 (delegating to the shared EventEmitter) and a
+ * self-test `echo` method that emits a `test.echo` event after 500ms.
  */
 public class EventComponent: BaseComponent {
     override public init() { super.init() }
@@ -26,31 +26,30 @@ public class EventComponent: BaseComponent {
 
     override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {
-        case "subscribe": return try subscribe(params)
-        case "unsubscribe": return try unsubscribe(params)
+        case "on": return try onHandler(params)
+        case "off": return try offHandler(params)
         case "echo": return try echo(params)
         default: try functionNotSupportedError(function)
         }
     }
 
-    /// Register a subscription. Both topic and subscriptionId are H5-supplied.
-    private func subscribe(_ params: [String: Any]?) throws -> [String: Any] {
+    /// Register a handler for `topic`. One handler per topic; second on overwrites.
+    private func onHandler(_ params: [String: Any]?) throws -> [String: Any] {
         let topic = getParam(params, "topic")
-        let subscriptionId = getParam(params, "subscriptionId")
-        if topic.isEmpty || subscriptionId.isEmpty {
-            try error(ErrorCode.PARAM_VALIDATION_FAILED, "topic and subscriptionId are required")
+        if topic.isEmpty {
+            try error(ErrorCode.PARAM_VALIDATION_FAILED, "topic is required")
         }
-        sharedContext?.eventEmitter.subscribe(topic: topic, subscriptionId: subscriptionId)
-        return success(["subscriptionId": subscriptionId, "topic": topic])
+        sharedContext?.eventEmitter.on(topic: topic)
+        return success(["topic": topic])
     }
 
-    private func unsubscribe(_ params: [String: Any]?) throws -> [String: Any] {
-        let subscriptionId = getParam(params, "subscriptionId")
-        if subscriptionId.isEmpty {
-            try error(ErrorCode.PARAM_VALIDATION_FAILED, "subscriptionId is required")
+    private func offHandler(_ params: [String: Any]?) throws -> [String: Any] {
+        let topic = getParam(params, "topic")
+        if topic.isEmpty {
+            try error(ErrorCode.PARAM_VALIDATION_FAILED, "topic is required")
         }
-        sharedContext?.eventEmitter.unsubscribe(subscriptionId: subscriptionId)
-        return success(["subscriptionId": subscriptionId, "success": true])
+        sharedContext?.eventEmitter.off(topic: topic)
+        return success(["topic": topic, "success": true])
     }
 
     /// Demo: emit `test.echo` with the supplied payload after 500ms.

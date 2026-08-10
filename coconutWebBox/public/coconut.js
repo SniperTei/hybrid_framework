@@ -5,7 +5,7 @@
  * 支持环境：android (sync) / ios (async) / harmony (async) / web (mock)
  * 安全特性：Bridge Token 防护
  *
- * @version 2.3.0
+ * @version 2.4.0
  */
 
 (function (global, factory) {
@@ -21,15 +21,14 @@
      * Coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '2.3.0';
+        this.version = '2.4.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
         this.requestId = 0;
         this.callbacks = {};
         this.timers = {};
-        this.subscriptions = {};        // subscriptionId -> { topic, callback }
-        this.subscriptionSeq = 0;
+        this.handlers = {};              // topic -> callback (一个 topic 一个 callback，覆盖式)
         this.environment = this.detectEnvironment();
         this.env = this.createEnv();
         this._securityConfig = null;
@@ -327,25 +326,19 @@
                 mockResponse.result = { key: request.params.key, success: true };
             } else if (request.method === 'storage.clear') {
                 mockResponse.result = { success: true };
-            } else if (request.method === 'event.subscribe') {
-                mockResponse.result = {
-                    subscriptionId: request.params.subscriptionId,
-                    topic: request.params.topic
-                };
-            } else if (request.method === 'event.unsubscribe') {
-                mockResponse.result = { success: true };
+            } else if (request.method === 'event.on') {
+                mockResponse.result = { topic: request.params.topic };
+            } else if (request.method === 'event.off') {
+                mockResponse.result = { topic: request.params.topic, success: true };
             } else if (request.method === 'event.echo') {
                 mockResponse.result = { scheduled: true, topic: 'test.echo' };
                 // Simulate native emit after 500ms
                 setTimeout(function () {
                     if (typeof window !== 'undefined' && window.__coconutEvent) {
                         var evt = {
-                            subscriptionId: request.params.__testSubId || 'sub_mock',
                             topic: 'test.echo',
                             data: request.params
                         };
-                        // Don't leak the internal marker
-                        delete evt.data.__testSubId;
                         window.__coconutEvent(JSON.stringify(evt));
                     }
                 }, 500);
@@ -383,80 +376,81 @@
     /**
      * 订阅原生事件
      *
-     * 同步生成 subscriptionId 并立即注册本地 callback，然后异步向 native
-     * 注册。这样 iOS/Harmony 异步响应窗口内的事件不会丢失 —— 即使
-     * native 还没来得及登记 subscriptionId，本地 callback 已经在了，
-     * native 端最终 emit 到时本地能正确路由。
+     * 一个 topic 只挂一个 callback：第二次 on 同 topic 会覆盖第一次，
+     * 并在 console 输出 warn。
+     *
+     * 同步登记本地 callback 后异步向 native 注册，这样 iOS/Harmony 异步
+     * 响应窗口内的事件不会丢失 —— native 还没登记 topic 时，本地
+     * callback 已经在了，native emit 到时本地能正确路由。
      *
      * @param {string} topic - 事件主题（精确字符串匹配，无通配符）
      * @param {function} callback - 收到事件时的回调，签名 (event)
-     *   event = { subscriptionId, topic, data }
-     * @returns {string} subscriptionId —— 用于 unsubscribe
+     *   event = { topic, data }
      */
-    Coconut.prototype.subscribe = function (topic, callback) {
+    Coconut.prototype.on = function (topic, callback) {
         if (!this.isInitialized) {
             this.init({});
         }
         if (typeof topic !== 'string' || topic.length === 0) {
-            throw new Error('subscribe: topic must be a non-empty string');
+            throw new Error('on: topic must be a non-empty string');
         }
         if (typeof callback !== 'function') {
-            throw new Error('subscribe: callback must be a function');
+            throw new Error('on: callback must be a function');
         }
 
-        var subscriptionId = 'sub_' + Date.now() + '_' + (++this.subscriptionSeq);
+        if (this.handlers.hasOwnProperty(topic)) {
+            console.warn('[Coconut] on: topic "' + topic + '" already subscribed, replacing previous handler');
+        }
 
         // 1) 本地登记 callback —— 必须先于 native 注册，避免响应窗口事件丢失
-        this.subscriptions[subscriptionId] = { topic: topic, callback: callback };
+        this.handlers[topic] = callback;
 
-        // 2) 异步向 native 注册（不阻塞订阅返回）
-        this.call('event.subscribe', {
-            topic: topic,
-            subscriptionId: subscriptionId
-        }, function (resp) {
+        // 2) 异步向 native 注册（不阻塞返回）
+        this.call('event.on', { topic: topic }, function (resp) {
             if (resp && resp.code !== '000000' && this.debug) {
-                this.log('⚠️ subscribe ack failed for', subscriptionId, resp);
+                this.log('⚠️ on ack failed for', topic, resp);
             }
         }.bind(this));
 
         if (this.debug) {
-            this.log('📡 Subscribed:', subscriptionId, '->', topic);
+            this.log('📡 On:', topic);
         }
-
-        return subscriptionId;
     };
 
     /**
      * 取消订阅
      *
-     * @param {string} subscriptionId - subscribe() 返回的 id
+     * 未订阅的 topic 直接 off 也是 no-op。
+     *
+     * @param {string} topic - on() 时使用的 topic
      */
-    Coconut.prototype.unsubscribe = function (subscriptionId) {
-        if (!subscriptionId || !this.subscriptions[subscriptionId]) {
+    Coconut.prototype.off = function (topic) {
+        if (!topic || !this.handlers.hasOwnProperty(topic)) {
             return;
         }
-        delete this.subscriptions[subscriptionId];
+        delete this.handlers[topic];
 
         // 通知 native 释放（即使 native 已清空也无害）
-        this.call('event.unsubscribe', { subscriptionId: subscriptionId });
+        this.call('event.off', { topic: topic });
 
         if (this.debug) {
-            this.log('🚫 Unsubscribed:', subscriptionId);
+            this.log('🚫 Off:', topic);
         }
     };
 
     /**
      * 处理原生推送的事件（由 window.__coconutEvent 调用）
      *
-     * 事件 payload 格式：{ subscriptionId, topic, data }
+     * 事件 payload 格式：{ topic, data }
      */
     Coconut.prototype.handleEvent = function (eventJson) {
         try {
             var event = JSON.parse(eventJson);
-            var entry = event && this.subscriptions[event.subscriptionId];
+            var topic = event && event.topic;
+            var cb = topic && this.handlers[topic];
 
-            if (entry && typeof entry.callback === 'function') {
-                entry.callback(event);
+            if (typeof cb === 'function') {
+                cb(event);
             }
         } catch (error) {
             this.error('Error handling event:', error);

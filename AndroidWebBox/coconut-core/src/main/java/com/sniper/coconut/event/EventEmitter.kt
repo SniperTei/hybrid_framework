@@ -11,22 +11,14 @@ import kotlinx.serialization.json.put
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Event Subscription Record
- */
-data class Subscription(
-    val subscriptionId: String,
-    val topic: String
-)
-
-/**
  * EventEmitter
  *
- * Manages H5 event subscriptions and pushes native events to the WebView.
+ * Manages H5 event subscriptions (one handler per topic, overwrite on second on)
+ * and pushes native events to the WebView.
  *
- * Subscriptions are keyed by subscriptionId (generated client-side by H5 to
- * eliminate the async response window race present on iOS/Harmony). Emit
- * dispatches a JSON payload via the registered [jsExecutor], which the host
- * (Activity / ViewController) wires to evaluateJavascript on the UI thread.
+ * Subscriptions are keyed by topic. Emit dispatches a JSON payload via the
+ * registered [jsExecutor], which the host (Activity / ViewController) wires to
+ * evaluateJavascript on the UI thread.
  *
  * Threading: emit() may be invoked from any thread; the jsExecutor callback
  * is responsible for hopping to the WebView thread.
@@ -34,9 +26,9 @@ data class Subscription(
 class EventEmitter {
 
     /**
-     * Subscriptions keyed by subscriptionId.
+     * Subscribed topics. One handler per topic (overwrite semantics).
      */
-    private val subscriptions = ConcurrentHashMap<String, Subscription>()
+    private val topics = ConcurrentHashMap.newKeySet<String>()
 
     /**
      * JS execution bridge. Set by the host when the WebView is ready.
@@ -46,35 +38,33 @@ class EventEmitter {
     var jsExecutor: ((script: String) -> Unit)? = null
 
     /**
-     * Register a subscription for [topic] under [subscriptionId].
-     * If [subscriptionId] already exists, it is overwritten.
+     * Register a handler for [topic]. If already subscribed, the previous
+     * registration is replaced (no-op in terms of count).
      */
-    fun subscribe(topic: String, subscriptionId: String) {
-        if (topic.isEmpty() || subscriptionId.isEmpty()) {
-            Logger.w(TAG, "subscribe rejected: empty topic or subscriptionId")
+    fun on(topic: String) {
+        if (topic.isEmpty()) {
+            Logger.w(TAG, "on rejected: empty topic")
             return
         }
-        subscriptions[subscriptionId] = Subscription(subscriptionId, topic)
-        Logger.d(TAG, "Subscribed: $subscriptionId -> $topic (total=${subscriptions.size})")
+        val wasPresent = !topics.add(topic)
+        Logger.d(TAG, "On: $topic (total=${topics.size}${if (wasPresent) ", replaced previous" else ""})")
     }
 
     /**
-     * Remove a subscription by id. No-op if not present.
+     * Remove the handler for [topic]. No-op if not present.
      */
-    fun unsubscribe(subscriptionId: String) {
-        val removed = subscriptions.remove(subscriptionId)
-        if (removed != null) {
-            Logger.d(TAG, "Unsubscribed: $subscriptionId (total=${subscriptions.size})")
+    fun off(topic: String) {
+        if (topics.remove(topic)) {
+            Logger.d(TAG, "Off: $topic (total=${topics.size})")
         }
     }
 
     /**
-     * Broadcast a [topic] event to all matching subscribers.
+     * Broadcast a [topic] event to its registered handler (if any).
      *
-     * Builds the wire payload `{subscriptionId, topic, data}` per subscriber
-     * (so each subscriber receives its own subscriptionId) and dispatches
-     * each through [jsExecutor]. If no jsExecutor is wired, the emit is
-     * silently dropped (e.g. during unit tests or before WebView is ready).
+     * Builds the wire payload `{topic, data}` and dispatches it through
+     * [jsExecutor]. If no jsExecutor is wired, the emit is silently dropped
+     * (e.g. during unit tests or before WebView is ready).
      */
     fun emit(topic: String, data: JsonElement? = null) {
         if (topic.isEmpty()) {
@@ -86,29 +76,23 @@ class EventEmitter {
             Logger.w(TAG, "emit dropped (no jsExecutor): $topic")
             return
         }
-
-        // Snapshot matching subscribers (avoid CME / mutation during iteration)
-        val matches = subscriptions.values.filter { it.topic == topic }
-        if (matches.isEmpty()) {
-            Logger.d(TAG, "emit no subscribers: $topic")
+        if (!topics.contains(topic)) {
+            Logger.d(TAG, "emit no subscriber: $topic")
             return
         }
 
-        for (sub in matches) {
-            val payload = buildJsonObject {
-                put("subscriptionId", sub.subscriptionId)
-                put("topic", topic)
-                put("data", data ?: JsonPrimitive(null as String?))
-            }
-            val json = json.encodeToString(JsonObject.serializer(), payload)
-            val script = "window.__coconutEvent(${jsStringLiteral(json)})"
-            try {
-                executor.invoke(script)
-            } catch (t: Throwable) {
-                Logger.e(TAG, "Failed to dispatch event to ${sub.subscriptionId}", t)
-            }
+        val payload = buildJsonObject {
+            put("topic", topic)
+            put("data", data ?: JsonPrimitive(null as String?))
         }
-        Logger.d(TAG, "Emitted '$topic' to ${matches.size} subscriber(s)")
+        val json = json.encodeToString(JsonObject.serializer(), payload)
+        val script = "window.__coconutEvent(${jsStringLiteral(json)})"
+        try {
+            executor.invoke(script)
+        } catch (t: Throwable) {
+            Logger.e(TAG, "Failed to dispatch event for $topic", t)
+        }
+        Logger.d(TAG, "Emitted '$topic'")
     }
 
     /**
@@ -116,15 +100,20 @@ class EventEmitter {
      * to prevent stale subscribers from receiving events in a fresh page context.
      */
     fun clearAll() {
-        val n = subscriptions.size
-        subscriptions.clear()
+        val n = topics.size
+        topics.clear()
         Logger.d(TAG, "Cleared $n subscription(s)")
     }
 
     /**
      * Number of active subscriptions (testing / diagnostics).
      */
-    fun size(): Int = subscriptions.size
+    fun size(): Int = topics.size
+
+    /**
+     * Whether [topic] is currently subscribed (testing / diagnostics).
+     */
+    fun has(topic: String): Boolean = topics.contains(topic)
 
     /**
      * Encode a JSON string as a JavaScript string literal.

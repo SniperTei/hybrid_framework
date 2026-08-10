@@ -11,9 +11,9 @@
 
 | # | 行为 | 期望结果 |
 |---|---|---|
-| 1 | Subscribe | native ack 回到 H5，subscriptionId 正确 |
+| 1 | On | native ack 回到 H5，topic 正确 |
 | 2 | Echo 后 500ms 收到事件 | `window.__coconutEvent` 被调用，payload 含 `{hello:'world'}` |
-| 3 | Unsubscribe 后不再投递 | 再次 Echo，H5 无事件回调 |
+| 3 | Off 后不再投递 | 再次 Echo，H5 无事件回调 |
 | 4 | 页面 reload 后无 stale 投递 | reload 触发 `clearAll()`，新页面再 Echo（未订阅）无事件 |
 
 ---
@@ -45,22 +45,23 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 方式 A：单元测试（自动，~1.5s，推荐）
 
-最快的反馈。覆盖 `EventEmitter` 的 9 个 case（不依赖 WebView / 设备）。
+最快的反馈。覆盖 `EventEmitter` 的 10 个 case（不依赖 WebView / 设备）。
 
 ```bash
 cd AndroidWebBox
 ./gradlew :coconut-core:testDebugUnitTest
 ```
 
-**期望**：70 个测试全部通过，其中 `EventEmitterTest` 9 个：
-- subscribe + emit 投递成功
-- unsubscribe 后不再投递
-- 同 topic 多订阅者都收到（ConcurrentHashMap 迭代序非确定，**必须用 Set 比较**）
+**期望**：71 个测试全部通过，其中 `EventEmitterTest` 10 个：
+- on + emit 投递成功
+- off 后不再投递
+- 同 topic 二次 on 覆盖前一次
 - topic 不匹配不投递
 - echo round-trip
 - 无 jsExecutor 静默丢弃
 - clearAll 清空
-- 空参数拒绝
+- 空 topic 拒绝
+- off 未订阅的 topic 是 no-op
 - JS 字符串转义正确
 
 **注意**：
@@ -110,13 +111,12 @@ CoconutWebActivity Page loaded: <url>
 
 期望 eventView 显示：
 ```json
-{ "stage": "subscribe ack", "subscriptionId": "sub_demo_1", "resp": { "code": "000000", ... } }
+{ "stage": "on ack", "topic": "test.echo", "resp": { "code": "000000", ... } }
 ```
 
 logcat 同步出现：
 ```
-EventComponent Subscribe: topic=test.echo, subscriptionId=sub_demo_1
-EventEmitter Subscribed: sub_demo_1 -> test.echo
+EventEmitter On: test.echo (total=1)
 ```
 
 #### 步骤 2：点「Echo（500ms 后回推）」（紫色按钮）
@@ -126,7 +126,6 @@ EventEmitter Subscribed: sub_demo_1 -> test.echo
 {
   "stage": "event received",
   "event": {
-    "subscriptionId": "sub_demo_1",
     "topic": "test.echo",
     "data": { "hello": "world" }
   }
@@ -135,29 +134,25 @@ EventEmitter Subscribed: sub_demo_1 -> test.echo
 
 logcat 同步出现：
 ```
-EventComponent Echo scheduled, topic=test.echo, delay=500ms
-EventEmitter Emitting to 1 subscriber(s) for topic: test.echo
-EventEmitter Dispatched JS to subscriber sub_demo_1
+EventEmitter Emitted 'test.echo'
 ```
 
 #### 步骤 3：点「取消订阅」（红色按钮）
 
 期望：
 ```
-EventComponent Unsubscribe: subscriptionId=sub_demo_1
-EventEmitter Unsubscribed: sub_demo_1
+EventEmitter Off: test.echo (total=0)
 ```
 
-eventView 显示 unsubscribe ack。
+eventView 显示 off ack。
 
 #### 步骤 4：再次点「Echo」
 
 期望：
-- eventView **保持上一步状态不变**（因为 native registry 里这条 sub 已删，`Emitting to 0 subscriber(s)` 根本不会调 `__coconutEvent`）
+- eventView **保持上一步状态不变**（因为 native registry 里这个 topic 已删，不会调 `__coconutEvent`）
 - logcat：
   ```
-  EventComponent Echo scheduled, topic=test.echo, delay=500ms
-  EventEmitter Emitting to 0 subscriber(s) for topic: test.echo
+  EventEmitter emit no subscriber: test.echo
   ```
 
 #### 步骤 5（关键）：reload 页面，验证无 stale 投递
@@ -170,11 +165,10 @@ eventView 显示 unsubscribe ack。
 ```
 EventEmitter Cleared 1 subscription(s)   ← reload 钩子触发清空
 CoconutWebActivity Page loaded: <url>
-EventComponent Echo scheduled, topic=test.echo, delay=500ms
-EventEmitter Emitting to 0 subscriber(s) for topic: test.echo   ← 因为 registry 已清空
+EventEmitter emit no subscriber: test.echo   ← 因为 registry 已清空
 ```
 
-如果 reload 后还能看到 `Emitting to 1 subscriber(s)`，说明 `onPageStarted` 钩子没接好 clearAll —— **这是关键的跨平台 bug**（Harmony 上踩过坑），必须修复后才能上线。
+如果 reload 后还能看到 `Emitted 'test.echo'`，说明 `onPageStarted` 钩子没接好 clearAll —— **这是关键的跨平台 bug**（Harmony 上踩过坑），必须修复后才能上线。
 
 ---
 
@@ -204,7 +198,7 @@ curl -s http://localhost:9222/json | python3 -m json.tool | grep webSocketDebugg
 
 依赖：`npm i -g ws`（或复用项目里已有的 `ws` 依赖）。
 
-参考脚本 `/tmp/android_event_test.js`（已被项目使用过，结构如下）：
+参考脚本结构：
 
 ```javascript
 const WebSocket = require('ws');
@@ -218,11 +212,11 @@ ws.on('message', (data) => {
 
 ws.on('open', async () => {
   await send('Runtime.enable');
-  // Test 1: subscribe
-  const subId = await evalJs(`(function(){
+  // Test 1: on
+  await evalJs(`(function(){
     window.__testEventLog = [];
-    window.__testSubId = EventSub.subscribe('test.echo');
-    return window.__testSubId;
+    EventSub.on('test.echo');
+    return 'ok';
   })()`);
 
   // Test 2: echo -> 500ms 后事件到达
@@ -231,24 +225,16 @@ ws.on('open', async () => {
   const log = await evalJs(`window.__testEventLog`);
   // 断言 log 里含 {stage:'event received', event:{data:{hello:'world'}}}
 
-  // Test 3: unsubscribe + echo -> 无投递
+  // Test 3: off + echo -> 无投递
   // Test 4: reload + echo -> clearAll 触发 + 无 stale
 });
 ```
 
-完整可复用脚本（包含 Test 1~5 + reload 验证）：
-
-```bash
-# 直接用项目里跑过的测试脚本（保留在 git 历史外，需自己保存）
-node /tmp/android_event_test.js "ws://localhost:9222/devtools/page/<ID>"
-node /tmp/android_event_test2.js "ws://localhost:9222/devtools/page/<ID>"
-```
-
 **测试覆盖**（脚本里实现的断言）：
-- Test 1: subscribe 后 ack 返回正确 subscriptionId
+- Test 1: on 后 ack 返回正确 topic
 - Test 2: echo 后 1200ms 内 `__testEventLog` 含 `event received`
-- Test 3: unsubscribe 后 echo 不再投递
-- Test 4: 多订阅者（同 topic 两次 subscribe）echo 后两个都收到
+- Test 3: off 后 echo 不再投递
+- Test 4: 同 topic 二次 on 覆盖（旧 callback 不再被调用）—— 注意：H5 端 demo 只挂一个 topic，所以这个用例需要业务侧配合多 callback 注册
 - Test 5: reload 后 `clearAll()` 触发，未订阅时 echo 无投递
 
 ### C.3 故障排查
@@ -263,11 +249,11 @@ node /tmp/android_event_test2.js "ws://localhost:9222/devtools/page/<ID>"
 
 完整端到端验证完成的标准（每条都打勾）：
 
-- [ ] 方式 A：`./gradlew :coconut-core:testDebugUnitTest` 70 个测试全过，含 EventEmitterTest 9 个
+- [ ] 方式 A：`./gradlew :coconut-core:testDebugUnitTest` 71 个测试全过，含 EventEmitterTest 10 个
 - [ ] 方式 B.2：启动日志显示 Components registered 含 event + Bridge setup complete + clearAll 钩子触发
-- [ ] 方式 B 步骤 1：Subscribe ack 显示在 eventView
+- [ ] 方式 B 步骤 1：On ack 显示在 eventView
 - [ ] 方式 B 步骤 2：500ms 后 eventView 显示 `event received` + 正确 payload
-- [ ] 方式 B 步骤 3：Unsubscribe ack 显示
+- [ ] 方式 B 步骤 3：Off ack 显示
 - [ ] 方式 B 步骤 4：再次 Echo 无事件投递
 - [ ] 方式 B 步骤 5：reload 后 native registry 清空，再 Echo 无 stale 投递
 - [ ] 方式 C（可选）：CDP 自动化脚本 5 个 case 全部 PASS
@@ -278,7 +264,7 @@ node /tmp/android_event_test2.js "ws://localhost:9222/devtools/page/<ID>"
 
 ### 启动日志没出现 Components registered 含 event
 
-→ `WebBoxApplication.initializeCoconutSDK()` 的 `registerComponents` 调用漏了 `EventComponent()`：
+ `WebBoxApplication.initializeCoconutSDK()` 的 `registerComponents` 调用漏了 `EventComponent()`：
 
 ```kotlin
 CoconutSDK.registerComponents(
@@ -288,9 +274,9 @@ CoconutSDK.registerComponents(
 )
 ```
 
-### 启动日志有 `Cleared 0 subscription(s)` 但点 Echo 后还是 `Emitting to 0 subscriber(s)`
+### 启动日志有 `Cleared 0 subscription(s)` 但点 Echo 后还是 `emit no subscriber: test.echo`
 
-→ jsExecutor 接线可能在 `CoconutWebActivity.setupBridge()` 之后被覆盖，或 EventComponent 的 `sharedContext.eventEmitter` 拿到的是另一个实例。
+ jsExecutor 接线可能在 `CoconutWebActivity.setupBridge()` 之后被覆盖，或 EventComponent 的 `sharedContext.eventEmitter` 拿到的是另一个实例。
 
 检查 `CoconutWebActivity.kt`：
 ```kotlin
@@ -302,17 +288,17 @@ ComponentManager.getInstance().eventEmitter.jsExecutor = { script ->
 }
 ```
 
-### 点 Echo 后 native 日志有 `Emitting to 1 subscriber(s)`，但 H5 端 eventView 不更新
+### 点 Echo 后 native 日志有 `Emitted 'test.echo'`，但 H5 端 eventView 不更新
 
-→ 可能是：
-1. `webView.evaluateJavascript(script, null)` 调用失败 —— 看 logcat 有没有 `Failed to evaluate JavaScript` 报错
+ 可能是：
+1. `webView.evaluateJavascript(script, null)` 调用失败 —— 看 logcat 有没有 `Failed to dispatch event` 报错
 2. H5 端 `__coconutEvent` 没注册 —— 看 `coconut_index.html` 是否含 `window.__coconutEvent = function (json) { EventSub.dispatch(json); };`
-3. H5 端 `EventSub.dispatch` 找不到 subscriptionId —— 比较请求里的 `subscriptionId` 和事件里的 `subscriptionId` 是否一致
+3. H5 端 `EventSub.dispatch` 在 `event.topic !== this._topic` 时直接 return —— 比较请求里的 topic 和事件里的 topic
 4. **Android threading bug**：`emit` 来自后台线程时直接调 `evaluateJavascript` 会失败 —— 检查 jsExecutor 是否包了 `runOnMainThread { ... }`
 
 ### reload 后还能看到事件投递（stale emit bug）
 
-→ `onPageStarted` 钩子没接好 clearAll。**这是关键 bug**，必须修复后才能上线。
+ `onPageStarted` 钩子没接好 clearAll。**这是关键 bug**，必须修复后才能上线。
 
 检查 `CoconutWebActivity.kt`：
 ```kotlin
@@ -327,7 +313,7 @@ override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
 ## 参考命令汇总
 
 ```bash
-# Build + install
+# Build + installation
 cd /Users/zhengnan/Sniper/Developer/github/hybrid_framework/AndroidWebBox
 ./gradlew :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk

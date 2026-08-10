@@ -28,7 +28,7 @@
 |---|:---:|:---:|:---:|---|
 | device | ✅ | ✅ | ✅ | 活跃 |
 | storage | ✅ | ✅ | ✅ | 活跃 |
-| event | ✅ | ✅ | ✅ | 活跃（v2.3.0 新增） |
+| event | ✅ | ✅ | ✅ | 活跃（v2.4.0 on/off/emit API） |
 
 ---
 
@@ -113,39 +113,40 @@
 **目标**：H5 可以订阅 native 端发生的事件（如网络切换、App 前后台切换、推送到达）。Native 检测到事件时通过 `window.__coconutEvent(json)` 主动推送。
 
 **核心约定**
-- 订阅走现有 `call('event.subscribe', ...)`，复用 Bridge 安全管线（Token / 域名 / 限流）。
-- `subscriptionId` 由 **H5 端生成**（同步登记本地 callback 后再发请求），消除 iOS/Harmony 异步响应窗口的事件丢失竞态。
+- 订阅走现有 `call('event.on', ...)`，复用 Bridge 安全管线（Token / 域名 / 限流）。
+- **一个 topic 一个 callback**：`on` 同 topic 二次调用会覆盖前一次（并 console.warn），消除"多订阅者管理 id"的复杂度。
+- coconut.js 同步登记本地 callback 后再异步发 `event.on` 请求，消除 iOS/Harmony 异步响应窗口的事件丢失竞态。
 - 仅 native 可 emit；H5 不能 publish（避免循环 / 跨 H5 通信复杂度）。
 - 不支持 topic 通配符，精确字符串匹配。
-- 页面 reload / 导航时 native 端必须 `clearAllSubscriptions()`，否则 stale emit 会投递到新页面（Harmony 关键修复，三端统一在 `onPageStarted` / `didStartProvisionalNavigation` / `onPageBegin` 触发）。
+- 页面 reload / 导航时 native 端必须 `clearAll()`，否则 stale emit 会投递到新页面（Harmony 关键修复，三端统一在 `onPageStarted` / `didStartProvisionalNavigation` / `onPageBegin` 触发）。
 
 **标准签名**
 
 | 方法 | params | returns | 副作用 |
 |---|---|---|---|
-| `subscribe` | `topic*(string), subscriptionId*(string)` | `{subscriptionId, topic}` | native 端登记订阅 |
-| `unsubscribe` | `subscriptionId*(string)` | `{subscriptionId, success:true}` | native 端移除订阅 |
+| `on` | `topic*(string)` | `{topic}` | native 端登记订阅（覆盖式） |
+| `off` | `topic*(string)` | `{topic, success:true}` | native 端移除订阅；未订阅时 no-op |
 | `echo` | `data:object`（透传） | `{scheduled:true, topic:'test.echo'}` | 500ms 后 emit `test.echo` 事件，payload 为入参 |
 
 **事件推送通道（独立于 Bridge response）**
 
 Native emit 通过：
 ```js
-window.__coconutEvent('{"subscriptionId":"sub_xxx","topic":"test.echo","data":{...}}')
+window.__coconutEvent('{"topic":"test.echo","data":{...}}')
 ```
 - 单 JSON 字符串参数（与 `__coconutIOSCallback` / `__coconutHarmonyCallback` 一致）。
 - 三端共用同名回调，由 `coconut.js` 持久注册（与 `__coconutIOSCallback` 同生命周期）。
 - **不走 Bridge 安全管线**（native trusted source）。
 
-**H5 API（coconut.js v2.3.0+）**
+**H5 API（coconut.js v2.4.0+）**
 
 ```js
-// 订阅 — 同步返回 subscriptionId，事件到达时 callback 被调用
-const subId = Coconut.subscribe('network.change', (event) => {
+// 订阅 — 无返回值，事件到达时 callback 被调用
+Coconut.on('network.change', (event) => {
   console.log(event.topic, event.data);
 });
-// 取消订阅
-Coconut.unsubscribe(subId);
+// 取消订阅 — 未订阅的 topic 直接 off 也安全
+Coconut.off('network.change');
 // 自验证：500ms 后触发 test.echo 事件
 Coconut.call('event.echo', { hello: 'world' });
 ```
@@ -153,10 +154,10 @@ Coconut.call('event.echo', { hello: 'world' });
 **事件 payload shape（投递到 callback）**
 
 ```json
-{ "subscriptionId": "sub_xxx", "topic": "test.echo", "data": <any> }
+{ "topic": "test.echo", "data": <any> }
 ```
 
-**测试覆盖**：Android 9 / iOS 9 / Harmony 9 case（subscribe+emit、unsubscribe、多订阅者、topic 不匹配、echo round-trip、无 jsExecutor 静默、clearAll、空参数拒绝、JS 转义）。
+**测试覆盖**：Android 10 / iOS 10 / Harmony 10 case（on+emit、off、同 topic 覆盖、topic 不匹配、echo round-trip、无 jsExecutor 静默、clearAll、空参数拒绝、off 未订阅 no-op、JS 转义）。
 
 ---
 
@@ -176,10 +177,10 @@ Coconut.call('event.echo', { hello: 'world' });
 该 HTML 即 conformance test。
 
 事件端到端验证流程：
-1. 点「订阅 test.echo」→ 期望 eventView 显示 `subscribe ack`
+1. 点「订阅 test.echo」→ 期望 eventView 显示 `on ack`
 2. 点「Echo」→ 500ms 后 eventView 显示 `event received`，payload 含 `{hello:'world'}`
-3. 点「取消订阅」→ eventView 显示 `unsubscribe ack`，再点 Echo 应**无**事件投递
-4. Reload WebView → 再次 Subscribe → native 端 registry 已清空（无 stale 投递）
+3. 点「取消订阅」→ eventView 显示 `off ack`，再点 Echo 应**无**事件投递
+4. Reload WebView → 再次 On → native 端 registry 已清空（无 stale 投递）
 
 ---
 

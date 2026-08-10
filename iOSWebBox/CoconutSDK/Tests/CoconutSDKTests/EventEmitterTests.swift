@@ -28,8 +28,8 @@ final class EventEmitterTests: XCTestCase {
 
     // MARK: - Core cases
 
-    func test_subscribe_then_emit_deliversToSubscriber() async {
-        emitter.subscribe(topic: "test.echo", subscriptionId: "sub_1")
+    func test_on_then_emit_deliversToHandler() async {
+        emitter.on(topic: "test.echo")
         emitter.emit(topic: "test.echo", data: ["hello": "world"])
 
         // emit dispatches via Task; yield to let it land.
@@ -40,14 +40,15 @@ final class EventEmitterTests: XCTestCase {
         let script = executor.scripts[0]
         XCTAssertTrue(script.hasPrefix("window.__coconutEvent('"))
         XCTAssertTrue(script.contains("\"topic\":\"test.echo\""))
-        XCTAssertTrue(script.contains("\"subscriptionId\":\"sub_1\""))
         XCTAssertTrue(script.contains("\"hello\":\"world\""))
+        XCTAssertFalse(script.contains("subscriptionId"), "payload should not contain subscriptionId")
+        XCTAssertTrue(emitter.has(topic: "test.echo"))
         XCTAssertEqual(emitter.count, 1)
     }
 
-    func test_unsubscribe_blocksSubsequentEmit() async {
-        emitter.subscribe(topic: "test.echo", subscriptionId: "sub_1")
-        emitter.unsubscribe(subscriptionId: "sub_1")
+    func test_off_blocksSubsequentEmit() async {
+        emitter.on(topic: "test.echo")
+        emitter.off(topic: "test.echo")
         emitter.emit(topic: "test.echo")
 
         await Task.yield()
@@ -55,26 +56,22 @@ final class EventEmitterTests: XCTestCase {
 
         XCTAssertEqual(executor.scripts.count, 0)
         XCTAssertEqual(emitter.count, 0)
+        XCTAssertFalse(emitter.has(topic: "test.echo"))
     }
 
-    func test_multiple_subscribers_for_same_topic_allReceive() async {
-        emitter.subscribe(topic: "network.change", subscriptionId: "sub_a")
-        emitter.subscribe(topic: "network.change", subscriptionId: "sub_b")
-        emitter.emit(topic: "network.change", data: 42)
+    func test_on_sameTopic_overwritesPreviousHandler() async {
+        // First on — registers normally
+        emitter.on(topic: "test.echo")
+        XCTAssertTrue(emitter.has(topic: "test.echo"))
+        XCTAssertEqual(emitter.count, 1)
 
-        await Task.yield()
-        try? await Task.sleep(nanoseconds: 50_000_000)
-
-        XCTAssertEqual(executor.scripts.count, 2)
-        let ids = executor.scripts.compactMap { Self.extractSubscriptionId(from: $0) }
-        XCTAssertEqual(Set(ids), ["sub_a", "sub_b"])
-        for script in executor.scripts {
-            XCTAssertTrue(script.contains("\"data\":42"))
-        }
+        // Second on same topic — replaces previous (count stays at 1)
+        emitter.on(topic: "test.echo")
+        XCTAssertEqual(emitter.count, 1, "second on same topic should replace, not append")
     }
 
     func test_emit_withNoMatchingTopic_isDropped() async {
-        emitter.subscribe(topic: "network.change", subscriptionId: "sub_a")
+        emitter.on(topic: "network.change")
         emitter.emit(topic: "app.foreground")  // different topic
 
         await Task.yield()
@@ -84,7 +81,7 @@ final class EventEmitterTests: XCTestCase {
     }
 
     func test_echo_roundTrip_deliversTestEchoWithPayload() async {
-        emitter.subscribe(topic: "test.echo", subscriptionId: "sub_echo")
+        emitter.on(topic: "test.echo")
         emitter.emit(topic: "test.echo", data: ["hello": "world"])
 
         await Task.yield()
@@ -100,14 +97,14 @@ final class EventEmitterTests: XCTestCase {
 
     func test_emit_without_jsExecutor_isSilentlyDropped() async {
         let bareEmitter = EventEmitter()  // no jsExecutor
-        bareEmitter.subscribe(topic: "test.echo", subscriptionId: "sub_1")
+        bareEmitter.on(topic: "test.echo")
         bareEmitter.emit(topic: "test.echo")
         XCTAssertEqual(bareEmitter.count, 1)
     }
 
     func test_clearAll_resetsRegistry() async {
-        emitter.subscribe(topic: "network.change", subscriptionId: "sub_a")
-        emitter.subscribe(topic: "test.echo", subscriptionId: "sub_b")
+        emitter.on(topic: "network.change")
+        emitter.on(topic: "test.echo")
         emitter.clearAll()
         emitter.emit(topic: "network.change")
         emitter.emit(topic: "test.echo")
@@ -119,9 +116,8 @@ final class EventEmitterTests: XCTestCase {
         XCTAssertEqual(emitter.count, 0)
     }
 
-    func test_subscribe_withEmptyArgs_isRejected() async {
-        emitter.subscribe(topic: "", subscriptionId: "sub_1")
-        emitter.subscribe(topic: "test.echo", subscriptionId: "")
+    func test_on_withEmptyTopic_isRejected() async {
+        emitter.on(topic: "")
         emitter.emit(topic: "")
 
         await Task.yield()
@@ -131,6 +127,12 @@ final class EventEmitterTests: XCTestCase {
         XCTAssertEqual(executor.scripts.count, 0)
     }
 
+    func test_off_withUnsubscribedTopic_isSilentNoOp() async {
+        // off on a topic that was never subscribed — must not throw / crash
+        emitter.off(topic: "never.subscribed")
+        XCTAssertEqual(emitter.count, 0)
+    }
+
     func test_escapeJSString_handlesQuotesAndBackslashes() {
         let raw = "it's a \\backslash\nand newline\r"
         let escaped = EventEmitter.escapeJSString(raw)
@@ -138,15 +140,5 @@ final class EventEmitterTests: XCTestCase {
         XCTAssertTrue(escaped.contains("\\\\backslash"))
         XCTAssertTrue(escaped.contains("\\n"))
         XCTAssertTrue(escaped.contains("\\r"))
-    }
-
-    // MARK: - Helpers
-
-    private static func extractSubscriptionId(from script: String) -> String? {
-        let marker = "\"subscriptionId\":\""
-        guard let range = script.range(of: marker) else { return nil }
-        let start = range.upperBound
-        guard let end = script[start...].firstIndex(of: "\"") else { return nil }
-        return String(script[start..<end])
     }
 }

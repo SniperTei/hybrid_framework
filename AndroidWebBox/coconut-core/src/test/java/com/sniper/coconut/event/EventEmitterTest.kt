@@ -26,53 +26,55 @@ class EventEmitterTest {
     }
 
     @Test
-    fun subscribe_then_emit_deliversToSubscriber() {
+    fun on_then_emit_deliversToHandler() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("test.echo", "sub_1")
+        emitter.on("test.echo")
         emitter.emit("test.echo", buildJsonObject { put("hello", "world") })
 
         assertEquals(1, scripts.size)
         assertEquals(1, emitter.size())
+        assertTrue(emitter.has("test.echo"))
         // Script shape: window.__coconutEvent('...json...')
         assertTrue("script should call __coconutEvent", scripts[0].startsWith("window.__coconutEvent('"))
         assertTrue("script should contain topic", scripts[0].contains("\"topic\":\"test.echo\""))
-        assertTrue("script should contain subscriptionId", scripts[0].contains("\"subscriptionId\":\"sub_1\""))
+        assertFalse("payload should not contain subscriptionId",
+            scripts[0].contains("subscriptionId"))
         assertTrue("script should contain data", scripts[0].contains("\"hello\":\"world\""))
     }
 
     @Test
-    fun unsubscribe_blocksSubsequentEmit() {
+    fun off_blocksSubsequentEmit() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("test.echo", "sub_1")
-        emitter.unsubscribe("sub_1")
+        emitter.on("test.echo")
+        emitter.off("test.echo")
         emitter.emit("test.echo")
 
-        assertTrue("no script should be dispatched after unsubscribe", scripts.isEmpty())
+        assertTrue("no script should be dispatched after off", scripts.isEmpty())
         assertEquals(0, emitter.size())
+        assertFalse(emitter.has("test.echo"))
     }
 
     @Test
-    fun multiple_subscribers_for_same_topic_allReceive() {
-        val (emitter, scripts) = capturingEmitter()
+    fun on_sameTopic_overwritesPreviousHandler() {
+        val (emitter, _) = capturingEmitter()
 
-        emitter.subscribe("network.change", "sub_a")
-        emitter.subscribe("network.change", "sub_b")
-        emitter.emit("network.change", JsonPrimitive(42))
+        // First on — registers normally
+        emitter.on("test.echo")
+        assertTrue(emitter.has("test.echo"))
+        assertEquals(1, emitter.size())
 
-        assertEquals(2, scripts.size)
-        // ConcurrentHashMap iteration order is undefined — assert by content set
-        val ids = scripts.mapNotNull { extractSubscriptionId(it) }.toSet()
-        assertTrue("both subscribers should receive", ids == setOf("sub_a", "sub_b"))
-        scripts.forEach { assertTrue("payload should be included", it.contains("\"data\":42")) }
+        // Second on same topic — replaces previous (count stays at 1)
+        emitter.on("test.echo")
+        assertEquals(1, emitter.size())
     }
 
     @Test
     fun emit_withNoMatchingTopic_isDropped() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("network.change", "sub_a")
+        emitter.on("network.change")
         emitter.emit("app.foreground")  // different topic
 
         assertTrue(scripts.isEmpty())
@@ -82,7 +84,7 @@ class EventEmitterTest {
     fun echo_roundTrip_deliversTestEchoWithPayload() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("test.echo", "sub_echo")
+        emitter.on("test.echo")
         emitter.emit("test.echo", buildJsonObject { put("hello", "world") })
 
         assertEquals(1, scripts.size)
@@ -95,7 +97,7 @@ class EventEmitterTest {
     @Test
     fun emit_without_jsExecutor_isSilentlyDropped() {
         val emitter = EventEmitter()  // no jsExecutor
-        emitter.subscribe("test.echo", "sub_1")
+        emitter.on("test.echo")
         // Should not throw
         emitter.emit("test.echo")
         assertEquals(1, emitter.size())  // subscription still registered
@@ -105,8 +107,8 @@ class EventEmitterTest {
     fun clearAll_resetsRegistry() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("network.change", "sub_a")
-        emitter.subscribe("test.echo", "sub_b")
+        emitter.on("network.change")
+        emitter.on("test.echo")
         emitter.clearAll()
         emitter.emit("network.change")
         emitter.emit("test.echo")
@@ -116,11 +118,10 @@ class EventEmitterTest {
     }
 
     @Test
-    fun subscribe_withEmptyArgs_isRejected() {
+    fun on_withEmptyTopic_isRejected() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("", "sub_1")
-        emitter.subscribe("test.echo", "")
+        emitter.on("")
         emitter.emit("")
 
         assertEquals(0, emitter.size())
@@ -128,10 +129,19 @@ class EventEmitterTest {
     }
 
     @Test
+    fun off_withUnsubscribedTopic_isSilentNoOp() {
+        val (emitter, _) = capturingEmitter()
+
+        // off on a topic that was never subscribed — must not throw / crash
+        emitter.off("never.subscribed")
+        assertEquals(0, emitter.size())
+    }
+
+    @Test
     fun jsStringLiteral_escapesQuotesAndBackslashes() {
         val (emitter, scripts) = capturingEmitter()
 
-        emitter.subscribe("test.echo", "sub_1")
+        emitter.on("test.echo")
         // Payload containing characters that must be escaped inside a JS
         // single-quoted string.
         emitter.emit("test.echo", JsonPrimitive("it's a \\backslash test"))
@@ -143,15 +153,5 @@ class EventEmitterTest {
         assertTrue("backslash should be escaped", script.contains("\\\\backslash"))
         assertFalse("unescaped single quote must not appear mid-string",
             script.contains("it's"))
-    }
-
-    /** Extract the subscriptionId field from the emitted JS script string. */
-    private fun extractSubscriptionId(script: String): String? {
-        val marker = "\"subscriptionId\":\""
-        val start = script.indexOf(marker)
-        if (start < 0) return null
-        val valueStart = start + marker.length
-        val end = script.indexOf('"', valueStart)
-        return if (end < 0) null else script.substring(valueStart, end)
     }
 }

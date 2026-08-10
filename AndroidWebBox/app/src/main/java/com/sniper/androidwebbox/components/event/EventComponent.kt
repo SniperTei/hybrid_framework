@@ -14,8 +14,8 @@ import kotlinx.serialization.json.buildJsonObject
 /**
  * Event Component
  *
- * Exposes subscribe/unsubscribe to H5 (delegating to the shared EventEmitter)
- * and a self-test `echo` method that emits a `test.echo` event after 500ms.
+ * Exposes on/off to H5 (delegating to the shared EventEmitter) and a
+ * self-test `echo` method that emits a `test.echo` event after 500ms.
  */
 @ComponentMetadata(
     name = "event",
@@ -33,8 +33,8 @@ class EventComponent : BaseComponent() {
 
     override suspend fun handle(function: String, params: JsonObject?): JsonElement {
         return when (function) {
-            "subscribe" -> subscribe(params)
-            "unsubscribe" -> unsubscribe(params)
+            "on" -> onHandler(params)
+            "off" -> offHandler(params)
             "echo" -> echo(params)
             else -> functionNotSupportedError(function)
         }
@@ -46,34 +46,31 @@ class EventComponent : BaseComponent() {
     }
 
     /**
-     * Register a subscription. Both topic and subscriptionId are H5-supplied
-     * (subscriptionId generated client-side to avoid the async-window race).
+     * Register a handler for `topic`. One handler per topic; second on overwrites.
      */
-    private suspend fun subscribe(params: JsonObject?): JsonElement {
+    private suspend fun onHandler(params: JsonObject?): JsonElement {
         val topic = getParam(params, "topic")
-        val subscriptionId = getParam(params, "subscriptionId")
 
-        if (topic.isEmpty() || subscriptionId.isEmpty()) {
-            return paramValidationError("topic and subscriptionId are required")
+        if (topic.isEmpty()) {
+            return paramValidationError("topic is required")
         }
 
-        sharedContext.eventEmitter.subscribe(topic, subscriptionId)
+        sharedContext.eventEmitter.on(topic)
 
         return buildJsonObject {
-            put("subscriptionId", JsonPrimitive(subscriptionId))
             put("topic", JsonPrimitive(topic))
         }.let { success(it) }
     }
 
-    private suspend fun unsubscribe(params: JsonObject?): JsonElement {
-        val subscriptionId = getParam(params, "subscriptionId")
-        if (subscriptionId.isEmpty()) {
-            return paramValidationError("subscriptionId is required")
+    private suspend fun offHandler(params: JsonObject?): JsonElement {
+        val topic = getParam(params, "topic")
+        if (topic.isEmpty()) {
+            return paramValidationError("topic is required")
         }
-        sharedContext.eventEmitter.unsubscribe(subscriptionId)
+        sharedContext.eventEmitter.off(topic)
 
         return buildJsonObject {
-            put("subscriptionId", JsonPrimitive(subscriptionId))
+            put("topic", JsonPrimitive(topic))
             put("success", JsonPrimitive(true))
         }.let { success(it) }
     }

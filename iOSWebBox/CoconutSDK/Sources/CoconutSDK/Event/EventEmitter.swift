@@ -1,19 +1,13 @@
 import Foundation
 
-/// One H5 subscription registration (topic + id).
-public struct Subscription: Equatable {
-    public let subscriptionId: String
-    public let topic: String
-}
-
 /**
  * EventEmitter
  *
- * Manages H5 event subscriptions and pushes native events into the WebView.
+ * Manages H5 event subscriptions (one handler per topic, overwrite on second on())
+ * and pushes native events into the WebView.
  *
- * Subscriptions are keyed by subscriptionId (generated client-side by H5 to
- * eliminate the async response window race). Emit dispatches a JSON payload
- * through the configured [JSExecutor], identical to the bridge response path.
+ * Subscriptions are keyed by topic. Emit dispatches a JSON payload through the
+ * configured [JSExecutor], identical to the bridge response path.
  *
  * Thread safety: instances are @MainActor-isolated to match the rest of the
  * SDK; emit may be called from any actor / thread and dispatch hops to main.
@@ -22,7 +16,7 @@ public struct Subscription: Equatable {
 public final class EventEmitter {
 
     private let tag = "EventEmitter"
-    private var subscriptions: [String: Subscription] = [:]
+    private var topics: Set<String> = []
 
     /**
      * JS execution bridge. Wired by the host view controller to the WebView.
@@ -31,33 +25,34 @@ public final class EventEmitter {
     public var jsExecutor: JSExecutor?
 
     /**
-     * Register a subscription for `topic` under `subscriptionId`.
-     * Overwrites an existing entry with the same id.
+     * Register a handler for `topic`. Overwrites a previous handler for the
+     * same topic (one handler per topic).
      */
-    public func subscribe(topic: String, subscriptionId: String) {
-        guard !topic.isEmpty, !subscriptionId.isEmpty else {
-            Logger.shared.w(tag, "subscribe rejected: empty topic or subscriptionId")
+    public func on(topic: String) {
+        guard !topic.isEmpty else {
+            Logger.shared.w(tag, "on rejected: empty topic")
             return
         }
-        subscriptions[subscriptionId] = Subscription(subscriptionId: subscriptionId, topic: topic)
-        Logger.shared.d(tag, "Subscribed: \(subscriptionId) -> \(topic) (total=\(subscriptions.count))")
+        let wasPresent = topics.contains(topic)
+        topics.insert(topic)
+        Logger.shared.d(tag, "On: \(topic) (total=\(topics.count)\(wasPresent ? ", replaced previous" : ""))")
     }
 
     /**
-     * Remove a subscription by id. No-op if not present.
+     * Remove the handler for `topic`. No-op if not present.
      */
-    public func unsubscribe(subscriptionId: String) {
-        if let removed = subscriptions.removeValue(forKey: subscriptionId) {
-            Logger.shared.d(tag, "Unsubscribed: \(removed.subscriptionId) (total=\(subscriptions.count))")
+    public func off(topic: String) {
+        if topics.remove(topic) != nil {
+            Logger.shared.d(tag, "Off: \(topic) (total=\(topics.count))")
         }
     }
 
     /**
-     * Broadcast a `topic` event to all matching subscribers.
+     * Broadcast a `topic` event to its registered handler (if any).
      *
-     * Each subscriber receives its own payload (containing its own
-     * subscriptionId) and is dispatched via `window.__coconutEvent('<json>')`.
-     * If no jsExecutor is wired, the emit is silently dropped.
+     * The handler receives a JSON payload of shape `{topic, data}` and is
+     * dispatched via `window.__coconutEvent('<json>')`. If no jsExecutor is
+     * wired, the emit is silently dropped.
      */
     public func emit(topic: String, data: Any? = nil) {
         guard !topic.isEmpty else {
@@ -68,39 +63,34 @@ public final class EventEmitter {
             Logger.shared.w(tag, "emit dropped (no jsExecutor): \(topic)")
             return
         }
-
-        let matches = subscriptions.values.filter { $0.topic == topic }
-        guard !matches.isEmpty else {
-            Logger.shared.d(tag, "emit no subscribers: \(topic)")
+        guard topics.contains(topic) else {
+            Logger.shared.d(tag, "emit no subscriber: \(topic)")
             return
         }
 
-        for sub in matches {
-            let payload: [String: Any] = [
-                "subscriptionId": sub.subscriptionId,
-                "topic": topic,
-                "data": data ?? NSNull(),
-            ]
+        let payload: [String: Any] = [
+            "topic": topic,
+            "data": data ?? NSNull(),
+        ]
 
-            guard let data = try? JSONSerialization.data(withJSONObject: payload),
-                  let json = String(data: data, encoding: .utf8) else {
-                Logger.shared.e(tag, "Failed to encode payload for \(sub.subscriptionId)")
-                continue
-            }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else {
+            Logger.shared.e(tag, "Failed to encode payload for \(topic)")
+            return
+        }
 
-            let escaped = Self.escapeJSString(json)
-            let script = "window.__coconutEvent('\(escaped)')"
+        let escaped = Self.escapeJSString(json)
+        let script = "window.__coconutEvent('\(escaped)')"
 
-            Task { [weak self] in
-                let error = await executor.evaluateJavaScript(script)
-                if let error = error {
-                    Logger.shared.e(self?.tag ?? "EventEmitter",
-                                    "Failed to dispatch event to \(sub.subscriptionId)",
-                                    error)
-                }
+        Task { [weak self] in
+            let error = await executor.evaluateJavaScript(script)
+            if let error = error {
+                Logger.shared.e(self?.tag ?? "EventEmitter",
+                                "Failed to dispatch event for \(topic)",
+                                error)
             }
         }
-        Logger.shared.d(tag, "Emitted '\(topic)' to \(matches.count) subscriber(s)")
+        Logger.shared.d(tag, "Emitted '\(topic)'")
     }
 
     /**
@@ -108,13 +98,16 @@ public final class EventEmitter {
      * to prevent stale subscribers from receiving events in a fresh page context.
      */
     public func clearAll() {
-        let n = subscriptions.count
-        subscriptions.removeAll()
+        let n = topics.count
+        topics.removeAll()
         Logger.shared.d(tag, "Cleared \(n) subscription(s)")
     }
 
     /// Active subscription count (testing / diagnostics).
-    public var count: Int { subscriptions.count }
+    public var count: Int { topics.count }
+
+    /// Whether `topic` is currently subscribed (testing / diagnostics).
+    public func has(topic: String) -> Bool { topics.contains(topic) }
 
     /**
      * Escape a raw JSON string for safe embedding inside a single-quoted

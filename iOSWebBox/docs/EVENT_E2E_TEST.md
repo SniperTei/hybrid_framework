@@ -11,9 +11,9 @@
 
 | # | 行为 | 期望结果 |
 |---|---|---|
-| 1 | Subscribe | native ack 回到 H5，subscriptionId 正确 |
+| 1 | On | native ack 回到 H5，topic 正确 |
 | 2 | Echo 后 500ms 收到事件 | `window.__coconutEvent` 被调用，payload 含 `{hello:'world'}` |
-| 3 | Unsubscribe 后不再投递 | 再次 Echo，H5 无事件回调 |
+| 3 | Off 后不再投递 | 再次 Echo，H5 无事件回调 |
 | 4 | 页面 reload 后无 stale 投递 | reload 触发 `clearAll()`，新页面再 Echo（未订阅）无事件 |
 
 ---
@@ -46,7 +46,7 @@ xcodebuild build \
 
 ## 方式 A：单元测试（自动，~0.3s）
 
-最可靠、最快的反馈。覆盖 `EventEmitter` 的 9 个 case（不依赖 WebView）。
+最可靠、最快的反馈。覆盖 `EventEmitter` 的 10 个 case（不依赖 WebView）。
 
 ```bash
 cd iOSWebBox/CoconutSDK
@@ -55,15 +55,16 @@ xcodebuild test \
   -destination 'id=2493097D-3EC4-48C3-8E4D-7C164A11E568'
 ```
 
-**期望**：73 个测试全部通过，其中 `EventEmitterTests` 9 个：
-- subscribe + emit 投递成功
-- unsubscribe 后不再投递
-- 同 topic 多订阅者都收到
+**期望**：74 个测试全部通过，其中 `EventEmitterTests` 10 个：
+- on + emit 投递成功
+- off 后不再投递
+- 同 topic 二次 on 覆盖前一次
 - topic 不匹配不投递
 - echo round-trip
 - 无 jsExecutor 静默丢弃
 - clearAll 清空
-- 空参数拒绝
+- 空 topic 拒绝
+- off 未订阅的 topic 是 no-op
 - JS 字符串转义正确
 
 **注意**：
@@ -125,7 +126,7 @@ xcrun simctl launch --console-pty $UDID com.sniper.tool.iOSWebBox
 期望：
 - 「事件投递」面板显示绿色文字：
   ```json
-  { "stage": "subscribe ack", "subscriptionId": "sub_demo_1", "resp": { "code": "000000", ... } }
+  { "stage": "on ack", "topic": "test.echo", "resp": { "code": "000000", ... } }
   ```
 
 #### 步骤 2：点「Echo（500ms 后回推）」（紫色按钮）
@@ -136,7 +137,6 @@ xcrun simctl launch --console-pty $UDID com.sniper.tool.iOSWebBox
   {
     "stage": "event received",
     "event": {
-      "subscriptionId": "sub_demo_1",
       "topic": "test.echo",
       "data": { "hello": "world" }
     }
@@ -144,8 +144,8 @@ xcrun simctl launch --console-pty $UDID com.sniper.tool.iOSWebBox
   ```
 - 同时控制台应输出：
   ```
-  [CoconutSDK] [event] echo scheduled, topic=test.echo, in 500ms
-  [CoconutSDK] [EventEmitter] Emitting to 1 subscriber(s) for topic: test.echo
+  [CoconutSDK] [event] echo emitted: test.echo
+  [CoconutSDK] [EventEmitter] Emitted 'test.echo'
   ```
 
 #### 步骤 3：点「取消订阅」（红色按钮）
@@ -153,18 +153,18 @@ xcrun simctl launch --console-pty $UDID com.sniper.tool.iOSWebBox
 期望：
 - 「事件投递」面板显示灰色文字：
   ```json
-  { "stage": "unsubscribe ack", "subscriptionId": "sub_demo_1", "resp": { "code": "000000", ... } }
+  { "stage": "off ack", "topic": "test.echo", "resp": { "code": "000000", ... } }
   ```
 
 #### 步骤 4：再次点「Echo」
 
 期望：
-- 「事件投递」面板**保持上一步的 unsubscribe ack 不变**（因为 H5 端 dispatch 找不到 subscriptionId 就 return，不更新视图）
+- 「事件投递」面板**保持上一步的 off ack 不变**（因为 native 不再投递事件，H5 端 eventView 无更新）
 - 控制台应输出：
   ```
-  [CoconutSDK] [EventEmitter] Emitting to 0 subscriber(s) for topic: test.echo
+  [CoconutSDK] [EventEmitter] emit no subscriber: test.echo
   ```
-  （注意：是 0 subscriber —— 因为 unsubscribe 把 registry 里这条删了）
+  （注意：是 `no subscriber` —— 因为 off 把 registry 里这条 topic 删了）
 
 #### 步骤 5（关键）：reload 页面，验证无 stale 投递
 
@@ -177,12 +177,12 @@ xcrun simctl launch --console-pty $UDID com.sniper.tool.iOSWebBox
   ```
   [CoconutSDK] [EventEmitter] Cleared N subscription(s)   ← reload 钩子触发清空
   [CoconutSDK] [CoconutWebVC] Page loaded
-  [CoconutSDK] [event] echo scheduled, ...
-  [CoconutSDK] [EventEmitter] Emitting to 0 subscriber(s)   ← 因为 registry 已清空
+  [CoconutSDK] [event] echo emitted: ...
+  [CoconutSDK] [EventEmitter] emit no subscriber: test.echo   ← 因为 registry 已清空
   ```
-- 「事件投递」面板**无事件被投递**（H5 端即使收到 `__coconutEvent` 调用，也会因为 dispatch 找不到本地 callback 而 return；而且 native 端因为 registry 已清空，根本不会调 `__coconutEvent`）
+- 「事件投递」面板**无事件被投递**（native 端因为 registry 已清空，根本不会调 `__coconutEvent`）
 
-如果出现 `Emitting to 1 subscriber(s)` 之后的 reload，说明 `clearAll()` 没正确触发 —— 检查 `CoconutWebViewController.swift` 的 `didStartProvisionalNavigation` 钩子。
+如果 reload 之后还能看到 `Emitted 'test.echo'`，说明 `clearAll()` 没正确触发 —— 检查 `CoconutWebViewController.swift` 的 `didStartProvisionalNavigation` 钩子。
 
 ---
 
@@ -196,7 +196,7 @@ iOS 模拟器**不暴露** Chrome DevTools Protocol，没法像 Android 那样�
 2. 菜单栏：「开发 → [你的模拟器名] → coconut_index.html」
 3. 在 Safari 的 Web Inspector 里直接执行：
    ```js
-   // 跑一次完整 subscribe → echo 流程
+   // 跑一次完整 on → echo 流程
    window.__testLog = [];
    var origDispatch = window.__coconutEvent;
    window.__coconutEvent = function(json) {
@@ -207,7 +207,7 @@ iOS 模拟器**不暴露** Chrome DevTools Protocol，没法像 Android 那样�
    setTimeout(onEcho, 600);
    setTimeout(() => console.log('RESULT:', JSON.stringify(window.__testLog)), 1500);
    ```
-4. 期望 1.5s 后看到 `RESULT: [{"subscriptionId":"sub_demo_1","topic":"test.echo","data":{"hello":"world"}}]`
+4. 期望 1.5s 后看到 `RESULT: [{"topic":"test.echo","data":{"hello":"world"}}]`
 
 ### C.2 AppleScript 自动点击（受限）
 
@@ -235,12 +235,12 @@ xcrun simctl io $UDID screenshot /tmp/ios_state.png
 
 完整端到端验证完成的标准（每条都打勾）：
 
-- [ ] 方式 A：`xcodebuild test` 73 个测试全过，含 EventEmitterTests 9 个
+- [ ] 方式 A：`xcodebuild test` 74 个测试全过，含 EventEmitterTests 10 个
 - [ ] 方式 B.2：启动日志显示 EventComponent 注册 + bridge setup + clearAll 钩子触发
-- [ ] 方式 B 步骤 1：Subscribe ack 显示在 eventView
+- [ ] 方式 B 步骤 1：On ack 显示在 eventView
 - [ ] 方式 B 步骤 2：500ms 后 eventView 显示 `event received` + 正确 payload
-- [ ] 方式 B 步骤 3：Unsubscribe ack 显示
-- [ ] 方式 B 步骤 4：再次 Echo 无事件投递（H5 端）
+- [ ] 方式 B 步骤 3：Off ack 显示
+- [ ] 方式 B 步骤 4：再次 Echo 无事件投递（native 日志 `emit no subscriber`）
 - [ ] 方式 B 步骤 5：reload 后 native registry 清空，再 Echo 无 stale 投递
 
 ---
@@ -249,7 +249,7 @@ xcrun simctl io $UDID screenshot /tmp/ios_state.png
 
 ### 启动日志没出现 `Registering: event v1.0.0`
 
-→ `SceneDelegate.swift` 的 `registerComponents` 漏了 `EventComponent()`：
+ `SceneDelegate.swift` 的 `registerComponents` 漏了 `EventComponent()`：
 
 ```swift
 // iOSWebBox/SceneDelegate.swift
@@ -262,7 +262,7 @@ ComponentManager.shared.registerComponents([
 
 ### 启动日志没出现 `Bridge setup complete` 后的 `Cleared 0 subscription(s)`
 
-→ `CoconutWebViewController.swift` 的 `setupBridge()` 漏接 jsExecutor，或 `didStartProvisionalNavigation` 漏调 clearAll。
+ `CoconutWebViewController.swift` 的 `setupBridge()` 漏接 jsExecutor，或 `didStartProvisionalNavigation` 漏调 clearAll。
 
 检查：
 ```swift
@@ -275,16 +275,16 @@ func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKN
 }
 ```
 
-### 点 Echo 后 native 日志有 `Emitting to 1 subscriber(s)`，但 H5 端 eventView 不更新
+### 点 Echo 后 native 日志有 `Emitted 'test.echo'`，但 H5 端 eventView 不更新
 
-→ 可能是：
-1. WebViewJSExecutor 的 `evaluateJavaScript` 调用失败 —— 看 native 日志有没有 `Failed to evaluate JS` 报错
+ 可能是：
+1. WebViewJSExecutor 的 `evaluateJavaScript` 调用失败 —— 看 native 日志有没有 `Failed to dispatch event` 报错
 2. H5 端 `__coconutEvent` 没注册（看 coconut_index.html 是否含 `window.__coconutEvent = function (json) { EventSub.dispatch(json); };`）
-3. H5 端 `EventSub.dispatch` 在 `this._subs[event.subscriptionId]` 找不到（subscriptionId 不一致 —— 看请求和事件两边的 id）
+3. H5 端 `EventSub.dispatch` 在 `event.topic !== this._topic` 时直接 return（topic 不一致 —— 看请求和事件两边的 topic）
 
 ### reload 后还能看到事件投递（stale emit bug）
 
-→ `didStartProvisionalNavigation` 钩子没接好 clearAll。**这是关键的跨平台 bug**（Harmony 上踩过坑），必须修复后才能上线。
+ `didStartProvisionalNavigation` 钩子没接好 clearAll。**这是关键的跨平台 bug**（Harmony 上踩过坑），必须修复后才能上线。
 
 ---
 

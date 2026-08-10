@@ -27,7 +27,7 @@ export { ComponentHost } from './src/main/ets/component/ComponentHost'
 export { ComponentException, ComponentNotFoundException, ComponentNotInitializedException } from './src/main/ets/component/ComponentException'
 
 // Event Layer (native → H5 push)
-export { EventEmitter, Subscription, JsExecutor } from './src/main/ets/event/EventEmitter'
+export { EventEmitter, JsExecutor } from './src/main/ets/event/EventEmitter'
 
 // Web Container
 export { CoconutWebPage } from './src/main/ets/web/CoconutWebPage'

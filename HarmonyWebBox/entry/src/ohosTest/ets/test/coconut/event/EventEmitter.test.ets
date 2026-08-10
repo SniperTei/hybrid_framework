@@ -15,17 +15,6 @@ function captureExecutor(script: string): void {
   scripts.push(script);
 }
 
-function extractSubscriptionId(script: string): string {
-  const marker = '"subscriptionId":"';
-  const start = script.indexOf(marker);
-  if (start < 0) {
-    return '';
-  }
-  const valueStart = start + marker.length;
-  const valueEnd = script.indexOf('"', valueStart);
-  return valueEnd < 0 ? '' : script.substring(valueStart, valueEnd);
-}
-
 /**
  * Unit tests for EventEmitter.
  *
@@ -47,83 +36,81 @@ export default function eventEmitterTest() {
 
     // ---- Core cases ----
 
-    it('subscribe_then_emit_deliversToSubscriber', 0, () => {
+    it('on_then_emit_deliversToHandler', 0, () => {
       resetScripts();
-      emitter.subscribe('test.echo', 'sub_1');
+      emitter.on('test.echo');
       emitter.emit('test.echo', '{"hello":"world"}');
 
       expect(scripts.length).assertEqual(1);
+      expect(emitter.size()).assertEqual(1);
+      expect(emitter.has('test.echo')).assertTrue();
       const script = scripts[0];
       expect(script.indexOf('window.__coconutEvent') >= 0).assertTrue();
       expect(script.indexOf('"topic":"test.echo"') >= 0).assertTrue();
-      expect(script.indexOf('"subscriptionId":"sub_1"') >= 0).assertTrue();
       expect(script.indexOf('"hello":"world"') >= 0).assertTrue();
-      expect(emitter.size()).assertEqual(1);
-      emitter.unsubscribe('sub_1');
+      expect(script.indexOf('subscriptionId') < 0).assertTrue();
+      emitter.off('test.echo');
     });
 
-    it('unsubscribe_blocksSubsequentEmit', 0, () => {
+    it('off_blocksSubsequentEmit', 0, () => {
       resetScripts();
-      emitter.subscribe('test.echo', 'sub_1');
-      emitter.unsubscribe('sub_1');
+      emitter.on('test.echo');
+      emitter.off('test.echo');
       emitter.emit('test.echo', '{}');
 
       expect(scripts.length).assertEqual(0);
       expect(emitter.size()).assertEqual(0);
+      expect(emitter.has('test.echo')).assertFalse();
     });
 
-    it('multiple_subscribers_for_same_topic_allReceive', 0, () => {
+    it('on_sameTopic_overwritesPreviousHandler', 0, () => {
       resetScripts();
-      emitter.subscribe('network.change', 'sub_a');
-      emitter.subscribe('network.change', 'sub_b');
-      emitter.emit('network.change', '42');
+      // First on — registers normally
+      emitter.on('test.echo');
+      expect(emitter.has('test.echo')).assertTrue();
+      expect(emitter.size()).assertEqual(1);
 
-      expect(scripts.length).assertEqual(2);
-      const ids: string[] = [];
-      for (let i = 0; i < scripts.length; i++) {
-        ids.push(extractSubscriptionId(scripts[i]));
-        expect(scripts[i].indexOf('"data":42') >= 0).assertTrue();
-      }
-      expect(ids.indexOf('sub_a') >= 0).assertTrue();
-      expect(ids.indexOf('sub_b') >= 0).assertTrue();
-      emitter.unsubscribe('sub_a');
-      emitter.unsubscribe('sub_b');
+      // Second on same topic — replaces previous (count stays at 1)
+      emitter.on('test.echo');
+      expect(emitter.size()).assertEqual(1);
+      emitter.off('test.echo');
     });
 
     it('emit_withNoMatchingTopic_isDropped', 0, () => {
       resetScripts();
-      emitter.subscribe('network.change', 'sub_a');
+      emitter.on('network.change');
       emitter.emit('app.foreground', '{}');
 
       expect(scripts.length).assertEqual(0);
-      emitter.unsubscribe('sub_a');
+      emitter.off('network.change');
     });
 
     it('echo_roundTrip_deliversTestEchoWithPayload', 0, () => {
       resetScripts();
-      emitter.subscribe('test.echo', 'sub_echo');
+      emitter.on('test.echo');
       emitter.emit('test.echo', '{"hello":"world"}');
 
       expect(scripts.length).assertEqual(1);
       const script = scripts[0];
       expect(script.indexOf('"topic":"test.echo"') >= 0).assertTrue();
       expect(script.indexOf('"hello":"world"') >= 0).assertTrue();
-      emitter.unsubscribe('sub_echo');
+      emitter.off('test.echo');
     });
 
     // ---- Edge cases ----
 
     it('emit_without_jsExecutor_isSilentlyDropped', 0, () => {
       const bareEmitter = new EventEmitter();
-      bareEmitter.subscribe('test.echo', 'sub_1');
+      bareEmitter.on('test.echo');
       bareEmitter.emit('test.echo', '{}');
       expect(bareEmitter.size()).assertEqual(1);
+      expect(bareEmitter.has('test.echo')).assertTrue();
     });
 
     it('clearAll_resetsRegistry', 0, () => {
       resetScripts();
-      emitter.subscribe('network.change', 'sub_a');
-      emitter.subscribe('test.echo', 'sub_b');
+      emitter.on('network.change');
+      emitter.on('test.echo');
       emitter.clearAll();
       emitter.emit('network.change', '{}');
       emitter.emit('test.echo', '{}');
@@ -132,14 +119,19 @@ export default function eventEmitterTest() {
       expect(emitter.size()).assertEqual(0);
     });
 
-    it('subscribe_withEmptyArgs_isRejected', 0, () => {
+    it('on_withEmptyTopic_isRejected', 0, () => {
       resetScripts();
-      emitter.subscribe('', 'sub_1');
-      emitter.subscribe('test.echo', '');
+      emitter.on('');
       emitter.emit('', '{}');
 
       expect(emitter.size()).assertEqual(0);
       expect(scripts.length).assertEqual(0);
+    });
+
+    it('off_withUnsubscribedTopic_isSilentNoOp', 0, () => {
+      // off on a topic that was never subscribed — must not throw / crash
+      emitter.off('never.subscribed');
+      expect(emitter.size()).assertEqual(0);
     });
 
     it('escapeJsString_handlesQuotesAndBackslashes', 0, () => {
