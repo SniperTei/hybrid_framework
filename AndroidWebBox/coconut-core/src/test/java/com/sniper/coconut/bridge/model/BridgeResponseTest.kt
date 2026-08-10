@@ -114,4 +114,57 @@ class BridgeResponseTest {
         val decodedValue = (decoded.result as? JsonObject)?.get("value") as? JsonPrimitive
         assertEquals(originalValue?.content, decodedValue?.content)
     }
+
+    // ---- streaming ----
+
+    @Test
+    fun streaming_factory_setsStreamingFlag() {
+        val payload: JsonObject = buildJsonObject { put("queueNum", 2) }
+        val response = BridgeResponse.streaming(id = "req-1", result = payload)
+
+        assertEquals(true, response.streaming)
+        assertEquals(ErrorCode.SUCCESS, response.code)
+        assertEquals(payload, response.result)
+    }
+
+    @Test
+    fun success_factory_leavesStreamingNull() {
+        val response = BridgeResponse.success(id = "req-1")
+        assertEquals(null, response.streaming)
+    }
+
+    @Test
+    fun serialize_omitsStreamingFieldByDefault() {
+        val response = BridgeResponse.success(id = "req-1")
+        val json = Json.encodeToString(BridgeResponse.serializer(), response)
+
+        // One-shot response must not leak "streaming" field — coconut.js
+        // would otherwise treat it as streaming and never release callback.
+        assertFalse("non-streaming response must not contain \"streaming\"",
+            json.contains("\"streaming\""))
+    }
+
+    @Test
+    fun serialize_includesStreamingFieldWhenTrue() {
+        val response = BridgeResponse.streaming(id = "req-1")
+        val json = Json.encodeToString(BridgeResponse.serializer(), response)
+
+        assertTrue("streaming response must contain \"streaming\":true",
+            json.contains("\"streaming\":true"))
+    }
+
+    @Test
+    fun streaming_response_roundTrips() {
+        val payload: JsonObject = buildJsonObject { put("queueNum", 3) }
+        val original = BridgeResponse.streaming(id = "rt-2", result = payload)
+
+        val json = Json.encodeToString(BridgeResponse.serializer(), original)
+        val decoded = Json.decodeFromString(BridgeResponse.serializer(), json)
+
+        assertEquals(original.id, decoded.id)
+        assertEquals(original.streaming, decoded.streaming)
+        val originalValue = (original.result as? JsonObject)?.get("queueNum") as? JsonPrimitive
+        val decodedValue = (decoded.result as? JsonObject)?.get("queueNum") as? JsonPrimitive
+        assertEquals(originalValue?.content, decodedValue?.content)
+    }
 }

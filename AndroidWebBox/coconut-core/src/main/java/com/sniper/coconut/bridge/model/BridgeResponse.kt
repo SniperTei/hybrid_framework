@@ -12,19 +12,26 @@ import kotlinx.serialization.json.JsonNull
  *   "id": "request-id",
  *   "code": "000000",
  *   "message": "success",
- *   "result": { ... }
+ *   "result": { ... },
+ *   "streaming": true   // optional; present = more responses coming, callback kept
  * }
+ *
+ * For streaming use cases (queue progress, download progress, etc.), native
+ * sends multiple responses with the same id. All but the final response
+ * include `"streaming": true`. The final response omits the field (or sets
+ * it to false) — coconut.js then releases the callback.
  */
 @Serializable
 data class BridgeResponse(
     val id: String,
     val code: String = ErrorCode.SUCCESS,
     val message: String = "success",
-    val result: JsonElement? = null
+    val result: JsonElement? = null,
+    val streaming: Boolean? = null
 ) {
     companion object {
         /**
-         * Create success response
+         * Create success response (one-shot; callback released after this).
          */
         fun success(id: String, result: JsonElement? = null): BridgeResponse {
             return BridgeResponse(
@@ -36,7 +43,23 @@ data class BridgeResponse(
         }
 
         /**
-         * Create error response
+         * Create a streaming response. coconut.js fires the callback but
+         * keeps it registered for subsequent responses with the same id
+         * (and resets the timeout timer). Send a final non-streaming
+         * response (omit `streaming`) to release the callback.
+         */
+        fun streaming(id: String, result: JsonElement? = null): BridgeResponse {
+            return BridgeResponse(
+                id = id,
+                code = ErrorCode.SUCCESS,
+                message = "success",
+                result = result ?: JsonNull,
+                streaming = true
+            )
+        }
+
+        /**
+         * Create error response (always releases the callback).
          */
         fun error(id: String, code: String, message: String): BridgeResponse {
             return BridgeResponse(
