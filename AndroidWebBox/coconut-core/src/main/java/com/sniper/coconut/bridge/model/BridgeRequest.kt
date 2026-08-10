@@ -8,60 +8,55 @@ import kotlinx.serialization.json.JsonObject
  *
  * Request format:
  * {
- *   "method": "component.function",
- *   "params": { ... },
- *   "id": "unique-request-id"
+ *   "component": "storage",   // matches Component.name
+ *   "function":  "setItem",   // method on that component
+ *   "params":    { ... },
+ *   "id":        "unique-request-id",
+ *   "bridgeToken": "..."
  * }
+ *
+ * Note: 'component' and 'function' are separate top-level fields (not
+ * joined as "component.function" in a single 'method' field). This makes
+ * routing on the native side a direct lookup by name — no string
+ * splitting required.
  */
 @Serializable
 data class BridgeRequest(
-    val method: String,
+    val component: String,
+    val function: String,
     val params: JsonObject? = null,
     val id: String,
     val bridgeToken: String = ""
 ) {
     companion object {
-        /**
-         * Validate method format: component.function
-         */
-        fun isValidMethod(method: String): Boolean {
-            return method.matches(Regex("^[a-zA-Z][a-zA-Z0-9_]*\\.[a-zA-Z][a-zA-Z0-9_]*$"))
-        }
+        private val NAME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9_]*$")
 
         /**
-         * Extract component name from method
+         * Validate component / function name format.
+         * Same rules for both: start with letter, then letters/digits/underscore.
          */
-        fun extractComponent(method: String): String {
-            return method.substringBefore(".")
-        }
-
-        /**
-         * Extract function name from method
-         */
-        fun extractFunction(method: String): String {
-            return method.substringAfter(".")
+        fun isValidName(name: String): Boolean {
+            return name.matches(NAME_REGEX)
         }
     }
 
     /**
-     * Get component name
+     * Joined "component.function" — convenience for logging / metrics /
+     * rate limiting, where a single string is still useful as a key.
      */
-    val componentName: String
-        get() = extractComponent(method)
-
-    /**
-     * Get function name
-     */
-    val functionName: String
-        get() = extractFunction(method)
+    val method: String
+        get() = "$component.$function"
 
     /**
      * Validate request
      */
     fun validate(): ValidationResult {
         when {
-            !isValidMethod(method) -> {
-                return ValidationResult(false, "Invalid method format: $method")
+            !isValidName(component) -> {
+                return ValidationResult(false, "Invalid component name: $component")
+            }
+            !isValidName(function) -> {
+                return ValidationResult(false, "Invalid function name: $function")
             }
             id.isBlank() -> {
                 return ValidationResult(false, "Request ID cannot be blank")

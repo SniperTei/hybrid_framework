@@ -36,11 +36,12 @@ class CoconutBridgeImpl(
     val securityValidator = BridgeSecurityValidator()
 
     override fun handleCall(webView: WebView, jsonData: String, currentUrl: String): String {
+        var request: BridgeRequest? = null
         return try {
             Logger.d(tag, "Received call: $jsonData")
 
             // 1. Parse request
-            val request = try {
+            request = try {
                 json.decodeFromString<BridgeRequest>(jsonData)
             } catch (e: Exception) {
                 Logger.e(tag, "Failed to parse request", e)
@@ -135,51 +136,51 @@ class CoconutBridgeImpl(
             responseJson
 
         } catch (e: ComponentNotFoundException) {
-            val requestMethod = extractMethodFromJson(jsonData)
-            val requestId = extractIdFromJson(jsonData)
-            Logger.logBridgeCallError(requestMethod, requestId, ErrorCode.UNKNOWN_COMPONENT, e.message ?: "Component not found")
+            val method = request?.method ?: "unknown"
+            val id = request?.id ?: extractIdFromJson(jsonData)
+            Logger.logBridgeCallError(method, id, ErrorCode.UNKNOWN_COMPONENT, e.message ?: "Component not found")
             json.encodeToString(
                 BridgeResponse.serializer(),
-                BridgeResponse.error(requestId, ErrorCode.UNKNOWN_COMPONENT, e.message ?: "Component not found")
+                BridgeResponse.error(id, ErrorCode.UNKNOWN_COMPONENT, e.message ?: "Component not found")
             )
         } catch (e: ComponentException) {
-            val requestMethod = extractMethodFromJson(jsonData)
-            val requestId = extractIdFromJson(jsonData)
-            Logger.logBridgeCallError(requestMethod, requestId, e.code, e.message ?: "Component error")
+            val method = request?.method ?: "unknown"
+            val id = request?.id ?: extractIdFromJson(jsonData)
+            Logger.logBridgeCallError(method, id, e.code, e.message ?: "Component error")
             json.encodeToString(
                 BridgeResponse.serializer(),
-                BridgeResponse.error(requestId, e.code, e.message ?: "Component error")
+                BridgeResponse.error(id, e.code, e.message ?: "Component error")
             )
         } catch (e: ComponentNotInitializedException) {
-            val requestMethod = extractMethodFromJson(jsonData)
-            val requestId = extractIdFromJson(jsonData)
-            Logger.logBridgeCallError(requestMethod, requestId, ErrorCode.COMPONENT_NOT_INITIALIZED, e.message ?: "Component not initialized")
+            val method = request?.method ?: "unknown"
+            val id = request?.id ?: extractIdFromJson(jsonData)
+            Logger.logBridgeCallError(method, id, ErrorCode.COMPONENT_NOT_INITIALIZED, e.message ?: "Component not initialized")
             json.encodeToString(
                 BridgeResponse.serializer(),
-                BridgeResponse.error(requestId, ErrorCode.COMPONENT_NOT_INITIALIZED, e.message ?: "Component not initialized")
+                BridgeResponse.error(id, ErrorCode.COMPONENT_NOT_INITIALIZED, e.message ?: "Component not initialized")
             )
         } catch (e: Exception) {
             Logger.e(tag, "Error handling call", e)
-            val requestId = extractIdFromJson(jsonData)
+            val id = request?.id ?: extractIdFromJson(jsonData)
             json.encodeToString(
                 BridgeResponse.serializer(),
-                BridgeResponse.internalError(requestId, e.message ?: "Internal error")
+                BridgeResponse.internalError(id, e.message ?: "Internal error")
             )
         }
     }
 
     private suspend fun handleRequest(request: BridgeRequest): JsonElement {
         // Get component
-        val component = componentManager.getComponent(request.componentName)
-            ?: throw ComponentNotFoundException("Component not found: ${request.componentName}")
+        val component = componentManager.getComponent(request.component)
+            ?: throw ComponentNotFoundException("Component not found: ${request.component}")
 
         // Check component is initialized
         if (!component.isInitialized) {
-            throw ComponentNotInitializedException("Component not initialized: ${request.componentName}")
+            throw ComponentNotInitializedException("Component not initialized: ${request.component}")
         }
 
         // Execute component function
-        return component.handle(request.functionName, request.params)
+        return component.handle(request.function, request.params)
     }
 
     private fun sendSuccess(webView: WebView, requestId: String, result: JsonElement?) {
@@ -220,14 +221,6 @@ class CoconutBridgeImpl(
     }
 
     // ---- JSON extraction helpers for error cases ----
-
-    private fun extractMethodFromJson(jsonData: String): String {
-        return try {
-            jsonData.substringAfter("\"method\":\"").substringBefore("\"")
-        } catch (e: Exception) {
-            "unknown"
-        }
-    }
 
     private fun extractIdFromJson(jsonData: String): String {
         return try {

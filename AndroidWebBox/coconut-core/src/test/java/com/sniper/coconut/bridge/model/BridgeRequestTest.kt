@@ -8,55 +8,55 @@ import org.junit.Test
 /**
  * Unit tests for [BridgeRequest] validation helpers.
  *
- * Mirrors the Android-only validation logic embedded in the data class
- * (no iOS counterpart — iOS validates in the dispatcher).
+ * Wire protocol v3.0.0: `component` and `function` are separate top-level
+ * fields (no joined `method` field on the wire). The `method` property on
+ * the data class is computed locally for logging/metrics only.
  */
 class BridgeRequestTest {
 
-    // ---- isValidMethod ----
+    // ---- isValidName (used for both component and function) ----
 
     @Test
-    fun isValidMethod_acceptsComponentDotFunction() {
-        assertTrue(BridgeRequest.isValidMethod("device.getInfo"))
+    fun isValidName_acceptsSimpleIdentifier() {
+        assertTrue(BridgeRequest.isValidName("device"))
+        assertTrue(BridgeRequest.isValidName("getInfo"))
     }
 
     @Test
-    fun isValidMethod_acceptsUnderscoreAndDigitsAfterFirstChar() {
-        assertTrue(BridgeRequest.isValidMethod("device_2.get_info_3"))
+    fun isValidName_acceptsUnderscoreAndDigitsAfterFirstChar() {
+        assertTrue(BridgeRequest.isValidName("device_2"))
+        assertTrue(BridgeRequest.isValidName("get_info_3"))
     }
 
     @Test
-    fun isValidMethod_rejectsNoDot() {
-        assertFalse(BridgeRequest.isValidMethod("noDot"))
+    fun isValidName_rejectsEmpty() {
+        assertFalse(BridgeRequest.isValidName(""))
     }
 
     @Test
-    fun isValidMethod_rejectsStartsWithDigit() {
-        assertFalse(BridgeRequest.isValidMethod("1device.getInfo"))
+    fun isValidName_rejectsStartsWithDigit() {
+        assertFalse(BridgeRequest.isValidName("1device"))
     }
 
     @Test
-    fun isValidMethod_rejectsSpecialChars() {
-        assertFalse(BridgeRequest.isValidMethod("dev-ice.getInfo"))
+    fun isValidName_rejectsSpecialChars() {
+        assertFalse(BridgeRequest.isValidName("dev-ice"))
+        assertFalse(BridgeRequest.isValidName("storage.item"))  // dot no longer allowed
     }
 
-    // ---- extractComponent / extractFunction ----
+    // ---- method convenience property ----
 
     @Test
-    fun extractComponent_returnsBeforeDot() {
-        assertEquals("device", BridgeRequest.extractComponent("device.getInfo"))
-    }
-
-    @Test
-    fun extractFunction_returnsAfterDot() {
-        assertEquals("getInfo", BridgeRequest.extractFunction("device.getInfo"))
+    fun method_joinsComponentAndFunction() {
+        val request = BridgeRequest(component = "storage", function = "setItem", id = "req-1")
+        assertEquals("storage.setItem", request.method)
     }
 
     // ---- validate ----
 
     @Test
     fun validate_successOnValidRequest() {
-        val request = BridgeRequest(method = "device.getInfo", id = "req-1")
+        val request = BridgeRequest(component = "device", function = "getInfo", id = "req-1")
         val result = request.validate()
         assertTrue(result.isValid)
         assertEquals("", result.message)
@@ -64,17 +64,25 @@ class BridgeRequestTest {
 
     @Test
     fun validate_failsOnBlankId() {
-        val request = BridgeRequest(method = "device.getInfo", id = "")
+        val request = BridgeRequest(component = "device", function = "getInfo", id = "")
         val result = request.validate()
         assertFalse(result.isValid)
         assertTrue(result.message.contains("ID"))
     }
 
     @Test
-    fun validate_failsOnInvalidMethod() {
-        val request = BridgeRequest(method = "bad", id = "req-1")
+    fun validate_failsOnInvalidComponent() {
+        val request = BridgeRequest(component = "bad.component", function = "getInfo", id = "req-1")
         val result = request.validate()
         assertFalse(result.isValid)
-        assertTrue(result.message.contains("method"))
+        assertTrue(result.message.contains("component"))
+    }
+
+    @Test
+    fun validate_failsOnInvalidFunction() {
+        val request = BridgeRequest(component = "device", function = "bad function", id = "req-1")
+        val result = request.validate()
+        assertFalse(result.isValid)
+        assertTrue(result.message.contains("function"))
     }
 }

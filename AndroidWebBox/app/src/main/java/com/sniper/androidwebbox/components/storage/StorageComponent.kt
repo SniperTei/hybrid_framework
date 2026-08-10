@@ -52,7 +52,7 @@ class StorageComponent : BaseComponent() {
     /**
      * Set item
      */
-    private suspend fun setItem(params: JsonObject?): JsonElement {
+    public suspend fun setItem(params: JsonObject?): JsonElement {
         val key = getParam(params, "key")
         val value = getParam(params, "value")
 
