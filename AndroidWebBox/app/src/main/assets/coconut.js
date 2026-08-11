@@ -583,8 +583,8 @@
         getAllKeys: function (callback) {
             return coconutSDK.call('storage', 'getAllKeys', {}, callback);
         },
-        getLength: function (callback) {
-            return coconutSDK.call('storage', 'getLength', {}, callback);
+        getSize: function (callback) {
+            return coconutSDK.call('storage', 'getSize', {}, callback);
         }
     };
 

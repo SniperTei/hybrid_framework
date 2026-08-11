@@ -1,106 +1,86 @@
 <template>
   <div class="demo-container">
-    <div class="header">
-      <h1>🥥 Coconut SDK Demo</h1>
-      <div class="env-info">
-        <span class="label">平台:</span>
-        <span class="value">{{ platformText }}</span>
-        <span class="divider">|</span>
-        <span class="label">SDK版本:</span>
-        <span class="value">{{ sdkVersion }}</span>
-        <span class="divider">|</span>
-        <span class="label">协议版本:</span>
-        <span class="value">v{{ hybridVersion }}</span>
-        <span class="divider">|</span>
-        <span class="label">WebView:</span>
-        <span class="value">{{ isWebView ? '是' : '否' }}</span>
-      </div>
+    <h1>🥥 Coconut SDK Demo</h1>
+    <p class="hint">v3.2.0 端到端验证页。Android / iOS / Harmony 三端通用，点击下方按钮测试 coconut SDK 与原生的通信。</p>
 
-      <div class="env-details">
-        <div class="env-detail-item">
-          <span class="detail-label">isAndroid:</span>
-          <span class="detail-value">{{ env.isAndroid }}</span>
-        </div>
-        <div class="env-detail-item">
-          <span class="detail-label">isiOS:</span>
-          <span class="detail-value">{{ env.isiOS }}</span>
-        </div>
-        <div class="env-detail-item">
-          <span class="detail-label">isHarmony:</span>
-          <span class="detail-value">{{ env.isHarmony }}</span>
-        </div>
-        <div class="env-detail-item">
-          <span class="detail-label">isWeb:</span>
-          <span class="detail-value">{{ env.isWeb }}</span>
-        </div>
-        <div class="env-detail-item">
-          <span class="detail-label">appName:</span>
-          <span class="detail-value">{{ env.appName || '(空)' }}</span>
-        </div>
-        <div class="env-detail-item">
-          <span class="detail-label">appVersion:</span>
-          <span class="detail-value">{{ env.appVersion || '(空)' }}</span>
-        </div>
-      </div>
+    <div :class="['platform', { web: environment === 'web' }]">
+      <span class="dot"></span>
+      <span>{{ platformText }} · SDK {{ sdkVersion }} · 协议 v{{ hybridVersion }}</span>
     </div>
 
-    <div class="test-sections">
-      <div class="test-section">
-        <h3>📱 Device 组件</h3>
-        <div class="test-buttons">
-          <button class="test-btn" @click="testDeviceInfo" :disabled="loading">getInfo</button>
-        </div>
-      </div>
-
-      <div class="test-section">
-        <h3>💾 Storage 组件</h3>
-        <div class="test-buttons">
-          <button class="test-btn" @click="testSetItem" :disabled="loading">setItem</button>
-          <button class="test-btn" @click="testGetItem" :disabled="loading">getItem</button>
-          <button class="test-btn" @click="testRemoveItem" :disabled="loading">removeItem</button>
-          <button class="test-btn" @click="testClear" :disabled="loading">clear</button>
-          <button class="test-btn" @click="testGetAllKeys" :disabled="loading">getAllKeys</button>
-          <button class="test-btn" @click="testGetLength" :disabled="loading">getLength</button>
-        </div>
-      </div>
-
-      <div class="test-section">
-        <h3>📡 Event 组件（native → H5 push）</h3>
-        <div class="test-buttons">
-          <button class="test-btn" @click="eventOn" :disabled="loading">订阅 test.echo</button>
-          <button class="test-btn" @click="eventEcho" :disabled="loading">触发 echo</button>
-          <button class="test-btn" @click="eventOff" :disabled="loading">取消订阅</button>
-        </div>
-        <div class="event-log">
-          <div class="event-log-title">事件日志</div>
-          <div v-if="eventLogs.length === 0" class="event-log-empty">（暂无事件）</div>
-          <div v-for="(log, idx) in eventLogs" :key="idx" class="event-log-item">
-            <span class="event-log-time">{{ log.time }}</span>
-            <pre class="event-log-payload">{{ log.payload }}</pre>
-          </div>
-        </div>
-      </div>
+    <div class="panel">
+      <h3>coconut.env 字段（v3.2.0）</h3>
+      <pre class="muted">{{ envSummary }}</pre>
     </div>
 
-    <div class="result-container">
-      <div class="result-header">
-        <span class="result-title">执行结果</span>
-        <span v-if="status" :class="['status-badge', status.type]">
-          {{ status.text }}
-        </span>
+    <section>
+      <h2>端到端验证</h2>
+      <div class="btns">
+        <button class="btn-r" style="flex-basis: 100%" @click="runAll" :disabled="running">
+          {{ running ? '运行中...' : '🧪 Run All Tests (15 项)' }}
+        </button>
       </div>
-      <div class="result-content">
-        <div v-if="result" class="result-cols">
-          <div class="result-col">
-            <div class="result-col-title">error</div>
-            <pre class="result-json">{{ formattedError }}</pre>
-          </div>
-          <div class="result-col">
-            <div class="result-col-title">data</div>
-            <pre class="result-json">{{ formattedData }}</pre>
+      <div v-if="runAllResults.length > 0" class="panel">
+        <h3>结果 {{ passCount }}/{{ runAllResults.length }} · {{ totalTime }}s</h3>
+        <div class="run-list">
+          <div v-for="r in runAllResults" :key="r.name" :class="['run-row', r.status]">
+            <span class="run-icon">
+              <span v-if="r.status === 'pass'">✅</span>
+              <span v-else-if="r.status === 'fail'">❌</span>
+              <span v-else>⏳</span>
+            </span>
+            <div class="run-body">
+              <div class="run-name">{{ r.name }} <span class="run-dur">· {{ r.duration }}ms</span></div>
+              <div class="run-line">期望：{{ r.expected }}</div>
+              <div class="run-line">实际：{{ r.actual }}</div>
+            </div>
           </div>
         </div>
-        <div v-else class="result-placeholder">点击上方按钮开始测试...</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>📱 Device 组件</h2>
+      <div class="btns">
+        <button class="btn-a" @click="testDeviceInfo" :disabled="loading">getInfo</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>💾 Storage 组件</h2>
+      <div class="btns">
+        <button class="btn-b" @click="testSetItem" :disabled="loading">setItem</button>
+        <button class="btn-r" @click="testGetItem" :disabled="loading">getItem</button>
+        <button class="btn-a" @click="testGetAllKeys" :disabled="loading">getAllKeys</button>
+        <button class="btn-a" @click="testGetSize" :disabled="loading">getSize</button>
+        <button class="btn-c" @click="testRemoveItem" :disabled="loading">removeItem</button>
+        <button class="btn-c" @click="testClear" :disabled="loading">clear</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>📡 Event 组件（native → H5 push）</h2>
+      <div class="btns">
+        <button class="btn-d" @click="eventOn" :disabled="loading">订阅 test.echo</button>
+        <button class="btn-d" @click="eventEcho" :disabled="loading">触发 echo</button>
+        <button class="btn-c" @click="eventOff" :disabled="loading">取消订阅</button>
+      </div>
+    </section>
+
+    <div class="panel">
+      <h3>最近一次请求（H5 → 原生）</h3>
+      <pre class="muted">{{ lastRequest || '—' }}</pre>
+    </div>
+    <div class="panel">
+      <h3>原生返回的响应（原生 → H5）</h3>
+      <pre :class="responseClass">{{ lastResponse || '—' }}</pre>
+    </div>
+    <div class="panel">
+      <h3>事件投递（native → H5，coconut.on 注册的 callback）</h3>
+      <pre v-if="eventLogs.length === 0" class="muted">—</pre>
+      <div v-for="(log, idx) in eventLogs" :key="idx" class="event-item">
+        <div class="event-time">{{ log.time }}</div>
+        <pre class="ok">{{ log.payload }}</pre>
       </div>
     </div>
   </div>
@@ -110,39 +90,229 @@
 import { ref, computed, onMounted } from 'vue'
 
 const loading = ref(false)
-const errorValue = ref(null)
-const dataValue = ref(null)
-const status = ref(null)
 const sdkVersion = ref('0.0.0')
 const hybridVersion = ref('?')
 const environment = ref('web')
 const env = ref({})
 const eventLogs = ref([])
 
+// Single-click request/response view (coconut_index-style 3-panel)
+const lastRequest = ref('')
+const lastResponse = ref('')
+const lastIsError = ref(false)
+
+// Run All state
+const running = ref(false)
+const runAllResults = ref([])
+const passCount = computed(() => runAllResults.value.filter(r => r.status === 'pass').length)
+const totalTime = computed(() => (runAllResults.value.reduce((s, r) => s + r.duration, 0) / 1000).toFixed(2))
+
 const platformText = computed(() => {
   const envMap = {
-    android: 'Android 🤖',
-    ios: 'iOS 🍎',
-    harmony: 'HarmonyOS 🌈',
-    web: 'Web 🌐',
-    node: 'Node.js 📦'
+    android: 'Android',
+    ios: 'iOS',
+    harmony: 'HarmonyOS NEXT',
+    web: 'Web（未检测到 Bridge）',
+    node: 'Node.js'
   }
   return envMap[environment.value] || environment.value
 })
 
-const isWebView = computed(() => env.value.isWebView || false)
+const envSummary = computed(() => {
+  const e = env.value
+  return JSON.stringify({
+    platform: e.platform,
+    isAndroid: e.isAndroid,
+    isiOS: e.isiOS,
+    isHarmony: e.isHarmony,
+    isWeb: e.isWeb,
+    isNative: e.isNative,
+    hybridVersion: e.hybridVersion,
+    appName: e.appName || '(空)',
+    appVersion: e.appVersion || '(空)',
+    sdkVersion: e.sdkVersion,
+    userAgent: (e.userAgent || '').slice(0, 80)
+  }, null, 2)
+})
 
-const formattedError = computed(() =>
-  errorValue.value === null ? 'null' : JSON.stringify(errorValue.value, null, 2)
-)
-const formattedData = computed(() =>
-  dataValue.value === undefined ? 'undefined' : JSON.stringify(dataValue.value, null, 2)
-)
+const responseClass = computed(() => {
+  if (!lastResponse.value || lastResponse.value === '—') return 'muted'
+  return lastIsError.value ? 'err' : 'ok'
+})
+
+function setRequest(component, fn, params) {
+  lastRequest.value = JSON.stringify({ component, function: fn, params }, null, 2)
+}
+
+function setResponse(err, data) {
+  lastIsError.value = !!err
+  lastResponse.value = JSON.stringify(err ? { error: err } : { data }, null, 2)
+}
+
+function startCheck(name, expected) {
+  const check = { name, expected, status: 'running', actual: '', duration: 0 }
+  runAllResults.value.push(check)
+  return check
+}
+
+function finishCheck(check, pass, actual) {
+  check.status = pass ? 'pass' : 'fail'
+  check.actual = actual
+}
+
+function pcall(component, fn, params) {
+  setRequest(component, fn, params)
+  return new Promise(resolve => {
+    window.coconut.call(component, fn, params || {}, (err, data) => {
+      setResponse(err, data)
+      resolve({ err, data })
+    })
+  })
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms))
+}
+
+async function runAll() {
+  if (running.value) return
+  running.value = true
+  runAllResults.value = []
+
+  // ---------- Env pre-checks (v3.2.0 specific) ----------
+  let c = startCheck('env.platform is native (not web)', 'android / ios / harmony')
+  const platform = window.coconut.env.platform
+  finishCheck(c, ['android', 'ios', 'harmony'].includes(platform), `"${platform}"`)
+
+  c = startCheck('env.hybridVersion === "3" (v3.2.0)', '"3"')
+  const hv = window.coconut.env.hybridVersion
+  finishCheck(c, hv === '3', `"${hv}"`)
+
+  c = startCheck('env.appName non-empty (from __coconutConfig)', 'non-empty')
+  const an = window.coconut.env.appName || ''
+  finishCheck(c, !!an, `"${an}"`)
+
+  c = startCheck('env.appVersion non-empty (from __coconutConfig)', 'non-empty')
+  const av = window.coconut.env.appVersion || ''
+  finishCheck(c, !!av, `"${av}"`)
+
+  // ---------- Device ----------
+  c = startCheck('Device.getInfo → platform native', 'err=null, platform native')
+  let t0 = performance.now()
+  let r = await pcall('device', 'getInfo', {})
+  c.duration = Math.round(performance.now() - t0)
+  if (r.err) {
+    finishCheck(c, false, `err ${r.err.code}: ${r.err.message}`)
+  } else {
+    const p = r.data && r.data.platform
+    finishCheck(c, ['android', 'ios', 'harmony'].includes(p), `platform="${p}"`)
+  }
+
+  // ---------- Storage sequence ----------
+  const key = 'runall_' + Date.now()
+  const value = 'test_value_' + Date.now()
+
+  c = startCheck('Storage.setItem', 'err=null, success=true')
+  t0 = performance.now()
+  r = await pcall('storage', 'setItem', { key, value })
+  c.duration = Math.round(performance.now() - t0)
+  finishCheck(c, !r.err && r.data && r.data.success === true,
+    r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}`)
+
+  c = startCheck('Storage.getItem (just written)', `value matches`)
+  t0 = performance.now()
+  r = await pcall('storage', 'getItem', { key })
+  c.duration = Math.round(performance.now() - t0)
+  const gotValue = !r.err && r.data && r.data.value === value
+  finishCheck(c, gotValue,
+    r.err ? `err ${r.err.code}` : `value="${r.data && r.data.value}"`)
+
+  c = startCheck('Storage.getAllKeys includes our key', `keys contains key`)
+  t0 = performance.now()
+  r = await pcall('storage', 'getAllKeys', {})
+  c.duration = Math.round(performance.now() - t0)
+  const hasKey = !r.err && r.data && Array.isArray(r.data.keys) && r.data.keys.includes(key)
+  finishCheck(c, hasKey,
+    r.err ? `err ${r.err.code}` : `keys has key: ${hasKey}`)
+
+  c = startCheck('Storage.getSize ≥ 1', 'count ≥ 1')
+  t0 = performance.now()
+  r = await pcall('storage', 'getSize', {})
+  c.duration = Math.round(performance.now() - t0)
+  const count = r.data && r.data.count
+  finishCheck(c, !r.err && count >= 1, r.err ? `err ${r.err.code}` : `count=${count}`)
+
+  c = startCheck('Storage.removeItem', 'err=null, success=true')
+  t0 = performance.now()
+  r = await pcall('storage', 'removeItem', { key })
+  c.duration = Math.round(performance.now() - t0)
+  finishCheck(c, !r.err && r.data && r.data.success === true,
+    r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}`)
+
+  c = startCheck('Storage.getItem (after remove → null/missing)', 'value=null or exists=false')
+  t0 = performance.now()
+  r = await pcall('storage', 'getItem', { key })
+  c.duration = Math.round(performance.now() - t0)
+  const removed = !r.err && (r.data.value === null || r.data.value === undefined || r.data.exists === false)
+  finishCheck(c, removed,
+    r.err ? `err ${r.err.code}` : `value=${r.data.value}, exists=${r.data.exists}`)
+
+  c = startCheck('Storage.clear', 'err=null, success=true')
+  t0 = performance.now()
+  r = await pcall('storage', 'clear', {})
+  c.duration = Math.round(performance.now() - t0)
+  finishCheck(c, !r.err && r.data && r.data.success === true,
+    r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}`)
+
+  // ---------- Event round-trip ----------
+  let echoReceived = false
+  let echoPayload = null
+
+  // Properly subscribe via coconut.on() — this sends event.on to native so
+  // native knows to push echoes back. Direct handler manipulation would skip
+  // the bridge roundtrip and leave native unaware of the subscription.
+  c = startCheck('Event.on(test.echo) → native ack', 'err=null from event.on')
+  t0 = performance.now()
+  const onResult = await new Promise(resolve => {
+    window.coconut.on('test.echo', (data) => {
+      echoReceived = true
+      echoPayload = data
+      logEvent(data)
+    })
+    // coconut.on fires event.on asynchronously; give the bridge a beat to ack
+    setTimeout(() => resolve(true), 200)
+  })
+  c.duration = Math.round(performance.now() - t0)
+  finishCheck(c, onResult, 'event.on sent')
+
+  c = startCheck('Event.echo → native push within 1.5s', 'event received')
+  echoReceived = false
+  echoPayload = null
+  t0 = performance.now()
+  r = await pcall('event', 'echo', { ping: 'pong' })
+  await sleep(1500)
+  c.duration = Math.round(performance.now() - t0)
+  finishCheck(c, echoReceived,
+    echoReceived ? `received payload=${JSON.stringify(echoPayload)}` :
+    (r.err ? `ack err ${r.err.code}` : 'ack ok but no push received'))
+
+  c = startCheck('Event.off → no more pushes', 'no event after off')
+  echoReceived = false
+  window.coconut.off('test.echo')
+  await sleep(300)
+  await pcall('event', 'echo', { ping: 'should-not-arrive' })
+  await sleep(1500)
+  c.duration = 0
+  finishCheck(c, !echoReceived, echoReceived ? 'FAIL: event leaked through' : 'no event received')
+
+  running.value = false
+}
 
 onMounted(() => {
   const coconut = window.coconut
   if (!coconut) {
-    status.value = { type: 'error', text: 'coconut.js 未加载' }
+    lastResponse.value = 'coconut.js 未加载'
+    lastIsError.value = true
     return
   }
   try {
@@ -150,95 +320,74 @@ onMounted(() => {
     sdkVersion.value = String(coconut.version || '0.0.0')
     environment.value = String(coconut.environment || 'unknown')
     hybridVersion.value = String(coconut.env?.hybridVersion || '?')
-    // 拷贝 enumerable 字段（lazy getter 在访问时生效）
-    env.value = JSON.parse(JSON.stringify(coconut.env || {}))
-    // appName / appVersion 是 lazy getter，JSON.stringify 会触发读取
-    env.value.appName = coconut.env.appName || ''
-    env.value.appVersion = coconut.env.appVersion || ''
+    const e = JSON.parse(JSON.stringify(coconut.env || {}))
+    e.appName = coconut.env.appName || ''
+    e.appVersion = coconut.env.appVersion || ''
+    env.value = e
     console.log('%c🥥 coconut SDK v' + sdkVersion.value + ' (protocol v' + hybridVersion.value + ')',
-      'color: #667eea; font-size: 20px; font-weight: bold;')
+      'color: #3370ff; font-size: 20px; font-weight: bold;')
   } catch (error) {
     console.error('初始化出错:', error)
   }
 })
 
-function showResult(err, data, statusText) {
-  errorValue.value = err
-  dataValue.value = data
-  status.value = {
-    type: err ? 'error' : 'success',
-    text: statusText || (err ? '失败' : '成功')
-  }
-}
-
-function withLoading(btnId, fn) {
+function withLoading(fn) {
   loading.value = true
   fn(() => { loading.value = false })
 }
 
 // ---- Device ----
 function testDeviceInfo() {
-  withLoading('device', (done) => {
+  withLoading((done) => {
+    setRequest('device', 'getInfo', {})
     window.coconut.device.getInfo((err, data) => {
+      setResponse(err, data)
       done()
-      showResult(err, data, err ? '失败' : '成功')
     })
   })
 }
 
 // ---- Storage ----
+function storageCall(fn, key, value) {
+  const params = value === undefined ? { key } : { key, value }
+  withLoading((done) => {
+    setRequest('storage', fn, params)
+    window.coconut.call('storage', fn, params, (err, data) => {
+      setResponse(err, data)
+      done()
+    })
+  })
+}
+
 function testSetItem() {
-  withLoading('storage-set', (done) => {
+  withLoading((done) => {
     const value = 'test_' + Date.now()
+    const params = { key: 'demo', value }
+    setRequest('storage', 'setItem', params)
     window.coconut.storage.setItem('demo', value, (err, data) => {
+      setResponse(err, data)
       done()
-      showResult(err, { ...data, _written: value }, err ? '失败' : '已存储')
     })
   })
 }
-
-function testGetItem() {
-  withLoading('storage-get', (done) => {
-    window.coconut.storage.getItem('demo', (err, data) => {
-      done()
-      showResult(err, data, err ? '失败' : '已读取')
-    })
-  })
-}
-
-function testRemoveItem() {
-  withLoading('storage-remove', (done) => {
-    window.coconut.storage.removeItem('demo', (err, data) => {
-      done()
-      showResult(err, data, err ? '失败' : '已删除')
-    })
-  })
-}
-
+function testGetItem() { storageCall('getItem', 'demo') }
+function testRemoveItem() { storageCall('removeItem', 'demo') }
 function testClear() {
-  withLoading('storage-clear', (done) => {
-    window.coconut.storage.clear((err, data) => {
-      done()
-      showResult(err, data, err ? '失败' : '已清空')
-    })
+  withLoading((done) => {
+    setRequest('storage', 'clear', {})
+    window.coconut.storage.clear((err, data) => { setResponse(err, data); done() })
   })
 }
-
 function testGetAllKeys() {
-  withLoading('storage-keys', (done) => {
-    window.coconut.storage.getAllKeys((err, data) => {
-      done()
-      showResult(err, data, err ? '失败' : '成功')
-    })
+  withLoading((done) => {
+    setRequest('storage', 'getAllKeys', {})
+    window.coconut.storage.getAllKeys((err, data) => { setResponse(err, data); done() })
   })
 }
-
-function testGetLength() {
-  withLoading('storage-length', (done) => {
-    window.coconut.storage.getLength((err, data) => {
-      done()
-      showResult(err, data, err ? '失败' : '成功')
-    })
+function testGetSize() {
+  withLoading((done) => {
+    setRequest('storage', 'getSize', {})
+    window.coconut.storage.getSize((err, data) => { setResponse(err, data); done() })
   })
 }
 
@@ -250,64 +399,106 @@ function logEvent(payload) {
 }
 
 function eventOn() {
+  setRequest('event', 'on', { topic: 'test.echo' })
   if (!window.coconut.handlers['test.echo']) {
-    window.coconut.on('test.echo', (data) => {
-      logEvent(data)
-    })
-    showResult(null, { topic: 'test.echo', subscribed: true }, '已订阅')
-  } else {
-    showResult(null, { topic: 'test.echo', subscribed: true, note: '已订阅过，幂等' }, '已订阅')
+    window.coconut.on('test.echo', (data) => { logEvent(data) })
   }
+  setResponse(null, { topic: 'test.echo', subscribed: true, note: '本地 handler 已注册' })
 }
 
 function eventEcho() {
-  const payload = { hello: 'world', ts: Date.now() }
-  window.coconut.call('event', 'echo', payload, (err, data) => {
-    showResult(err, data, err ? '失败' : '已调度（500ms 后投递）')
+  const params = { hello: 'world', ts: Date.now() }
+  setRequest('event', 'echo', params)
+  window.coconut.call('event', 'echo', params, (err, data) => {
+    setResponse(err, data)
   })
 }
 
 function eventOff() {
+  setRequest('event', 'off', { topic: 'test.echo' })
   window.coconut.off('test.echo')
-  showResult(null, { topic: 'test.echo', subscribed: false }, '已取消订阅')
+  setResponse(null, { topic: 'test.echo', subscribed: false })
 }
 </script>
 
 <style scoped>
-.demo-container { max-width: 800px; margin: 0 auto; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-.header { text-align: center; margin-bottom: 32px; }
-.header h1 { color: #667eea; font-size: 32px; margin-bottom: 16px; }
-.env-info { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #718096; background: #f7fafc; padding: 10px; border-radius: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.label { font-weight: 600; }
-.value { color: #667eea; }
-.divider { color: #cbd5e0; }
-.env-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; padding: 12px; background: #edf2f7; border-radius: 8px; margin-bottom: 24px; }
-.env-detail-item { display: flex; flex-direction: column; align-items: center; padding: 8px; background: white; border-radius: 6px; font-size: 12px; }
-.detail-label { font-weight: 600; color: #4a5568; margin-bottom: 4px; }
-.detail-value { color: #667eea; font-weight: 700; word-break: break-all; }
-.test-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; margin-bottom: 24px; }
-.test-section { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
-.test-section h3 { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #2d3748; }
-.test-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.test-btn { padding: 10px 16px; background: white; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; font-weight: 500; color: #4a5568; cursor: pointer; transition: all 0.2s; }
-.test-btn:hover:not(:disabled) { background: #667eea; color: white; border-color: #667eea; }
-.test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.event-log { margin-top: 16px; border-top: 1px dashed #cbd5e0; padding-top: 12px; }
-.event-log-title { font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 8px; }
-.event-log-empty { font-size: 12px; color: #a0aec0; }
-.event-log-item { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
-.event-log-time { font-size: 11px; color: #718096; font-family: 'Monaco', monospace; }
-.event-log-payload { margin: 4px 0 0 0; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; color: #2d3748; white-space: pre-wrap; }
-.result-container { background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
-.result-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #f7fafc; border-bottom: 1px solid #e2e8f0; }
-.result-title { font-weight: 600; color: #2d3748; font-size: 16px; }
-.status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-.status-badge.success { background: #c6f6d5; color: #22543d; }
-.status-badge.error { background: #fed7d7; color: #742a2a; }
-.result-content { padding: 20px; max-height: 500px; overflow-y: auto; }
-.result-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.result-col { background: #f7fafc; border-radius: 8px; padding: 12px; }
-.result-col-title { font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
-.result-json { margin: 0; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; line-height: 1.6; color: #2d3748; white-space: pre-wrap; word-wrap: break-word; }
-.result-placeholder { color: #a0aec0; text-align: center; padding: 40px 20px; }
+/* Container: mobile-first, full-width with padding like coconut_index.html */
+.demo-container {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  padding: 20px 16px 48px;
+  background: #f5f6f8;
+  color: #1f2329;
+  min-height: 100vh;
+}
+
+h1 { font-size: 20px; margin-bottom: 4px; font-weight: 700; }
+.hint { font-size: 13px; color: #8a8f99; margin-bottom: 12px; line-height: 1.5; }
+
+/* Platform pill badge */
+.platform {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #eef4ff; color: #3370ff; border: 1px solid #cfe0ff;
+  padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  margin-bottom: 16px;
+}
+.platform.web { background: #fff3e8; color: #ff7d00; border-color: #ffd6a8; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+/* Section + buttons */
+section { margin-bottom: 20px; }
+section > h2 {
+  font-size: 13px; color: #8a8f99; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+}
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+button {
+  flex: 1; min-width: calc(50% - 5px); height: 46px;
+  font-size: 15px; border: none; border-radius: 10px;
+  color: #fff; cursor: pointer; transition: opacity .15s;
+  font-weight: 500;
+}
+button:active:not(:disabled) { opacity: .8; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.btn-a { background: #3370ff; }
+.btn-b { background: #00b42c; }
+.btn-r { background: #ff7d00; }
+.btn-d { background: #722ed1; }
+.btn-c { background: #f53f3f; }
+.btn-g { background: #0fc6c2; }
+
+/* Panels */
+.panel {
+  background: #fff; border-radius: 10px; padding: 14px;
+  margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.panel h3 { font-size: 13px; color: #8a8f99; margin-bottom: 8px; font-weight: 600; }
+.panel pre {
+  font-size: 12px; white-space: pre-wrap; word-break: break-all;
+  background: #f7f8fa; padding: 10px; border-radius: 6px; min-height: 24px;
+  font-family: "SF Mono", Menlo, Consolas, monospace; color: #1f2329;
+  margin: 0;
+}
+.panel pre.ok    { color: #00b42c; }
+.panel pre.err   { color: #f53f3f; }
+.panel pre.muted { color: #8a8f99; }
+
+/* Run All results list */
+.run-list { display: flex; flex-direction: column; gap: 8px; }
+.run-row {
+  display: flex; gap: 10px; padding: 10px;
+  border-radius: 8px; background: #f7f8fa;
+}
+.run-row.pass { background: #f0fff4; }
+.run-row.fail { background: #fff5f5; }
+.run-row.running { background: #fffbe6; }
+.run-icon { font-size: 16px; line-height: 1.4; flex-shrink: 0; }
+.run-body { flex: 1; min-width: 0; }
+.run-name { font-size: 13px; font-weight: 600; color: #1f2329; word-break: break-all; }
+.run-dur { color: #8a8f99; font-weight: 400; font-size: 12px; }
+.run-line { font-size: 12px; color: #4a5568; margin-top: 2px; word-break: break-all; }
+
+/* Event log entries */
+.event-item { margin-bottom: 8px; }
+.event-item:last-child { margin-bottom: 0; }
+.event-time { font-size: 11px; color: #8a8f99; margin-bottom: 4px; font-family: "SF Mono", Menlo, monospace; }
 </style>
