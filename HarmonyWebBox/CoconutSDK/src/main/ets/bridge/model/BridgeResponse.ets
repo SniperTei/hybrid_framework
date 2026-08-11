@@ -8,14 +8,21 @@ import { JsonObject } from '../../utils/JsonHelper';
  *   "id": "request-id",
  *   "code": "000000",
  *   "message": "success",
- *   "result": { ... }
+ *   "result": { ... },
+ *   "streaming": true   // optional; present = more responses coming, callback kept
  * }
+ *
+ * For streaming use cases (queue progress, downloads, etc.), native sends
+ * multiple responses with the same id. Intermediate responses include
+ * `"streaming": true`; the final response omits the field. coconut.js fires
+ * the callback for each response but only releases it on the final one.
  */
 export class BridgeResponse {
   id: string = '';
   code: string = ErrorCode.SUCCESS;
   message: string = 'success';
   result: string = '{}'; // JSON string
+  streaming: boolean | undefined = undefined;
 
   get isSuccess(): boolean {
     return this.code === ErrorCode.SUCCESS;
@@ -31,6 +38,22 @@ export class BridgeResponse {
     resp.code = ErrorCode.SUCCESS;
     resp.message = 'success';
     resp.result = result;
+    return resp;
+  }
+
+  /**
+   * Streaming response: coconut.js fires the callback but keeps it
+   * registered for subsequent responses with the same id (and resets
+   * the timeout timer). Send a final non-streaming response (omit
+   * `streaming`) to release the callback.
+   */
+  static streaming(id: string, result: string): BridgeResponse {
+    const resp = new BridgeResponse();
+    resp.id = id;
+    resp.code = ErrorCode.SUCCESS;
+    resp.message = 'success';
+    resp.result = result;
+    resp.streaming = true;
     return resp;
   }
 
@@ -69,6 +92,11 @@ export class BridgeResponse {
     builder.put('code', this.code);
     builder.put('message', this.message);
     builder.putJson('result', this.result);
+    // Omit streaming when undefined so one-shot responses don't leak the field
+    // (coconut.js keys strictly off streaming === true).
+    if (this.streaming === true) {
+      builder.putBool('streaming', true);
+    }
     return builder.build();
   }
 }

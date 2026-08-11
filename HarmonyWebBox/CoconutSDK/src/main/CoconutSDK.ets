@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit';
+import { common, bundleManager } from '@kit.AbilityKit';
 import { CoconutConfig } from './ets/config/CoconutConfig';
 import { ComponentManager } from './ets/component/ComponentManager';
 import { ComponentContext } from './ets/component/ComponentContext';
@@ -128,11 +128,27 @@ export class CoconutSDK {
   }
 
   /**
-   * Get security config as JSON string for JS injection
+   * Get security config as JSON string for JS injection.
+   * Includes app name/version (for coconut.env) + bridge protocol version.
    */
   static getSecurityConfig(): string {
+    let appName = '';
+    let appVersion = '';
+    try {
+      const info = bundleManager.getBundleInfoForSelfSync(
+        bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION
+      );
+      appVersion = info.versionName;
+      appName = info.name;  // bundleName — display label resolution needs resourceManager, deferred
+    } catch (e) {
+      Logger.w('CoconutSDK', `Failed to read bundle info: ${e}`);
+    }
+
     const builder = new JsonObject();
     builder.put('token', BridgeTokenManager.getToken());
+    builder.put('appName', appName);
+    builder.put('appVersion', appVersion);
+    builder.put('hybridVersion', '3');
     return builder.build();
   }
 

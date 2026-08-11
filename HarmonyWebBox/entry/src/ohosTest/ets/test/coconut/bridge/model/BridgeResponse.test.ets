@@ -76,5 +76,30 @@ export default function bridgeResponseTest() {
       expect(json).assertContain('"message":"unknown component"');
       expect(json).assertContain('"result":{}');
     });
+
+    // MARK: streaming
+
+    it('streaming_factory_setsStreamingFlag', 0, () => {
+      const r = BridgeResponse.streaming('s-1', '{"queueNum":2}');
+      expect(r.code).assertEqual(ErrorCode.SUCCESS);
+      expect(r.streaming).assertTrue();
+    });
+
+    it('success_factory_leavesStreamingUndefined', 0, () => {
+      const r = BridgeResponse.success('x', '{}');
+      expect(r.streaming).assertUndefined();
+    });
+
+    it('toJson_omitsStreaming_byDefault', 0, () => {
+      const r = BridgeResponse.success('x', '{}');
+      const json = r.toJson();
+      expect(json.indexOf('"streaming"')).assertEqual(-1);
+    });
+
+    it('toJson_includesStreaming_whenTrue', 0, () => {
+      const r = BridgeResponse.streaming('x', '{"queueNum":1}');
+      const json = r.toJson();
+      expect(json.indexOf('"streaming":true')).assertLargerOrEqual(0);
+    });
   });
 }

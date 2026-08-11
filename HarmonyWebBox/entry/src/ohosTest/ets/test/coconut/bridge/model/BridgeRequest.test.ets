@@ -3,57 +3,53 @@ import { BridgeRequest } from '@coconut/sdk';
 
 export default function bridgeRequestTest() {
   describe('BridgeRequest', () => {
-    describe('isValidMethod', () => {
-      it('componentDotFunction_isValid', 0, () => {
-        expect(BridgeRequest.isValidMethod('device.getInfo')).assertTrue();
-        expect(BridgeRequest.isValidMethod('router.push')).assertTrue();
-      });
-
-      it('camelCaseAndUnderscores_isValid', 0, () => {
-        expect(BridgeRequest.isValidMethod('myComponent.myFunc')).assertTrue();
-        expect(BridgeRequest.isValidMethod('comp_1.func_2')).assertTrue();
-      });
-
-      it('withoutDot_isInvalid', 0, () => {
-        expect(BridgeRequest.isValidMethod('noseparator')).assertFalse();
+    describe('isValidName', () => {
+      it('validIdentifierNames_pass', 0, () => {
+        expect(BridgeRequest.isValidName('device')).assertTrue();
+        expect(BridgeRequest.isValidName('router')).assertTrue();
+        expect(BridgeRequest.isValidName('myComponent')).assertTrue();
+        expect(BridgeRequest.isValidName('comp_1')).assertTrue();
       });
 
       it('startsWithDigit_isInvalid', 0, () => {
-        expect(BridgeRequest.isValidMethod('1device.getInfo')).assertFalse();
-        expect(BridgeRequest.isValidMethod('device.1func')).assertFalse();
+        expect(BridgeRequest.isValidName('1device')).assertFalse();
+        expect(BridgeRequest.isValidName('1func')).assertFalse();
       });
 
       it('empty_isInvalid', 0, () => {
-        expect(BridgeRequest.isValidMethod('')).assertFalse();
+        expect(BridgeRequest.isValidName('')).assertFalse();
       });
 
       it('specialChars_isInvalid', 0, () => {
-        expect(BridgeRequest.isValidMethod('device.get-Info')).assertFalse();
-        expect(BridgeRequest.isValidMethod('device.get Info')).assertFalse();
+        expect(BridgeRequest.isValidName('get-Info')).assertFalse();
+        expect(BridgeRequest.isValidName('get Info')).assertFalse();
+        expect(BridgeRequest.isValidName('device.foo')).assertFalse();
       });
     });
 
-    describe('extract', () => {
-      it('extractComponent_returnsBeforeDot', 0, () => {
-        expect(BridgeRequest.extractComponent('device.getInfo')).assertEqual('device');
-      });
-
-      it('extractFunction_returnsAfterDot', 0, () => {
-        expect(BridgeRequest.extractFunction('device.getInfo')).assertEqual('getInfo');
-      });
-
-      it('componentName_functionName_getters', 0, () => {
+    describe('method getter', () => {
+      it('componentDotFunction_joined', 0, () => {
         const req = new BridgeRequest();
-        req.method = 'router.push';
-        expect(req.componentName).assertEqual('router');
-        expect(req.functionName).assertEqual('push');
+        req.component = 'router';
+        req.function = 'push';
+        expect(req.method).assertEqual('router.push');
+      });
+
+      it('method_reflectsUpdatedFields', 0, () => {
+        const req = new BridgeRequest();
+        req.component = 'storage';
+        req.function = 'setItem';
+        expect(req.method).assertEqual('storage.setItem');
+        req.function = 'getItem';
+        expect(req.method).assertEqual('storage.getItem');
       });
     });
 
     describe('validate', () => {
       it('validRequest_passes', 0, () => {
         const req = new BridgeRequest();
-        req.method = 'device.getInfo';
+        req.component = 'device';
+        req.function = 'getInfo';
         req.id = 'req-1';
         const r = req.validate();
         expect(r.isValid).assertTrue();
@@ -61,27 +57,41 @@ export default function bridgeRequestTest() {
 
       it('blankId_fails', 0, () => {
         const req = new BridgeRequest();
-        req.method = 'device.getInfo';
+        req.component = 'device';
+        req.function = 'getInfo';
         req.id = '   ';
         const r = req.validate();
         expect(r.isValid).assertFalse();
         expect(r.message).assertContain('ID');
       });
 
-      it('invalidMethod_fails', 0, () => {
+      it('invalidComponent_fails', 0, () => {
         const req = new BridgeRequest();
-        req.method = 'no-dot';
+        req.component = '1bad';
+        req.function = 'getInfo';
         req.id = 'req-1';
         const r = req.validate();
         expect(r.isValid).assertFalse();
-        expect(r.message).assertContain('method');
+        expect(r.message).assertContain('component');
+      });
+
+      it('invalidFunction_fails', 0, () => {
+        const req = new BridgeRequest();
+        req.component = 'device';
+        req.function = 'bad-name';
+        req.id = 'req-1';
+        const r = req.validate();
+        expect(r.isValid).assertFalse();
+        expect(r.message).assertContain('function');
       });
     });
 
     describe('fromJson', () => {
-      it('parsesValidJson', 0, () => {
-        const json = '{"method":"device.getInfo","params":{"a":1},"id":"req-1","bridgeToken":"t1"}';
+      it('parsesComponentAndFunction', 0, () => {
+        const json = '{"component":"device","function":"getInfo","params":{"a":1},"id":"req-1","bridgeToken":"t1"}';
         const req = BridgeRequest.fromJson(json);
+        expect(req.component).assertEqual('device');
+        expect(req.function).assertEqual('getInfo');
         expect(req.method).assertEqual('device.getInfo');
         expect(req.id).assertEqual('req-1');
         expect(req.bridgeToken).assertEqual('t1');
@@ -89,7 +99,7 @@ export default function bridgeRequestTest() {
       });
 
       it('parsesNullParamsToEmpty', 0, () => {
-        const json = '{"method":"device.getInfo","params":null,"id":"r"}';
+        const json = '{"component":"device","function":"getInfo","params":null,"id":"r"}';
         const req = BridgeRequest.fromJson(json);
         expect(req.params).assertEqual('');
       });

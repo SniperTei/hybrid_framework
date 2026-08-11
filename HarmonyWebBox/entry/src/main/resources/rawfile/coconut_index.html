@@ -60,16 +60,16 @@
 </head>
 <body>
   <h1>🥥 Coconut Bridge 测试</h1>
-  <p class="hint">同一份 HTML 在 iOS / Android / Harmony 三端通用。下方会自动识别当前平台，并通过对应协议与原生通信。</p>
+  <p class="hint">同一份 HTML 在 iOS / Android / Harmony 三端通用。下方会自动识别当前平台，并通过 coconut SDK 与原生通信。</p>
 
   <div id="platform" class="platform"><span class="dot"></span><span id="platformName">检测中…</span></div>
 
   <section>
     <h2>基础组件（三端通用）</h2>
     <div class="btns">
-      <button class="btn-a" onclick="onCall('device.getInfo')">设备信息</button>
-      <button class="btn-a" onclick="onCall('device.getSystemInfo')">系统信息</button>
-      <button class="btn-a" onclick="onCall('device.getAll')">完整信息</button>
+      <button class="btn-a" onclick="onCall('device', 'getInfo')">设备信息</button>
+      <button class="btn-a" onclick="onCall('device', 'getSystemInfo')">系统信息</button>
+      <button class="btn-a" onclick="onCall('device', 'getAll')">完整信息</button>
     </div>
     <div class="btns" style="margin-top:10px">
       <button class="btn-b" onclick="onWrite('A')">写入 A</button>
@@ -96,144 +96,24 @@
     <pre id="respView" class="muted">—</pre>
   </div>
   <div class="panel">
-    <h3>事件投递（native → H5，window.__coconutEvent）</h3>
+    <h3>事件投递（native → H5，coconut.on 注册的 callback）</h3>
     <pre id="eventView" class="muted">—</pre>
   </div>
 
+  <!-- coconut SDK H5 客户端 -->
+  <script src="./coconut.js"></script>
   <script>
     /**
-     * Coconut Bridge 统一测试客户端
-     * ------------------------------------------------------------------
-     * 一份 JS，三端通用。启动时按下列顺序探测原生注入对象：
-     *   1. window.CoconutHarmonyBridge.call   → harmony（异步）
-     *   2. window.CoconutBridge               → android（同步：调用即返回结果）
-     *   3. window.webkit.messageHandlers.CoconutBridge → ios（异步）
-     *   4. 都没有                              → web（本地 mock）
+     * 测试页：直接用 coconut.* API，不再有 BridgeTest 中间层。
      *
-     * 注意：客户端对象命名为 BridgeTest，绝不能叫 CoconutBridge，
-     * 否则在 Android 上会覆盖原生注入的 window.CoconutBridge。
-     *
-     * 三种协议：
-     *   - android: window.CoconutBridge.call(请求JSON) → 同步返回响应JSON字符串
-     *   - ios:      window.webkit.messageHandlers.CoconutBridge.postMessage(请求JSON)
-     *               响应异步回到 window.__coconutIOSCallback(响应JSON)
-     *   - harmony:  window.CoconutHarmonyBridge.call(请求JSON)
-     *               响应异步回到 window.__coconutHarmonyCallback(响应JSON)
+     * coconut.call(component, functionName, params, callback(err, data))  —— error-first
+     *   component    例：'storage' / 'device' / 'event'
+     *   functionName 例：'setItem' / 'getInfo' / 'on'
+     * coconut.on(topic, callback(data))                  —— 事件订阅
+     * coconut.off(topic)                                 —— 取消订阅
      */
-    var BridgeTest = {
-      _seq: 0,
-      _pending: {},
-      env: 'web',
-
-      detect: function () {
-        if (window.CoconutHarmonyBridge && typeof window.CoconutHarmonyBridge.call === 'function') return 'harmony';
-        if (window.CoconutBridge) return 'android';
-        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.CoconutBridge) return 'ios';
-        return 'web';
-      },
-
-      call: function (method, params) {
-        var self = this;
-        return new Promise(function (resolve) {
-          var id = 'req_' + (++self._seq);
-          self._pending[id] = resolve;
-
-          // bridgeToken 由原生在页面加载后注入到 window.__coconutConfig
-          var token = '';
-          try { if (window.__coconutConfig && window.__coconutConfig.token) token = window.__coconutConfig.token; } catch (e) {}
-
-          var request = {
-            method: method,
-            params: params || {},
-            id: id,
-            bridgeToken: token
-          };
-          setRequestView(request);
-
-          var requestJson = JSON.stringify(request);
-          try {
-            if (self.env === 'android') {
-              // 同步协议：调用即拿到响应
-              var respJson = window.CoconutBridge.call(requestJson);
-              if (respJson) {
-                self._handleResponse(respJson);
-              } else {
-                self._fail(id, '100005', '空响应（CoconutBridge.call 未返回内容）');
-              }
-            } else if (self.env === 'ios') {
-              // 异步协议：postMessage 发出，响应经 __coconutIOSCallback 回来
-              window.webkit.messageHandlers.CoconutBridge.postMessage(requestJson);
-            } else if (self.env === 'harmony') {
-              // 异步协议：CoconutHarmonyBridge.call 发出，响应经 __coconutHarmonyCallback 回来
-              window.CoconutHarmonyBridge.call(requestJson);
-            } else {
-              // web mock：模拟一次成功响应
-              setTimeout(function () {
-                self._handleResponse(JSON.stringify({
-                  id: id, code: '000000', message: 'success (web mock)',
-                  result: JSON.stringify({ mocked: true, method: method, params: params || {} })
-                }));
-              }, 100);
-            }
-          } catch (e) {
-            self._fail(id, '100005', 'Bridge 调用异常: ' + (e && e.message ? e.message : e));
-          }
-        });
-      },
-
-      _handleResponse: function (responseJson) {
-        var resp;
-        try {
-          resp = JSON.parse(responseJson);
-        } catch (e) {
-          setResponseView({ error: '响应解析失败', raw: responseJson }, true);
-          return;
-        }
-        setResponseView(resp, resp.code !== '000000');
-        var cb = this._pending[resp.id];
-        if (cb) { cb(resp); delete this._pending[resp.id]; }
-      },
-
-      _fail: function (id, code, message) {
-        var resp = { id: id, code: code, message: message, result: null };
-        setResponseView(resp, true);
-        var cb = this._pending[id];
-        if (cb) { cb(resp); delete this._pending[id]; }
-      }
-    };
-
-    // 注册异步回调入口（ios / harmony 各一个；web/android 不会被调用）
-    window.__coconutIOSCallback = function (json) { BridgeTest._handleResponse(json); };
-    window.__coconutHarmonyCallback = function (json) { BridgeTest._handleResponse(json); };
-
-    // 事件订阅（on/off + emit，三端共用同一回调名）
-    var EventSub = {
-      _topic: null,       // 当前已订阅的 topic（demo 只测一个）
-      on: function (topic) {
-        this._topic = topic;
-        BridgeTest.call('event.on', { topic: topic }).then(function (resp) {
-          setEventView({ stage: 'on ack', topic: topic, resp: resp });
-        });
-      },
-      off: function () {
-        if (!this._topic) { setEventView({ stage: 'off', error: 'no active subscription' }); return; }
-        var target = this._topic;
-        this._topic = null;
-        BridgeTest.call('event.off', { topic: target }).then(function (resp) {
-          setEventView({ stage: 'off ack', topic: target, resp: resp });
-        });
-      },
-      dispatch: function (eventJson) {
-        var event;
-        try { event = JSON.parse(eventJson); } catch (e) { setEventView({ error: 'parse failed', raw: eventJson }); return; }
-        if (!event || event.topic !== this._topic) { return; }  // 已 off 或 topic 不匹配
-        setEventView({ stage: 'event received', event: event });
-      }
-    };
-    window.__coconutEvent = function (json) { EventSub.dispatch(json); };
 
     // ---------- 启动：探测平台 ----------
-    BridgeTest.env = BridgeTest.detect();
     (function renderPlatform() {
       var map = {
         harmony: 'HarmonyOS NEXT',
@@ -243,37 +123,29 @@
       };
       var el = document.getElementById('platform');
       var name = document.getElementById('platformName');
-      name.textContent = '当前平台：' + (map[BridgeTest.env] || BridgeTest.env);
-      if (BridgeTest.env === 'web') el.className = 'platform web';
+      name.textContent = '当前平台：' + (map[coconut.env.platform] || coconut.env.platform);
+      if (coconut.env.platform === 'web') el.className = 'platform web';
     })();
 
     // ---------- 视图辅助 ----------
-    function setRequestView(request) {
+    function setRequestView(component, functionName, params) {
       var v = document.getElementById('reqView');
-      v.textContent = JSON.stringify(request, null, 2);
+      v.textContent = JSON.stringify({
+        component: component,
+        function: functionName,
+        params: params
+      }, null, 2);
       v.className = '';
     }
-    function setResponseView(resp, isError) {
-      // result 字段本身是 JSON 字符串，解析后展示更易读
-      var display = resp;
-      try {
-        if (resp && typeof resp.result === 'string' && resp.result.length > 0) {
-          display = {
-            id: resp.id,
-            code: resp.code,
-            message: resp.message,
-            result: JSON.parse(resp.result)
-          };
-        }
-      } catch (e) { /* 保留原始 resp */ }
+    function setResponseView(error, data) {
       var v = document.getElementById('respView');
+      var display = error ? { error: error } : { data: data };
       v.textContent = JSON.stringify(display, null, 2);
-      v.className = isError ? 'err' : 'ok';
+      v.className = error ? 'err' : 'ok';
     }
     function setEventView(obj) {
       var v = document.getElementById('eventView');
       v.textContent = JSON.stringify(obj, null, 2);
-      // "event received" -> ok, "error" -> err, otherwise muted
       var cls = 'muted';
       if (obj && obj.stage === 'event received') cls = 'ok';
       else if (obj && obj.error) cls = 'err';
@@ -281,37 +153,51 @@
     }
 
     // ---------- 按钮回调 ----------
-    function onCall(method, params) {
-      BridgeTest.call(method, params).then(function (resp) {
-        if (resp.code === '000000') {
-          console.log('[OK]', method, resp.result);
+    function onCall(component, functionName, params) {
+      setRequestView(component, functionName, params);
+      coconut.call(component, functionName, params || {}, function (err, data) {
+        setResponseView(err, data);
+        var key = component + '.' + functionName;
+        if (err) {
+          console.warn('[ERR]', key, err.code, err.message);
         } else {
-          console.warn('[ERR]', method, resp.code, resp.message);
+          console.log('[OK]', key, data);
         }
       });
     }
     function onWrite(value) {
-      BridgeTest.call('storage.setItem', { key: 'demo', value: value })
-        .then(function (resp) { console.log('写入', value, resp.code === '000000' ? '成功' : '失败'); });
+      setRequestView('storage', 'setItem', { key: 'demo', value: value });
+      coconut.call('storage', 'setItem', { key: 'demo', value: value }, function (err, data) {
+        setResponseView(err, data);
+        console.log('写入', value, err ? '失败 ' + err.message : '成功');
+      });
     }
     function onRead() {
-      BridgeTest.call('storage.getItem', { key: 'demo' }).then(function (resp) {
-        if (resp.code === '000000') {
-          try { console.log('读到:', JSON.parse(resp.result).value); } catch (e) {}
-        }
+      setRequestView('storage', 'getItem', { key: 'demo' });
+      coconut.call('storage', 'getItem', { key: 'demo' }, function (err, data) {
+        setResponseView(err, data);
+        if (!err) { console.log('读到:', data && data.value); }
       });
     }
     function onSubscribe() {
-      EventSub.on('test.echo');
+      setRequestView('event', 'on', { topic: 'test.echo' });
+      // coconut.on 内部会发 event.on 请求；这里直接注册本地 callback
+      coconut.on('test.echo', function (data) {
+        setEventView({ stage: 'event received', data: data });
+      });
       setEventView({ stage: 'on sent', topic: 'test.echo' });
     }
     function onEcho() {
-      BridgeTest.call('event.echo', { hello: 'world' }).then(function (resp) {
-        setEventView({ stage: 'echo ack', resp: resp });
+      setRequestView('event', 'echo', { hello: 'world' });
+      coconut.call('event', 'echo', { hello: 'world' }, function (err, data) {
+        setResponseView(err, data);
+        setEventView({ stage: 'echo ack', resp: err ? { error: err } : { data: data } });
       });
     }
     function onUnsubscribe() {
-      EventSub.off();
+      setRequestView('event', 'off', { topic: 'test.echo' });
+      coconut.off('test.echo');
+      setEventView({ stage: 'off sent', topic: 'test.echo' });
     }
   </script>
 </body>

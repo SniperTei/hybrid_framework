@@ -1,42 +1,50 @@
 /**
  * Bridge Request Model
  *
- * Bridge request with security extensions
+ * Wire format (v3.1.0+):
+ * {
+ *   "component":   "storage",   // matches Component.name
+ *   "function":    "setItem",   // method on that component
+ *   "params":      { ... },
+ *   "id":          "request-id",
+ *   "bridgeToken": "..."
+ * }
+ *
+ * component / function are separate top-level fields (no joined method).
  */
 
 export class BridgeRequest {
-  method: string = '';
+  component: string = '';
+  function: string = '';
   params: string = ''; // raw JSON string
   id: string = '';
   bridgeToken: string = '';
 
-  private static readonly METHOD_REGEX = /^[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*$/;
+  private static readonly NAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
-  static isValidMethod(method: string): boolean {
-    return BridgeRequest.METHOD_REGEX.test(method);
+  static isValidName(name: string): boolean {
+    return BridgeRequest.NAME_REGEX.test(name);
   }
 
-  static extractComponent(method: string): string {
-    return method.split('.')[0];
-  }
-
-  static extractFunction(method: string): string {
-    return method.substring(method.indexOf('.') + 1);
-  }
-
-  get componentName(): string {
-    return BridgeRequest.extractComponent(this.method);
-  }
-
-  get functionName(): string {
-    return BridgeRequest.extractFunction(this.method);
+  /**
+   * Joined "component.function" — convenience for logging / metrics /
+   * rate-limiting where a single string is still useful as a key.
+   */
+  get method(): string {
+    return `${this.component}.${this.function}`;
   }
 
   validate(): ValidationResult {
-    if (!BridgeRequest.isValidMethod(this.method)) {
+    if (!BridgeRequest.isValidName(this.component)) {
       const r = new ValidationResult();
       r.isValid = false;
-      r.message = `Invalid method format: ${this.method}`;
+      r.message = `Invalid component name: ${this.component}`;
+      return r;
+    }
+    if (!BridgeRequest.isValidName(this.function)) {
+      const r = new ValidationResult();
+      r.isValid = false;
+      r.message = `Invalid function name: ${this.function}`;
       return r;
     }
     if (!this.id || this.id.trim() === '') {
@@ -54,14 +62,25 @@ export class BridgeRequest {
   static fromJson(json: string): BridgeRequest {
     const req = new BridgeRequest();
 
-    // Extract method
-    const methodPattern = '"method":"';
-    const methodStart = json.indexOf(methodPattern);
-    if (methodStart !== -1) {
-      const valStart = methodStart + methodPattern.length;
+    // Extract component
+    const componentPattern = '"component":"';
+    const componentStart = json.indexOf(componentPattern);
+    if (componentStart !== -1) {
+      const valStart = componentStart + componentPattern.length;
       const valEnd = json.indexOf('"', valStart);
       if (valEnd !== -1) {
-        req.method = json.substring(valStart, valEnd);
+        req.component = json.substring(valStart, valEnd);
+      }
+    }
+
+    // Extract function
+    const functionPattern = '"function":"';
+    const functionStart = json.indexOf(functionPattern);
+    if (functionStart !== -1) {
+      const valStart = functionStart + functionPattern.length;
+      const valEnd = json.indexOf('"', valStart);
+      if (valEnd !== -1) {
+        req.function = json.substring(valStart, valEnd);
       }
     }
 

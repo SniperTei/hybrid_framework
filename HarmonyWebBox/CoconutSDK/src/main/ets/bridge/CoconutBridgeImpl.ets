@@ -151,16 +151,16 @@ export class CoconutBridgeImpl {
    * Route request to component
    */
   private async handleRequest(request: BridgeRequest): Promise<string> {
-    const component = this.componentManager.getComponent(request.componentName);
+    const component = this.componentManager.getComponent(request.component);
     if (!component) {
-      throw new ComponentNotFoundException(`Component not found: ${request.componentName}`);
+      throw new ComponentNotFoundException(`Component not found: ${request.component}`);
     }
 
     if (!component.isInitialized) {
-      throw new ComponentNotInitializedException(`Component not initialized: ${request.componentName}`);
+      throw new ComponentNotInitializedException(`Component not initialized: ${request.component}`);
     }
 
-    return await component.handle(request.functionName, request.params);
+    return await component.handle(request.function, request.params);
   }
 
   /**
@@ -178,12 +178,19 @@ export class CoconutBridgeImpl {
   }
 
   /**
-   * Extract method from raw JSON for error cases
+   * Extract joined "component.function" from raw JSON for error logs.
+   * Returns 'unknown' if neither field is parseable.
    */
   private extractMethodFromJson(jsonData: string): string {
     try {
-      const match = jsonData.match(/"method"\s*:\s*"([^"]+)"/);
-      return match ? match[1] : 'unknown';
+      const compMatch = jsonData.match(/"component"\s*:\s*"([^"]+)"/);
+      const fnMatch = jsonData.match(/"function"\s*:\s*"([^"]+)"/);
+      const comp = compMatch ? compMatch[1] : '';
+      const fn = fnMatch ? fnMatch[1] : '';
+      if (comp && fn) {
+        return `${comp}.${fn}`;
+      }
+      return comp || fn || 'unknown';
     } catch (e) {
       return 'unknown';
     }
