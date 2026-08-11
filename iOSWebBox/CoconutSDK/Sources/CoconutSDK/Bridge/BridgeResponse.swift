@@ -6,16 +6,25 @@ public struct BridgeResponse {
     public let code: String
     public let message: String
     public let result: Any?
+    public let streaming: Bool?
 
-    private init(id: String, code: String, message: String, result: Any? = nil) {
+    private init(id: String, code: String, message: String, result: Any? = nil, streaming: Bool? = nil) {
         self.id = id
         self.code = code
         self.message = message
         self.result = result
+        self.streaming = streaming
     }
 
     public static func success(id: String, result: Any? = nil) -> BridgeResponse {
         return BridgeResponse(id: id, code: ErrorCode.SUCCESS, message: "success", result: result)
+    }
+
+    /// Streaming response: coconut.js fires the callback but keeps it registered
+    /// for subsequent responses with the same id (and resets the timeout timer).
+    /// Send a final non-streaming response (omit `streaming`) to release the callback.
+    public static func streaming(id: String, result: Any? = nil) -> BridgeResponse {
+        return BridgeResponse(id: id, code: ErrorCode.SUCCESS, message: "success", result: result, streaming: true)
     }
 
     public static func error(id: String, code: String, message: String) -> BridgeResponse {
@@ -54,6 +63,11 @@ public struct BridgeResponse {
             dict["result"] = result
         } else {
             dict["result"] = NSNull()
+        }
+        // Omit streaming when nil so one-shot responses don't leak the field
+        // (coconut.js keys strictly off streaming === true).
+        if let streaming = streaming {
+            dict["streaming"] = streaming
         }
         guard let data = try? JSONSerialization.data(withJSONObject: dict) else {
             return "{\"id\":\"\(id)\",\"code\":\"\(ErrorCode.INTERNAL_ERROR)\",\"message\":\"JSON serialization error\",\"result\":null}"

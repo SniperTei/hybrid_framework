@@ -133,26 +133,43 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     private func injectBridgeJavaScript() {
         guard let webView = webView else { return }
         let token = BridgeTokenManager.shared.getToken()
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? Bundle.main.bundleIdentifier
+            ?? "unknown"
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
 
-        let js = Self.bridgeBootstrapJS(token: token)
+        let js = Self.bridgeBootstrapJS(
+            token: token,
+            appName: appName,
+            appVersion: appVersion,
+            hybridVersion: "3"
+        )
         webView.evaluateJavaScript(js)
-        Logger.shared.d(tag, "Bridge security config injected (token: \(token.prefix(8))...)")
+        Logger.shared.d(tag, "Bridge config injected (token: \(token.prefix(8))..., app: \(appName) \(appVersion))")
     }
 
-    /// Builds the security-config bootstrap JS injected into the page after navigation finishes.
+    /// Builds the bootstrap JS injected into the page after navigation finishes.
     /// Extracted to a static method so the script shape is unit-testable without a WebView.
-    private static func bridgeBootstrapJS(token: String) -> String {
+    private static func bridgeBootstrapJS(token: String, appName: String, appVersion: String, hybridVersion: String) -> String {
+        // Build config object as JSON to avoid quote-escaping pitfalls in app names.
+        let config: [String: Any] = [
+            "token": token,
+            "appName": appName,
+            "appVersion": appVersion,
+            "hybridVersion": hybridVersion
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: config)) ?? Data()
+        let configJson = String(data: data, encoding: .utf8) ?? "{}"
         return """
         (function() {
             if (window.__coconutInitialized) return;
-            window.__coconutConfig = {
-                token: '\(token)'
-            };
-            if (window.Coconut && window.Coconut._loadSecurityConfig) {
-                window.Coconut._loadSecurityConfig();
+            window.__coconutConfig = \(configJson);
+            if (window.coconut && window.coconut._loadSecurityConfig) {
+                window.coconut._loadSecurityConfig();
             }
             window.__coconutInitialized = true;
-            console.log('Coconut SDK security config injected (iOS)');
+            console.log('Coconut SDK config injected (iOS)');
         })();
         """
     }
@@ -167,7 +184,13 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             return
         }
         Logger.shared.d(tag, "Loading URL: \(urlString)")
-        webView?.load(URLRequest(url: url))
+        // For file:// URLs, grant read access to the parent directory so the
+        // page can load sibling resources (e.g. <script src="./coconut.js">).
+        if url.isFileURL {
+            webView?.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else {
+            webView?.load(URLRequest(url: url))
+        }
     }
 
     public func evaluateJavascript(_ script: String) {

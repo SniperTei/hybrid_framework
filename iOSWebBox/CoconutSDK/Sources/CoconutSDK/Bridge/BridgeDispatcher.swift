@@ -13,24 +13,29 @@ public final class BridgeDispatcher {
     public init() {}
 
     /// Process a single bridge call end-to-end:
-    /// parse → method format check → token → domain → rate limit →
+    /// parse → component/function format check → token → domain → rate limit →
     /// params size → component dispatch → response.
     @MainActor
     public func handleCall(_ jsonData: String, currentUrl: String) async -> String {
         // 1. Parse request
         guard let data = jsonData.data(using: .utf8),
               let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let method = request["method"] as? String,
+              let component = request["component"] as? String,
+              let function = request["function"] as? String,
               let id = request["id"] as? String else {
             return BridgeResponse.parseError(id: "").toJSON()
         }
 
-        // Validate method format
-        let methodPattern = "^[a-zA-Z][a-zA-Z0-9_]*\\.[a-zA-Z][a-zA-Z0-9_]*$"
-        if method.range(of: methodPattern, options: .regularExpression) == nil {
-            return BridgeResponse.invalidRequest(id: id, message: "Invalid method format: \(method)").toJSON()
+        // Validate component / function name format (same rules for both)
+        let namePattern = "^[a-zA-Z][a-zA-Z0-9_]*$"
+        if component.range(of: namePattern, options: .regularExpression) == nil {
+            return BridgeResponse.invalidRequest(id: id, message: "Invalid component name: \(component)").toJSON()
+        }
+        if function.range(of: namePattern, options: .regularExpression) == nil {
+            return BridgeResponse.invalidRequest(id: id, message: "Invalid function name: \(function)").toJSON()
         }
 
+        let method = "\(component).\(function)"  // for log / metrics / rate-limit key
         Logger.shared.d(tag, "→ #\(id) \(method)")
 
         let params = request["params"] as? [String: Any]
@@ -80,18 +85,14 @@ public final class BridgeDispatcher {
         let startTime = CFAbsoluteTimeGetCurrent()
 
         do {
-            let parts = method.components(separatedBy: ".")
-            let componentName = parts[0]
-            let functionName = parts[1]
-
-            guard let component = ComponentManager.shared.getComponent(name: componentName) else {
-                throw ComponentNotFoundException("Component not found: \(componentName)")
+            guard let comp = ComponentManager.shared.getComponent(name: component) else {
+                throw ComponentNotFoundException("Component not found: \(component)")
             }
-            guard component.isInitialized else {
-                throw ComponentNotInitializedException("Component not initialized: \(componentName)")
+            guard comp.isInitialized else {
+                throw ComponentNotInitializedException("Component not initialized: \(component)")
             }
 
-            let result = try await component.handle(function: functionName, params: params)
+            let result = try await comp.handle(function: function, params: params)
 
             let durationMs = Int64((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
             BridgePerformance.shared.record(method: method, durationMs: durationMs, success: true)

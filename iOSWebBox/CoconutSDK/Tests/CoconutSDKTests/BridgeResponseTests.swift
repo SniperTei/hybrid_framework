@@ -80,4 +80,31 @@ final class BridgeResponseTests: XCTestCase {
         let resp = BridgeResponse.error(id: "x", code: "200001", message: "m")
         XCTAssertFalse(resp.isSuccess)
     }
+
+    // MARK: - streaming
+
+    func testStreamingFactorySetsStreamingFlag() {
+        let resp = BridgeResponse.streaming(id: "s", result: ["queueNum": 2])
+        XCTAssertEqual(resp.code, ErrorCode.SUCCESS)
+        XCTAssertEqual(resp.streaming, true)
+    }
+
+    func testSuccessFactoryLeavesStreamingNil() {
+        let resp = BridgeResponse.success(id: "x")
+        XCTAssertNil(resp.streaming)
+    }
+
+    func testToJSONOmitsStreamingByDefault() throws {
+        let resp = BridgeResponse.success(id: "x")
+        let json = resp.toJSON()
+        XCTAssertFalse(json.contains("\"streaming\""),
+                       "non-streaming response must not leak streaming field")
+    }
+
+    func testToJSONIncludesStreamingWhenTrue() throws {
+        let resp = BridgeResponse.streaming(id: "x", result: ["queueNum": 1])
+        let json = resp.toJSON()
+        XCTAssertTrue(json.contains("\"streaming\":true"),
+                      "streaming response must contain streaming:true")
+    }
 }

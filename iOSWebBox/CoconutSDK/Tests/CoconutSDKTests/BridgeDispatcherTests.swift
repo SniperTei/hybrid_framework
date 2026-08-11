@@ -31,12 +31,14 @@ final class BridgeDispatcherTests: XCTestCase {
 
     /// Build a JSON request string with the given fields.
     private func requestJson(id: String = "1",
-                             method: String,
+                             component: String,
+                             function: String,
                              params: [String: Any] = [:],
                              token: String? = nil) -> String {
         var dict: [String: Any] = [
             "id": id,
-            "method": method,
+            "component": component,
+            "function": function,
             "params": params,
         ]
         if let token = token {
@@ -62,27 +64,27 @@ final class BridgeDispatcherTests: XCTestCase {
     }
 
     func testMissingIdReturnsParseError() async {
-        let response = await dispatcher.handleCall("{\"method\":\"device.getInfo\"}", currentUrl: "https://example.com")
+        let response = await dispatcher.handleCall("{\"component\":\"device\",\"function\":\"getInfo\"}", currentUrl: "https://example.com")
         let parsed = parse(response)
         XCTAssertEqual(parsed["code"] as? String, ErrorCode.PARSE_ERROR)
     }
 
-    // MARK: - method format
+    // MARK: - component / function name format
 
-    func testInvalidMethodFormatReturnsInvalidRequest() async {
+    func testInvalidComponentNameReturnsInvalidRequest() async {
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "no-dot", token: token),
+            requestJson(component: "bad.name", function: "getInfo", token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
         XCTAssertEqual(parsed["code"] as? String, ErrorCode.INVALID_REQUEST)
     }
 
-    func testMethodStartingWithDigitRejected() async {
+    func testInvalidFunctionNameReturnsInvalidRequest() async {
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "1device.getInfo", token: token),
+            requestJson(component: "device", function: "bad function", token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -94,7 +96,7 @@ final class BridgeDispatcherTests: XCTestCase {
     func testWrongBridgeTokenRejected() async {
         _ = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.getInfo", token: "wrong-token"),
+            requestJson(component: "device", function: "getInfo", token: "wrong-token"),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -104,7 +106,7 @@ final class BridgeDispatcherTests: XCTestCase {
     func testMissingBridgeTokenRejected() async {
         _ = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.getInfo"), // no token
+            requestJson(component: "device", function: "getInfo"), // no token
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -116,7 +118,7 @@ final class BridgeDispatcherTests: XCTestCase {
     func testUnknownComponentReturnsUnknownComponent() async {
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "ghost.doSomething", token: token),
+            requestJson(component: "ghost", function: "doSomething", token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -131,7 +133,7 @@ final class BridgeDispatcherTests: XCTestCase {
 
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.getInfo", token: token),
+            requestJson(component: "device", function: "getInfo", token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -144,7 +146,7 @@ final class BridgeDispatcherTests: XCTestCase {
 
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.getInfo", params: ["extra": 1], token: token),
+            requestJson(component: "device", function: "getInfo", params: ["extra": 1], token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -165,7 +167,7 @@ final class BridgeDispatcherTests: XCTestCase {
 
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.unknownFn", token: token),
+            requestJson(component: "device", function: "unknownFn", token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -184,7 +186,7 @@ final class BridgeDispatcherTests: XCTestCase {
 
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.fail", token: token),
+            requestJson(component: "device", function: "fail", token: token),
             currentUrl: "https://example.com"
         )
         let parsed = parse(response)
@@ -198,7 +200,7 @@ final class BridgeDispatcherTests: XCTestCase {
 
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.getInfo", token: token),
+            requestJson(component: "device", function: "getInfo", token: token),
             currentUrl: "https://evil.com/page"
         )
         let parsed = parse(response)
@@ -211,7 +213,7 @@ final class BridgeDispatcherTests: XCTestCase {
 
         let token = tokenManager.generateToken()
         let response = await dispatcher.handleCall(
-            requestJson(method: "device.getInfo", token: token),
+            requestJson(component: "device", function: "getInfo", token: token),
             currentUrl: "https://anything.evil.com"
         )
         let parsed = parse(response)
