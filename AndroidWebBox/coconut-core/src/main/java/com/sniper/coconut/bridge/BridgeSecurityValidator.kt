@@ -116,11 +116,22 @@ class BridgeSecurityValidator {
     }
 
     /**
-     * Extract host from URL
+     * Extract host from URL.
+     *
+     * Uses [java.net.URI.create] instead of [android.webkit.URLUtil] / [android.net.Uri.parse]
+     * so this class stays JVM-testable without Robolectric. `android.net.Uri.parse()` returns
+     * null on the JVM host (it's a stubbed Android API), which previously made
+     * [BridgeSecurityValidator] untestable in pure unit tests.
+     *
+     * Behavior parity with android.net.Uri.parse for the cases we care about:
+     *   - IPv4 / IPv6 / hostname hosts: identical `.host` extraction
+     *   - Port stripping: URI.host already returns host without port
+     *   - Lowercase normalization: both return lowercase host
+     *   - Invalid URL: URI.create throws → catch returns "" (same as Uri.parse returning null)
      */
     private fun extractHost(url: String): String {
         return try {
-            val uri = android.net.Uri.parse(url)
+            val uri = java.net.URI.create(url)
             uri.host ?: ""
         } catch (e: Exception) {
             ""
