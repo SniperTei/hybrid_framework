@@ -1,5 +1,7 @@
 # 🧪 Coconut SDK 测试指南
 
+> ⚠️ **本文档参考价值有限**（部分示例仍是 v2.x 旧 API）。权威 API / wire 协议 / 组件签名见仓库根 [`../API_CONTRACT.md`](../API_CONTRACT.md)。
+
 ## 📋 测试页面说明
 
 Demo.vue 页面提供了完整的 Coconut SDK 测试功能，包括 Device、Network、Storage 三大组件的测试。

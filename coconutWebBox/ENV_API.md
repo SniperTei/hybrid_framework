@@ -1,5 +1,7 @@
 # Coconut.env API 文档
 
+> ⚠️ **权威环境字段文档见 [`../API_CONTRACT.md`](../API_CONTRACT.md) Section 0.1**。本文档保留辅助说明，遇到冲突以 API_CONTRACT.md 为准。
+
 ## 📋 简介
 
 `Coconut.env` 对象提供了丰富的运行环境信息，帮助开发者根据不同平台和环境进行适配。

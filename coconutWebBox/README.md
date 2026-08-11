@@ -2,11 +2,8 @@
 
 Coconut SDK 的 H5/Web 测试项目（Vue 3 + Vite），用于开发期联调 H5 ↔ 原生 Bridge。
 
-> ⚠️ **状态腐化说明**
-> 这个项目早期是为了测试完整的 14 个组件建的。2026-07-26 三端 trim 到只剩 device + storage（commit `3b3b6de` / `8a1437f` / `95b632a`）后，`Demo.vue` 还在调已删组件（network/system/security），**只有 device + storage 的测试还有效**。
-> 等下次激活新组件时再回头修 `Demo.vue`。
->
-> 另外：生产用的 `coconut_index.html`（三端字节级一致、只有 device + storage 两按钮）是**另一套独立前端**，和本 Vue 项目没打通。本项目的 `public/coconut.js` 才是分发用的 SDK 文件。
+> **当前协议版本：v3.2.0**（`component` + `function` 拆分、streaming、`__coconutConfig`）。
+> 详细 API 参考见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)。
 
 ---
 
@@ -15,16 +12,18 @@ Coconut SDK 的 H5/Web 测试项目（Vue 3 + Vite），用于开发期联调 H5
 ```
 coconutWebBox/
 ├── public/
-│   └── coconut.js          # 📦 Coconut H5 SDK（分发文件，见下方"业务方集成"）
+│   └── coconut.js          # 📦 Coconut H5 SDK（源文件 / 分发用）
 ├── src/
 │   ├── components/
-│   │   └── Demo.vue        # ⚠️ 测试页面（部分组件已删，见状态说明）
+│   │   └── Demo.vue        # 测试页面（device + storage + event）
 │   ├── App.vue             # 根组件
 │   └── main.js             # 入口文件
 ├── index.html              # HTML 模板
 ├── vite.config.js          # Vite 配置
 └── package.json
 ```
+
+> 生产用的 `coconut_index.html`（三端字节级一致、device + storage + event 三组按钮）是**另一套独立前端**，与本 Vue 项目未打通。本项目的 `public/coconut.js` 才是分发用的 SDK 源文件，三端 copy 自此处。
 
 ---
 
@@ -45,37 +44,45 @@ coconutWebBox/
    ```html
    <script src="/coconut.js"></script>
    ```
-   引入后会自动检测环境（android / ios / harmony / web）并初始化，全局挂载 `window.Coconut`。
+   引入后自动检测环境（android / ios / harmony / web）并初始化，全局挂载小写 `window.coconut`。
 
-3. **调用 API**
+3. **调用 API（error-first callback）**
 
    ```js
-   // Promise 方式（推荐）
-   const resp = await Coconut.callAsync('device.getInfo', {});
-   // resp.code === '000000' 表示成功，resp.result 是结果对象
-
-   // 回调方式
-   Coconut.call('storage.setItem', { key: 'foo', value: 'bar' }, (resp, isError) => {
-     if (!isError) console.log('saved');
+   // 通用 call（component + function 拆参数，v3.2.0 推荐）
+   coconut.call('storage', 'setItem', { key: 'foo', value: 'bar' }, (err, data) => {
+     if (err) {
+       // err = { code: '200007', message: '...' }
+     } else {
+       // data = { key: 'foo', success: true }
+     }
    });
 
-   // 快捷方法（当前只暴露 device 和 storage 两组）
-   Coconut.device.getInfo(cb);
-   Coconut.storage.setItem(key, value, cb);
-   Coconut.storage.getItem(key, cb);
+   // Promise 版（一次性响应；不适用于流式响应）
+   const data = await coconut.callAsync('device', 'getInfo', {});
+
+   // 快捷方法
+   coconut.device.getInfo((err, data) => { /* ... */ });
+   coconut.storage.setItem(key, value, (err, data) => { /* ... */ });
+   coconut.storage.getItem(key, (err, data) => { /* ... */ });
+
+   // 事件订阅（native → H5 push）
+   coconut.on('test.echo', (eventData) => { /* ... */ });
+   coconut.off('test.echo');
    ```
 
 ### 版本要求
 
-- coconut.js 当前版本 **2.2.0**（见文件头部 `@version` 注释）
-- 协议要求：native 端 CoconutSDK **≥ 2.0.0**（三端任一）
-- 不匹配的故障模式：H5 call 来 native 解析不了的 method → 返回 `code:'200001' UNKNOWN_COMPONENT` 或 `code:'200002' UNKNOWN_FUNCTION`
+- coconut.js 当前版本 **3.2.0**（见文件头部 `@version` 注释）
+- Bridge 协议主版本 = `coconut.env.hybridVersion` = `"3"`
+- 协议要求：native 端 CoconutSDK **≥ 3.0.0**（三端任一）
+- 不匹配的故障模式：H5 发 `component:function` 拆参数请求到旧 native（v2.x 仍读 `method` 字段）→ 返回 `code:'200001' UNKNOWN_COMPONENT`
 
 ### 更新方式
 
 coconut.js 是单文件、零外部依赖。升级时：
 
-1. 从本仓库 copy 最新版 coconut.js 覆盖
+1. 从本仓库 copy 最新版 coconut.js 覆盖你的 H5 项目
 2. H5 重新 build / 部署
 3. **不需要** native 端配合发版（只要协议没 breaking change）
 
@@ -97,33 +104,41 @@ npm run dev
 
 把三端任一的 WebView URL 改成 `http://<你电脑的局域网 IP>:5174`：
 
-- **Android**：`CoconutWebActivity.kt` 里 `webView.loadUrl(...)`
-- **iOS**：`CoconutWebViewController(url: URL(string: "http://...")!)`
-- **Harmony**：`CoconutWebPage({ url: 'http://...' })`
+| 平台 | 文件 | 加载方式 |
+|---|---|---|
+| Android | `CoconutWebActivity.kt` | `webView.loadUrl("http://...")` |
+| iOS | `CoconutWebViewController.swift` | `WKWebView.load(URLRequest(url:))`，需 ATS 例外（见下） |
+| Harmony | `CoconutWebPage.ets` | `Web({ src: 'http://...', controller })` |
 
 ### 3. 生产部署（打包到 native assets）
 
-```bash
-npm run build
-# 把 dist/ 内容拷贝到三端对应的资源目录：
-cp -r dist/* AndroidWebBox/app/src/main/assets/coconut-web/
-cp -r dist/* iOSWebBox/iOSWebBox/coconut-web/
-cp -r dist/* HarmonyWebBox/entry/src/main/resources/rawfile/coconut-web/
-```
+ coconut.js / coconut_index.html 三端路径：
+
+| 平台 | coconut.js | coconut_index.html |
+|---|---|---|
+| Android | `AndroidWebBox/app/src/main/assets/` | 同左 |
+| iOS | `iOSWebBox/iOSWebBox/`（bundle resource，`loadFileURL` 加载） | 同左 |
+| Harmony | `HarmonyWebBox/entry/src/main/resources/rawfile/` | 同左 |
+
+> 改完 `coconutWebBox/public/coconut.js` 后用 [`scripts/sync-h5-assets.sh`](../scripts/sync-h5-assets.sh) 同步到三端，避免手动 cp 漏端。
 
 ---
 
 ## 当前可用组件测试
 
-`Demo.vue` 里**只有这两个组件的测试还有效**（其他组件已从 main 删除）：
+`Demo.vue` 测试三个组件（与三端 `coconut_index.html` 对齐）：
 
 ### device — 获取设备信息
-- `device.getInfo` → `{manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight}`
-- `device.getSystemInfo` / `device.getAppInfo` / `device.getAll`
+- `coconut.device.getInfo(cb)` → `{manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight}`
 
 ### storage — 本地存储
-- `storage.getItem(key)` / `storage.setItem(key, value)` / `storage.removeItem(key)`
-- `storage.clear` / `storage.getAllKeys` / `storage.getLength`
+- `coconut.storage.setItem(key, value, cb)` / `getItem(key, cb)` / `removeItem(key, cb)`
+- `coconut.storage.clear(cb)` / `getAllKeys(cb)` / `getLength(cb)`
+
+### event — native → H5 push
+- `coconut.on(topic, cb)` —— 订阅事件，cb 收到的是 event.data
+- `coconut.off(topic)` —— 取消订阅
+- `coconut.call('event', 'echo', payload, cb)` —— 自验证：500ms 后 native 推送 `test.echo` 事件
 
 完整契约见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)。
 
@@ -193,15 +208,8 @@ hdc shell hilog | grep Coconut
 
 - [`../README.md`](../README.md) — 仓库根 README（整体架构）
 - [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — 框架架构（Bridge / 安全管线 / 数据流）
-- [`../API_CONTRACT.md`](../API_CONTRACT.md) — 三端 API 契约（组件方法签名、错误码）
+- [`../API_CONTRACT.md`](../API_CONTRACT.md) — 三端 API 契约（权威，含 wire 协议、组件签名、错误码）
 - [`../AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](../AndroidWebBox/COCONUT_SDK_INTEGRATION.md) — Android SDK 集成指南
 - [`../iOSWebBox/CoconutSDK/README.md`](../iOSWebBox/CoconutSDK/README.md) — iOS SDK 集成
 - [`../HarmonyWebBox/CoconutSDK/README.md`](../HarmonyWebBox/CoconutSDK/README.md) — Harmony SDK 集成
-
----
-
-## 🎯 下一步（待办）
-
-- [ ] `Demo.vue` 状态腐化修复：删除已删组件的测试代码（network/system/security/camera）
-- [ ] 与生产用的 `coconut_index.html` 整合（一套前端 vs 两套）
-- [ ] 等组件数量回升后，重新补 E2E 测试
+- [`TEST_GUIDE.md`](./TEST_GUIDE.md) / [`ENV_API.md`](./ENV_API.md) — 辅助材料（权威 API 见 `API_CONTRACT.md`）

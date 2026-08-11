@@ -7,7 +7,10 @@
         <span class="value">{{ platformText }}</span>
         <span class="divider">|</span>
         <span class="label">SDK版本:</span>
-        <span class="value">{{ version }}</span>
+        <span class="value">{{ sdkVersion }}</span>
+        <span class="divider">|</span>
+        <span class="label">协议版本:</span>
+        <span class="value">v{{ hybridVersion }}</span>
         <span class="divider">|</span>
         <span class="label">WebView:</span>
         <span class="value">{{ isWebView ? '是' : '否' }}</span>
@@ -23,72 +26,58 @@
           <span class="detail-value">{{ env.isiOS }}</span>
         </div>
         <div class="env-detail-item">
+          <span class="detail-label">isHarmony:</span>
+          <span class="detail-value">{{ env.isHarmony }}</span>
+        </div>
+        <div class="env-detail-item">
           <span class="detail-label">isWeb:</span>
           <span class="detail-value">{{ env.isWeb }}</span>
         </div>
         <div class="env-detail-item">
-          <span class="detail-label">isMobile:</span>
-          <span class="detail-value">{{ env.isMobile }}</span>
+          <span class="detail-label">appName:</span>
+          <span class="detail-value">{{ env.appName || '(空)' }}</span>
         </div>
         <div class="env-detail-item">
-          <span class="detail-label">isTouch:</span>
-          <span class="detail-value">{{ env.isTouchDevice }}</span>
+          <span class="detail-label">appVersion:</span>
+          <span class="detail-value">{{ env.appVersion || '(空)' }}</span>
         </div>
       </div>
-    </div>
-
-    <div class="button-grid">
-      <button
-        v-for="btn in buttons"
-        :key="btn.id"
-        :class="['action-btn', btn.type || 'primary']"
-        @click="btn.action"
-        :disabled="loading"
-      >
-        <span v-if="loading && btn.id === loadingBtn" class="spinner"></span>
-        {{ btn.text }}
-      </button>
     </div>
 
     <div class="test-sections">
       <div class="test-section">
-        <h3>🌐 Network 组件测试</h3>
+        <h3>📱 Device 组件</h3>
         <div class="test-buttons">
-          <button class="test-btn" @click="testGetRequest" :disabled="loading">GET 请求</button>
-          <button class="test-btn" @click="testPostRequest" :disabled="loading">POST 请求</button>
-          <button class="test-btn" @click="testPutRequest" :disabled="loading">PUT 请求</button>
-          <button class="test-btn" @click="testDeleteRequest" :disabled="loading">DELETE 请求</button>
-          <button class="test-btn register-btn" @click="testRegister" :disabled="loading">用户注册</button>
-          <button class="test-btn login-btn" @click="testLogin" :disabled="loading">用户登录</button>
+          <button class="test-btn" @click="testDeviceInfo" :disabled="loading">getInfo</button>
         </div>
       </div>
 
       <div class="test-section">
-        <h3>💾 Storage 组件测试</h3>
+        <h3>💾 Storage 组件</h3>
         <div class="test-buttons">
-          <button class="test-btn" @click="testSetStorage" :disabled="loading">存储数据</button>
-          <button class="test-btn" @click="testGetStorage" :disabled="loading">读取数据</button>
-          <button class="test-btn" @click="testRemoveStorage" :disabled="loading">删除数据</button>
-          <button class="test-btn" @click="testClearStorage" :disabled="loading">清空存储</button>
+          <button class="test-btn" @click="testSetItem" :disabled="loading">setItem</button>
+          <button class="test-btn" @click="testGetItem" :disabled="loading">getItem</button>
+          <button class="test-btn" @click="testRemoveItem" :disabled="loading">removeItem</button>
+          <button class="test-btn" @click="testClear" :disabled="loading">clear</button>
+          <button class="test-btn" @click="testGetAllKeys" :disabled="loading">getAllKeys</button>
+          <button class="test-btn" @click="testGetLength" :disabled="loading">getLength</button>
         </div>
       </div>
 
       <div class="test-section">
-        <h3>🔧 System 组件测试</h3>
+        <h3>📡 Event 组件（native → H5 push）</h3>
         <div class="test-buttons">
-          <button class="test-btn" @click="testSystemGetVersion" :disabled="loading">getVersion</button>
-          <button class="test-btn" @click="testSystemGetAllComponents" :disabled="loading">getAllComponents</button>
-          <button class="test-btn" @click="testSystemCheckCapability" :disabled="loading">checkCapability</button>
+          <button class="test-btn" @click="eventOn" :disabled="loading">订阅 test.echo</button>
+          <button class="test-btn" @click="eventEcho" :disabled="loading">触发 echo</button>
+          <button class="test-btn" @click="eventOff" :disabled="loading">取消订阅</button>
         </div>
-      </div>
-
-      <div class="test-section">
-        <h3>🔒 Security 组件测试</h3>
-        <div class="test-buttons">
-          <button class="test-btn" @click="testSecurityGetAuditLog" :disabled="loading">getAuditLog</button>
-          <button class="test-btn" @click="testSecurityGetAuditSummary" :disabled="loading">getAuditSummary</button>
-          <button class="test-btn" @click="testSecurityGetSecurityConfig" :disabled="loading">getSecurityConfig</button>
-          <button class="test-btn" @click="testSecurityClearAuditLog" :disabled="loading">clearAuditLog</button>
+        <div class="event-log">
+          <div class="event-log-title">事件日志</div>
+          <div v-if="eventLogs.length === 0" class="event-log-empty">（暂无事件）</div>
+          <div v-for="(log, idx) in eventLogs" :key="idx" class="event-log-item">
+            <span class="event-log-time">{{ log.time }}</span>
+            <pre class="event-log-payload">{{ log.payload }}</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -101,7 +90,16 @@
         </span>
       </div>
       <div class="result-content">
-        <pre v-if="result" class="result-json">{{ formattedResult }}</pre>
+        <div v-if="result" class="result-cols">
+          <div class="result-col">
+            <div class="result-col-title">error</div>
+            <pre class="result-json">{{ formattedError }}</pre>
+          </div>
+          <div class="result-col">
+            <div class="result-col-title">data</div>
+            <pre class="result-json">{{ formattedData }}</pre>
+          </div>
+        </div>
         <div v-else class="result-placeholder">点击上方按钮开始测试...</div>
       </div>
     </div>
@@ -112,17 +110,20 @@
 import { ref, computed, onMounted } from 'vue'
 
 const loading = ref(false)
-const loadingBtn = ref(null)
-const result = ref(null)
+const errorValue = ref(null)
+const dataValue = ref(null)
 const status = ref(null)
-const version = ref('1.0.0')
+const sdkVersion = ref('0.0.0')
+const hybridVersion = ref('?')
 const environment = ref('web')
 const env = ref({})
+const eventLogs = ref([])
 
 const platformText = computed(() => {
   const envMap = {
     android: 'Android 🤖',
     ios: 'iOS 🍎',
+    harmony: 'HarmonyOS 🌈',
     web: 'Web 🌐',
     node: 'Node.js 📦'
   }
@@ -131,214 +132,144 @@ const platformText = computed(() => {
 
 const isWebView = computed(() => env.value.isWebView || false)
 
-const formattedResult = computed(() => {
-  if (!result.value) return ''
-  return JSON.stringify(result.value, null, 2)
-})
-
-const buttons = [
-  { id: 'device', text: '📱 获取设备信息', type: 'primary', action: getDeviceInfo },
-  { id: 'async', text: '⚡ 异步调用示例', type: 'warning', action: testAsync },
-  { id: 'all', text: '🚀 测试所有功能', type: 'danger', action: testAll }
-]
+const formattedError = computed(() =>
+  errorValue.value === null ? 'null' : JSON.stringify(errorValue.value, null, 2)
+)
+const formattedData = computed(() =>
+  dataValue.value === undefined ? 'undefined' : JSON.stringify(dataValue.value, null, 2)
+)
 
 onMounted(() => {
-  if (window.Coconut) {
-    try {
-      window.Coconut.init({ debug: true })
-      version.value = String(window.Coconut.version || '1.0.0')
-      environment.value = String(window.Coconut.environment || 'unknown')
-      env.value = JSON.parse(JSON.stringify(window.Coconut.env || {}))
-      console.log('%c🥥 Coconut JS SDK v' + version.value, 'color: #667eea; font-size: 20px; font-weight: bold;')
-    } catch (error) {
-      console.error('初始化出错:', error)
-    }
+  const coconut = window.coconut
+  if (!coconut) {
+    status.value = { type: 'error', text: 'coconut.js 未加载' }
+    return
+  }
+  try {
+    coconut.init({ debug: true })
+    sdkVersion.value = String(coconut.version || '0.0.0')
+    environment.value = String(coconut.environment || 'unknown')
+    hybridVersion.value = String(coconut.env?.hybridVersion || '?')
+    // 拷贝 enumerable 字段（lazy getter 在访问时生效）
+    env.value = JSON.parse(JSON.stringify(coconut.env || {}))
+    // appName / appVersion 是 lazy getter，JSON.stringify 会触发读取
+    env.value.appName = coconut.env.appName || ''
+    env.value.appVersion = coconut.env.appVersion || ''
+    console.log('%c🥥 coconut SDK v' + sdkVersion.value + ' (protocol v' + hybridVersion.value + ')',
+      'color: #667eea; font-size: 20px; font-weight: bold;')
+  } catch (error) {
+    console.error('初始化出错:', error)
   }
 })
 
-function showResult(data, isSuccess, statusText) {
-  result.value = data
+function showResult(err, data, statusText) {
+  errorValue.value = err
+  dataValue.value = data
   status.value = {
-    type: isSuccess ? 'success' : 'error',
-    text: statusText || (isSuccess ? '成功' : '失败')
+    type: err ? 'error' : 'success',
+    text: statusText || (err ? '失败' : '成功')
   }
 }
 
-function setLoading(btnId, isLoading) {
-  loading.value = isLoading
-  loadingBtn.value = isLoading ? btnId : null
+function withLoading(btnId, fn) {
+  loading.value = true
+  fn(() => { loading.value = false })
 }
 
-function getDeviceInfo() {
-  setLoading('device', true)
-  window.Coconut.call('device.getInfo', {}, (response, isError) => {
-    setLoading('device', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
+// ---- Device ----
+function testDeviceInfo() {
+  withLoading('device', (done) => {
+    window.coconut.device.getInfo((err, data) => {
+      done()
+      showResult(err, data, err ? '失败' : '成功')
+    })
   })
 }
 
-function testGetRequest() {
-  setLoading('network-get', true)
-  window.Coconut.call('network.request', { url: 'https://api.github.com/zen', method: 'GET' }, (response, isError) => {
-    setLoading('network-get', false)
-    showResult({ ...response, _test: 'GET 请求' }, !isError, '完成')
+// ---- Storage ----
+function testSetItem() {
+  withLoading('storage-set', (done) => {
+    const value = 'test_' + Date.now()
+    window.coconut.storage.setItem('demo', value, (err, data) => {
+      done()
+      showResult(err, { ...data, _written: value }, err ? '失败' : '已存储')
+    })
   })
 }
 
-function testPostRequest() {
-  setLoading('network-post', true)
-  window.Coconut.call('network.request', {
-    url: 'https://jsonplaceholder.typicode.com/posts',
-    method: 'POST',
-    body: JSON.stringify({ title: 'Test', body: 'Test' })
-  }, (response, isError) => {
-    setLoading('network-post', false)
-    showResult({ ...response, _test: 'POST 请求' }, !isError, '完成')
+function testGetItem() {
+  withLoading('storage-get', (done) => {
+    window.coconut.storage.getItem('demo', (err, data) => {
+      done()
+      showResult(err, data, err ? '失败' : '已读取')
+    })
   })
 }
 
-function testRegister() {
-  setLoading('network-register', true)
-  window.Coconut.call('network.request', {
-    url: 'https://server.handongnei.com/api/user/register',
-    method: 'POST',
-    contentType: 'application/json',
-    body: JSON.stringify({ username: 'zhengnan', password: 'zhengnan' })
-  }, (response, isError) => {
-    setLoading('network-register', false)
-    showResult({ ...response, _test: '用户注册' }, !isError, isError ? '失败' : '完成')
+function testRemoveItem() {
+  withLoading('storage-remove', (done) => {
+    window.coconut.storage.removeItem('demo', (err, data) => {
+      done()
+      showResult(err, data, err ? '失败' : '已删除')
+    })
   })
 }
 
-function testLogin() {
-  setLoading('network-login', true)
-  window.Coconut.call('network.request', {
-    url: 'https://server.handongnei.com/api/user/login/',
-    method: 'POST',
-    contentType: 'application/json',
-    body: JSON.stringify({ account: 'zhengnan', password: 'zhengnan' })
-  }, (response, isError) => {
-    setLoading('network-login', false)
-    showResult({ ...response, _test: '用户登录' }, !isError, isError ? '失败' : '完成')
+function testClear() {
+  withLoading('storage-clear', (done) => {
+    window.coconut.storage.clear((err, data) => {
+      done()
+      showResult(err, data, err ? '失败' : '已清空')
+    })
   })
 }
 
-function testSetStorage() {
-  setLoading('storage-set', true)
-  window.Coconut.call('storage.setItem', { key: 'demo', value: 'test_' + Date.now() }, (response, isError) => {
-    setLoading('storage-set', false)
-    showResult(response, !isError, isError ? '失败' : '已存储')
+function testGetAllKeys() {
+  withLoading('storage-keys', (done) => {
+    window.coconut.storage.getAllKeys((err, data) => {
+      done()
+      showResult(err, data, err ? '失败' : '成功')
+    })
   })
 }
 
-function testGetStorage() {
-  setLoading('storage-get', true)
-  window.Coconut.call('storage.getItem', { key: 'demo' }, (response, isError) => {
-    setLoading('storage-get', false)
-    showResult(response, !isError, isError ? '失败' : '已读取')
+function testGetLength() {
+  withLoading('storage-length', (done) => {
+    window.coconut.storage.getLength((err, data) => {
+      done()
+      showResult(err, data, err ? '失败' : '成功')
+    })
   })
 }
 
-function testRemoveStorage() {
-  setLoading('storage-remove', true)
-  window.Coconut.call('storage.removeItem', { key: 'demo' }, (response, isError) => {
-    setLoading('storage-remove', false)
-    showResult({ ...response, _test: '删除数据' }, !isError, '已删除')
-  })
+// ---- Event ----
+function logEvent(payload) {
+  const time = new Date().toLocaleTimeString()
+  eventLogs.value.unshift({ time, payload: JSON.stringify(payload, null, 2) })
+  if (eventLogs.value.length > 5) eventLogs.value.pop()
 }
 
-function testClearStorage() {
-  setLoading('storage-clear', true)
-  window.Coconut.call('storage.clear', {}, (response, isError) => {
-    setLoading('storage-clear', false)
-    showResult({ ...response, _test: '清空存储' }, !isError, '已清空')
-  })
-}
-
-async function testAsync() {
-  setLoading('async', true)
-  try {
-    const response = await window.Coconut.callAsync('device.getInfo')
-    setLoading('async', false)
-    showResult(response, true, '成功')
-  } catch (error) {
-    setLoading('async', false)
-    showResult(error, false, '失败')
+function eventOn() {
+  if (!window.coconut.handlers['test.echo']) {
+    window.coconut.on('test.echo', (data) => {
+      logEvent(data)
+    })
+    showResult(null, { topic: 'test.echo', subscribed: true }, '已订阅')
+  } else {
+    showResult(null, { topic: 'test.echo', subscribed: true, note: '已订阅过，幂等' }, '已订阅')
   }
 }
 
-async function testAll() {
-  setLoading('all', true)
-  try {
-    const results = {}
-    const deviceResponse = await window.Coconut.callAsync('device.getInfo')
-    results.device = deviceResponse.result?.data
-    results.environment = {
-      platform: window.Coconut.env.platform,
-      isNative: window.Coconut.env.isNative
-    }
-    setLoading('all', false)
-    showResult({ _test: '完整测试', ...results }, true, '完成')
-  } catch (error) {
-    setLoading('all', false)
-    showResult(error, false, '失败')
-  }
-}
-
-function testSystemGetVersion() {
-  setLoading('system-version', true)
-  window.Coconut.call('system.getVersion', {}, (response, isError) => {
-    setLoading('system-version', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
+function eventEcho() {
+  const payload = { hello: 'world', ts: Date.now() }
+  window.coconut.call('event', 'echo', payload, (err, data) => {
+    showResult(err, data, err ? '失败' : '已调度（500ms 后投递）')
   })
 }
 
-function testSystemGetAllComponents() {
-  setLoading('system-components', true)
-  window.Coconut.call('system.getAllComponents', {}, (response, isError) => {
-    setLoading('system-components', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
-  })
-}
-
-function testSystemCheckCapability() {
-  setLoading('system-capability', true)
-  window.Coconut.call('system.checkCapability', { method: 'network.request' }, (response, isError) => {
-    setLoading('system-capability', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
-  })
-}
-
-function testSecurityGetAuditLog() {
-  setLoading('security-audit-log', true)
-  window.Coconut.call('security.getAuditLog', {}, (response, isError) => {
-    setLoading('security-audit-log', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
-  })
-}
-
-function testSecurityGetAuditSummary() {
-  setLoading('security-audit-summary', true)
-  window.Coconut.call('security.getAuditSummary', {}, (response, isError) => {
-    setLoading('security-audit-summary', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
-  })
-}
-
-function testSecurityGetSecurityConfig() {
-  setLoading('security-config', true)
-  window.Coconut.call('security.getSecurityConfig', {}, (response, isError) => {
-    setLoading('security-config', false)
-    showResult(response, !isError, isError ? '失败' : '成功')
-  })
-}
-
-function testSecurityClearAuditLog() {
-  setLoading('security-clear', true)
-  window.Coconut.call('security.clearAuditLog', {}, (response, isError) => {
-    setLoading('security-clear', false)
-    showResult(response, !isError, isError ? '失败' : '已清空')
-  })
+function eventOff() {
+  window.coconut.off('test.echo')
+  showResult(null, { topic: 'test.echo', subscribed: false }, '已取消订阅')
 }
 </script>
 
@@ -346,34 +277,27 @@ function testSecurityClearAuditLog() {
 .demo-container { max-width: 800px; margin: 0 auto; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 .header { text-align: center; margin-bottom: 32px; }
 .header h1 { color: #667eea; font-size: 32px; margin-bottom: 16px; }
-.env-info { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #718096; background: #f7fafc; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+.env-info { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #718096; background: #f7fafc; padding: 10px; border-radius: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .label { font-weight: 600; }
 .value { color: #667eea; }
 .divider { color: #cbd5e0; }
 .env-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; padding: 12px; background: #edf2f7; border-radius: 8px; margin-bottom: 24px; }
 .env-detail-item { display: flex; flex-direction: column; align-items: center; padding: 8px; background: white; border-radius: 6px; font-size: 12px; }
 .detail-label { font-weight: 600; color: #4a5568; margin-bottom: 4px; }
-.detail-value { color: #667eea; font-weight: 700; }
-.button-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-.action-btn { padding: 16px 24px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
-.action-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
-.action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.action-btn.primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-.action-btn.warning { background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color: white; }
-.action-btn.danger { background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); color: white; }
-.spinner { width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.test-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
+.detail-value { color: #667eea; font-weight: 700; word-break: break-all; }
+.test-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; margin-bottom: 24px; }
 .test-section { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
 .test-section h3 { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #2d3748; }
 .test-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .test-btn { padding: 10px 16px; background: white; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; font-weight: 500; color: #4a5568; cursor: pointer; transition: all 0.2s; }
 .test-btn:hover:not(:disabled) { background: #667eea; color: white; border-color: #667eea; }
 .test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.test-btn.register-btn { background: #667eea; color: white; border-color: #667eea; }
-.test-btn.register-btn:hover:not(:disabled) { background: #5a67d8; border-color: #5a67d8; }
-.test-btn.login-btn { background: #48bb78; color: white; border-color: #48bb78; }
-.test-btn.login-btn:hover:not(:disabled) { background: #38a169; border-color: #38a169; }
+.event-log { margin-top: 16px; border-top: 1px dashed #cbd5e0; padding-top: 12px; }
+.event-log-title { font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 8px; }
+.event-log-empty { font-size: 12px; color: #a0aec0; }
+.event-log-item { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
+.event-log-time { font-size: 11px; color: #718096; font-family: 'Monaco', monospace; }
+.event-log-payload { margin: 4px 0 0 0; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; color: #2d3748; white-space: pre-wrap; }
 .result-container { background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
 .result-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #f7fafc; border-bottom: 1px solid #e2e8f0; }
 .result-title { font-weight: 600; color: #2d3748; font-size: 16px; }
@@ -381,6 +305,9 @@ function testSecurityClearAuditLog() {
 .status-badge.success { background: #c6f6d5; color: #22543d; }
 .status-badge.error { background: #fed7d7; color: #742a2a; }
 .result-content { padding: 20px; max-height: 500px; overflow-y: auto; }
+.result-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.result-col { background: #f7fafc; border-radius: 8px; padding: 12px; }
+.result-col-title { font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
 .result-json { margin: 0; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; line-height: 1.6; color: #2d3748; white-space: pre-wrap; word-wrap: break-word; }
 .result-placeholder { color: #a0aec0; text-align: center; padding: 40px 20px; }
 </style>
