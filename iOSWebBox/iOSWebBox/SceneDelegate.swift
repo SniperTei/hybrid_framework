@@ -40,19 +40,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             ])
 
             await MainActor.run {
-                let webVC = CoconutWebViewController()
-                webVC.enableDebug = true
-                webVC.loadViewIfNeeded()
-
-                // Load the local conformance-test page from the app bundle.
-                if let html = Bundle.main.url(forResource: "coconut_index", withExtension: "html") {
-                    webVC.loadUrl(html.absoluteString)
-                } else {
-                    // Fallback to remote dev URL if the local page is missing from the bundle.
-                    webVC.loadUrl(CoconutConfig.shared.environment.defaultH5Domain)
-                }
-
-                window.rootViewController = webVC
+                // 入口页（带两个按钮：bundle HTML / dev server），
+                // 对标 Android MainActivity。SDK 在 loadUrl 前已注册完组件。
+                window.rootViewController = HomeViewController()
             }
         }
     }
