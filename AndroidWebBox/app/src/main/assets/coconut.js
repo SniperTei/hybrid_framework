@@ -19,7 +19,13 @@
  *     callback signature: function(data)   （事件没有 error 概念）
  *   coconut.off(topic)
  *
- * @version 3.1.0
+ * 环境信息（coconut.env）：
+ *   platform / version / sdkVersion / hybridVersion
+ *   isAndroid / isiOS / isHarmony / isWeb / isNode / isNative
+ *   appName / appVersion            （由 native 经 window.__coconutConfig 注入）
+ *   userAgent / language / screen / viewport / ...  （浏览器侧信息）
+ *
+ * @version 3.2.0
  */
 
 (function (global, factory) {
@@ -32,10 +38,18 @@
     'use strict';
 
     /**
+     * Bridge protocol major version (coconut.js major = bridge protocol major).
+     * Bumped only on backwards-incompatible wire-format / callback-contract changes.
+     *   v3: lowercase global, error-first callbacks, streaming responses,
+     *       component+function wire split.
+     */
+    var BRIDGE_PROTOCOL_VERSION = '3';
+
+    /**
      * coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '3.1.0';
+        this.version = '3.2.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -145,6 +159,29 @@
             env.localStorage = typeof window.localStorage !== 'undefined';
             env.sessionStorage = typeof window.sessionStorage !== 'undefined';
         }
+
+        // Bridge protocol version (major). Static — derived from coconut.js major.
+        env.hybridVersion = BRIDGE_PROTOCOL_VERSION;
+
+        // App name / version come from native via window.__coconutConfig (injected
+        // at onPageFinished). Since native injection may happen AFTER coconut.env
+        // is built, expose these as lazy getters so the value is read each access.
+        Object.defineProperty(env, 'appName', {
+            configurable: true,
+            enumerable: true,
+            get: function () {
+                return (typeof window !== 'undefined' && window.__coconutConfig &&
+                    window.__coconutConfig.appName) || '';
+            }
+        });
+        Object.defineProperty(env, 'appVersion', {
+            configurable: true,
+            enumerable: true,
+            get: function () {
+                return (typeof window !== 'undefined' && window.__coconutConfig &&
+                    window.__coconutConfig.appVersion) || '';
+            }
+        });
 
         return env;
     };
