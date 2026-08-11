@@ -3,6 +3,7 @@ package com.sniper.coconut.web
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
@@ -18,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONObject
 import androidx.appcompat.widget.Toolbar
 import com.sniper.coconut.CoconutSDK
 import com.sniper.coconut.bridge.CoconutBridgeImpl
@@ -433,25 +435,43 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     protected open fun injectBridgeJavaScript() {
         val bridgeToken = if (BridgeTokenManager.enabled) BridgeTokenManager.getToken() else ""
 
+        val (appName, appVersion) = try {
+            val pm = packageManager
+            val pkg = pm.getPackageInfo(packageName, 0)
+            val label = try {
+                pm.getApplicationLabel(pkg.applicationInfo).toString()
+            } catch (e: Exception) {
+                packageName
+            }
+            label to (pkg.versionName ?: "")
+        } catch (e: PackageManager.NameNotFoundException) {
+            packageName to ""
+        }
+
+        val config = JSONObject().apply {
+            put("token", bridgeToken)
+            put("appName", appName)
+            put("appVersion", appVersion)
+            put("hybridVersion", "3")
+        }
+
         val javascript = """
             (function() {
                 if (window.__coconutInitialized) return;
 
-                window.__coconutConfig = {
-                    token: '$bridgeToken'
-                };
+                window.__coconutConfig = $config;
 
-                if (window.Coconut && window.Coconut._loadSecurityConfig) {
-                    window.Coconut._loadSecurityConfig();
+                if (window.coconut && window.coconut._loadSecurityConfig) {
+                    window.coconut._loadSecurityConfig();
                 }
 
                 window.__coconutInitialized = true;
-                console.log('Coconut SDK security config injected');
+                console.log('Coconut SDK config injected');
             })();
         """.trimIndent()
 
         webView.evaluateJavascript(javascript, null)
-        Logger.d(TAG, "Bridge security config injected")
+        Logger.d(TAG, "Bridge config injected: appName=$appName, appVersion=$appVersion")
     }
 
     // ---- Public Methods ----
