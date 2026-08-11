@@ -212,4 +212,3 @@ hdc shell hilog | grep Coconut
 - [`../AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](../AndroidWebBox/COCONUT_SDK_INTEGRATION.md) — Android SDK 集成指南
 - [`../iOSWebBox/CoconutSDK/README.md`](../iOSWebBox/CoconutSDK/README.md) — iOS SDK 集成
 - [`../HarmonyWebBox/CoconutSDK/README.md`](../HarmonyWebBox/CoconutSDK/README.md) — Harmony SDK 集成
-- [`TEST_GUIDE.md`](./TEST_GUIDE.md) / [`ENV_API.md`](./ENV_API.md) — 辅助材料（权威 API 见 `API_CONTRACT.md`）
