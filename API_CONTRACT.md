@@ -1,20 +1,86 @@
 # Coconut 框架 API 契约
 
 > **这份文档是三端（iOS / Android / Harmony）原生实现的权威契约。**
-> H5 通过 `CoconutBridge.call('组件.方法', params)` 调用，每个组件方法的「标准签名」以本文档为准。
+> H5 通过 `coconut.call(component, functionName, params, callback)` 调用，每个组件方法的「标准签名」以本文档为准。
 > 三端实现必须对齐到「标准签名」列；「现状差异」列记录当前漂移，用于追踪对齐进度。
+>
+> **当前协议版本：v3.2.0**（`component` + `function` 拆分、streaming 流式响应、`__coconutConfig` 注入）。
 
 ---
 
-## 0. 协议层（已对齐，三端一致）
+## 0. 协议层（v3.2.0，三端一致）
 
 | 项 | 规范 |
 |---|---|
-| 协议 | 类 JSON-RPC（无版本字段） |
-| 请求 | `{ method:'组件.方法', params:{...}, id, bridgeToken }` |
-| 响应 | `{ id, code:'000000', message, result:'<JSON字符串>' }` |
+| 协议 | 类 JSON-RPC（无版本字段，主版本号 = `coconut.env.hybridVersion` = `"3"`） |
+| 请求 | `{ component:'storage', function:'setItem', params:{...}, id, bridgeToken }` |
+| 响应（一次性） | `{ id, code:'000000', message, result:'<JSON字符串或对象>' }` |
+| 响应（流式） | `{ id, code:'000000', message, result, streaming:true }` —— callback 不释放，等下一次同 `id` 响应；最终响应不带 `streaming` 字段时释放 |
 | 安全层 | bridgeToken + 域名白名单 + 限流 |
 | 桥协议 | iOS=异步(postMessage) / Android=同步(JavascriptInterface) / Harmony=异步(javaScriptProxy) |
+
+**Wire 字段拆分历史**：
+- v3.0.0（2026-08-10）：lowercase `coconut` 全局 + error-first callback `cb(err, data)`
+- v3.1.0（2026-08-10）：wire `method:'组件.方法'` 拆成两个顶级字段 `component` + `function`，避免 H5 端字符串拼接 + native 端字符串切割的两次脆弱解析
+- v3.2.0（2026-08-11）：`coconut.env` 加 `hybridVersion` / `appName` / `appVersion`（lazy getter 从 `window.__coconutConfig` 读）
+
+### 0.1 H5 SDK 集成
+
+**SDK 文件**：`coconut.js`（UMD 单例，全局挂载小写 `window.coconut`）。三端 native 已把 `coconut.js` + `coconut_index.html` 作为独立 bundle resource 打包：
+
+| 平台 | 路径 |
+|---|---|
+| Android | `AndroidWebBox/app/src/main/assets/coconut.js` |
+| iOS | `iOSWebBox/iOSWebBox/coconut.js`（bundle resource，`loadFileURL` 加载） |
+| Harmony | `HarmonyWebBox/entry/src/main/resources/rawfile/coconut.js` |
+
+> 三端文件字节级一致，源文件在仓库根 `coconutWebBox/public/coconut.js`。修改请用 `scripts/sync-h5-assets.sh` 同步。
+
+**HTML 引入**：
+
+```html
+<script src="coconut.js"></script>
+```
+
+引入后自动检测环境（android / ios / harmony / web）并初始化，全局挂载 `window.coconut`（小写）。
+
+**`window.__coconutConfig` 注入契约**（native 在 `onPageFinished` / `didFinishNavigation` / `onPageEnd` 注入）：
+
+```js
+window.__coconutConfig = {
+  token: '<UUID bridgeToken>',       // 必填，由 native BridgeTokenManager.generateToken() 生成
+  appName: '<原生应用名>',            // 可选，空串时 coconut.env.appName 返回 ''
+  appVersion: '<原生应用版本>',        // 可选，空串时 coconut.env.appVersion 返回 ''
+};
+// hybridVersion 不是 config 字段，是 SDK 编译期常量（当前 "3"）
+```
+
+**`coconut.env` 字段**：
+
+| 字段 | 来源 | 示例 |
+|---|---|---|
+| `platform` | 运行时检测 | `'android'` / `'ios'` / `'harmony'` / `'web'` / `'node'` |
+| `isAndroid` / `isiOS` / `isHarmony` / `isWeb` / `isNode` / `isNative` | 派生 bool | — |
+| `version` / `sdkVersion` | coconut.js 文件版本 | `'3.2.0'` |
+| `hybridVersion` | Bridge 协议主版本（编译期常量） | `'3'` |
+| `appName` / `appVersion` | lazy getter，每次访问读 `window.__coconutConfig` | — |
+| `userAgent` / `language` / `screen*` / `viewport*` / `isMobile` / `isTouchDevice` 等 | 浏览器侧信息 | — |
+
+**Error-first callback**：
+
+```js
+coconut.call('storage', 'setItem', { key: 'foo', value: 'bar' }, (err, data) => {
+  if (err) {
+    // err = { code: '200007', message: '...' }
+  } else {
+    // data = result object
+  }
+});
+```
+
+- 成功：`err = null`，`data = result`
+- 失败：`err = { code, message }`，`data = undefined`
+- 流式响应：每次响应都触发 callback；`response.streaming === true` 时 timer 重置，callback 保留；最终响应（无 `streaming`）触发 callback 后释放
 
 ---
 
@@ -113,7 +179,7 @@
 **目标**：H5 可以订阅 native 端发生的事件（如网络切换、App 前后台切换、推送到达）。Native 检测到事件时通过 `window.__coconutEvent(json)` 主动推送。
 
 **核心约定**
-- 订阅走现有 `call('event.on', ...)`，复用 Bridge 安全管线（Token / 域名 / 限流）。
+- 订阅走现有 `coconut.call('event', 'on', ...)`，复用 Bridge 安全管线（Token / 域名 / 限流）。
 - **一个 topic 一个 callback**：`on` 同 topic 二次调用会覆盖前一次（并 console.warn），消除"多订阅者管理 id"的复杂度。
 - coconut.js 同步登记本地 callback 后再异步发 `event.on` 请求，消除 iOS/Harmony 异步响应窗口的事件丢失竞态。
 - 仅 native 可 emit；H5 不能 publish（避免循环 / 跨 H5 通信复杂度）。
@@ -138,17 +204,17 @@ window.__coconutEvent('{"topic":"test.echo","data":{...}}')
 - 三端共用同名回调，由 `coconut.js` 持久注册（与 `__coconutIOSCallback` 同生命周期）。
 - **不走 Bridge 安全管线**（native trusted source）。
 
-**H5 API（coconut.js v2.4.0+）**
+**H5 API（coconut.js v3.2.0+，事件 API 自 v2.4.0 起稳定）**
 
 ```js
 // 订阅 — 无返回值，事件到达时 callback 被调用
-Coconut.on('network.change', (event) => {
+coconut.on('network.change', (event) => {
   console.log(event.topic, event.data);
 });
 // 取消订阅 — 未订阅的 topic 直接 off 也安全
-Coconut.off('network.change');
-// 自验证：500ms 后触发 test.echo 事件
-Coconut.call('event.echo', { hello: 'world' });
+coconut.off('network.change');
+// 自验证：500ms 后触发 test.echo 事件（v3.1.0+ 拆参数调用）
+coconut.call('event', 'echo', { hello: 'world' });
 ```
 
 **事件 payload shape（投递到 callback）**
