@@ -14,6 +14,9 @@ struct Index {
   // private targetUrl: string = 'http://115.191.30.167:8032/dashboard';
   @State targetUrl: string = 'https://test-b-fat.pingan.com.cn/fb-offline/platform-workbench/green/workbench/business/menu/index.html#/';
   private readonly testPageUrl: string = 'resource://rawfile/coconut_index.html';
+  // ⚠️ dev server URL：Harmony 模拟器/真机不共享 Mac loopback，
+  //    不能用 localhost/10.0.2.2，必须用 Mac 局域网 IP。IP 变了改这里。
+  private readonly devServerUrl: string = 'http://192.168.3.49:5174/';
 
   private navPathStack: NavPathStack = new NavPathStack();
 
@@ -79,6 +82,18 @@ struct Index {
               .margin({ top: 16 })
               .onClick(() => {
                 this.targetUrl = this.testPageUrl;
+                this.showWebView = true;
+              })
+
+            // 对标 iOS/Android 的「打开本地测试页面」入口 —— load Vite dev server
+            Button('打开本地测试页面 (dev)')
+              .fontSize(18)
+              .width(200)
+              .height(50)
+              .backgroundColor('#722ED1')
+              .margin({ top: 16 })
+              .onClick(() => {
+                this.targetUrl = this.devServerUrl;
                 this.showWebView = true;
               })
 
