@@ -76,6 +76,13 @@ export class CoconutSDK {
     }
 
     BridgeTokenManager.enabled = CoconutSDK._config.enableBridgeToken;
+    // Generate session token if enabled — mirrors iOS CoconutConfig.initialize
+    // and Android CoconutWebActivity setup. Without this, validateToken() hits
+    // the fail-closed guard (token === '' → false) on every request, breaking
+    // all bridge calls with 300004 BRIDGE_TOKEN_INVALID.
+    if (BridgeTokenManager.enabled) {
+      BridgeTokenManager.generateToken();
+    }
 
     Logger.i('CoconutSDK', 'CoconutSDK configured');
   }

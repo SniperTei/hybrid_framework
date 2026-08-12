@@ -16,7 +16,7 @@ struct Index {
   private readonly testPageUrl: string = 'resource://rawfile/coconut_index.html';
   // ⚠️ dev server URL：Harmony 模拟器/真机不共享 Mac loopback，
   //    不能用 localhost/10.0.2.2，必须用 Mac 局域网 IP。IP 变了改这里。
-  private readonly devServerUrl: string = 'http://192.168.3.49:5174/';
+  private readonly devServerUrl: string = 'http://192.168.112.128:5174/';
 
   private navPathStack: NavPathStack = new NavPathStack();
 
