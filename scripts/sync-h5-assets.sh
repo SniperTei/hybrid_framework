@@ -33,6 +33,7 @@ HARMONY_DIR="$REPO_ROOT/HarmonyWebBox/entry/src/main/resources/rawfile"
 
 FILES=(
   "coconut.js"
+  "coconut.d.ts"
   "coconut_index.html"
 )
 
@@ -62,8 +63,8 @@ for f in "${FILES[@]}"; do
     errlog "   三端 coconut_index.html 由 coconutWebBox 源生成或独立维护。"
     errlog "   若要纳入同步，请把任意一端 copy 放到 coconutWebBox/public/)"
     # coconut_index.html 不一定在源目录 —— 只 warn，不 fatal
-    if [[ "$f" == "coconut.js" ]]; then
-      errlog "  coconut.js 是必需源文件，缺失无法继续。"
+    if [[ "$f" == "coconut.js" || "$f" == "coconut.d.ts" ]]; then
+      errlog "  $f 是必需源文件，缺失无法继续。"
       exit 2
     fi
   fi

@@ -86,6 +86,42 @@ coconut.js 是单文件、零外部依赖。升级时：
 2. H5 重新 build / 部署
 3. **不需要** native 端配合发版（只要协议没 breaking change）
 
+### TypeScript 类型
+
+`coconut.d.ts` 跟 `coconut.js` 同目录分发（三端 native 资源目录都带）。TypeScript 项目把 `.d.ts` 加进 `tsconfig.json` 的 `include` 或 `files` 即可获得类型提示：
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": { /* ... */ },
+  "include": ["src", "vendor/coconut.d.ts"]
+}
+```
+
+`.d.ts` 里 `declare global { const coconut: Coconut }` 自动给 `<script>` 加载的 `coconut` 全局变量配上类型，无需 `import`：
+
+```ts
+// 直接用，IDE 自动补全
+const platform = coconut.env.platform;        // 'android' | 'ios' | 'harmony' | ...
+const ok = coconut.supports('storage', 'setSize');  // boolean
+
+coconut.call<{ value: string }>('storage', 'getItem', { key: 'k' }, (err, data) => {
+  if (!err) console.log(data.value);          // string
+});
+```
+
+显式标注类型时用 `import type`：
+
+```ts
+import type { Coconut, CoconutCallback, DeviceGetInfoResult } from './coconut.d';
+
+const onInfo: CoconutCallback<DeviceGetInfoResult> = (err, data) => {
+  if (!err) console.log(data.platform);
+};
+```
+
+> 三端文件由 `scripts/sync-h5-assets.sh` 字节级同步；改了 `.d.ts` 后用脚本同步避免漏端。
+
 ---
 
 ## 🚀 快速开始（开发期联调）

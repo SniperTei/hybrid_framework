@@ -70,6 +70,8 @@ if (coconut.supports('storage', 'getSize')) {
 }
 ```
 
+**TypeScript 类型**：`coconut.d.ts` 跟 `coconut.js` 同目录分发（三端 native assets 都带），TypeScript 项目把它纳入 `tsconfig` 的 `include` 即可获得类型提示（global 自动声明 `coconut`）。详见 `coconutWebBox/README.md` 的「TypeScript 类型」一节。
+
 **`coconut.env` 字段**：
 
 | 字段 | 来源 | 示例 |
