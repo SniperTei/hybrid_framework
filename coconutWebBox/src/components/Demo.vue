@@ -67,6 +67,20 @@
       </div>
     </section>
 
+    <section>
+      <h2>♻️ Lifecycle（内置事件，无需组件）</h2>
+      <p class="hint">订阅后切到后台再切回，看 app.background → app.foreground 触发。</p>
+      <div class="btns">
+        <button class="btn-g" @click="lifecycleSubscribe">订阅 foreground+background</button>
+        <button class="btn-c" @click="lifecycleUnsubscribe">取消订阅</button>
+      </div>
+      <div v-if="lifecycleLogs.length === 0" class="hint" style="margin-top:8px">尚无 lifecycle 事件</div>
+      <div v-for="(log, idx) in lifecycleLogs" :key="idx" class="event-item">
+        <div class="event-time">{{ log.time }}</div>
+        <pre :class="log.topic === 'app.foreground' ? 'ok' : 'muted'">{{ log.payload }}</pre>
+      </div>
+    </section>
+
     <div class="panel">
       <h3>最近一次请求（H5 → 原生）</h3>
       <pre class="muted">{{ lastRequest || '—' }}</pre>
@@ -418,6 +432,34 @@ function eventOff() {
   setRequest('event', 'off', { topic: 'test.echo' })
   window.coconut.off('test.echo')
   setResponse(null, { topic: 'test.echo', subscribed: false })
+}
+
+// ---- Lifecycle ----
+const lifecycleLogs = ref([])
+
+function logLifecycle(topic, data) {
+  const time = new Date().toLocaleTimeString()
+  lifecycleLogs.value.unshift({
+    time,
+    topic,
+    payload: JSON.stringify({ topic, ...data }, null, 2)
+  })
+  if (lifecycleLogs.value.length > 5) lifecycleLogs.value.pop()
+}
+
+function lifecycleSubscribe() {
+  window.coconut.on('app.foreground', (data) => logLifecycle('app.foreground', data))
+  window.coconut.on('app.background', (data) => logLifecycle('app.background', data))
+  setResponse(null, {
+    subscribed: ['app.foreground', 'app.background'],
+    note: '已订阅 lifecycle，按 Home 切后台测试'
+  })
+}
+
+function lifecycleUnsubscribe() {
+  window.coconut.off('app.foreground')
+  window.coconut.off('app.background')
+  setResponse(null, { unsubscribed: ['app.foreground', 'app.background'] })
 }
 </script>
 

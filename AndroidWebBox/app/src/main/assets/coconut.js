@@ -201,7 +201,38 @@
         }
         this.isInitialized = true;
         this._loadSecurityConfig();
+        this._setupLifecycle();
         return this;
+    };
+
+    /**
+     * 注册 app.foreground / app.background lifecycle 事件
+     *
+     * 走 document.visibilitychange —— 现代 WebView（WKWebView iOS 9+、Chromium
+     * Android、Harmony ArkWeb）在 app 切换前后台时都会触发。WebView JS 在
+     * background 后立刻 suspend，所以同步派发（不走 setTimeout）。
+     *
+     * 通过同一条 handlers 路径派发，H5 用 coconut.on('app.foreground', cb)
+     * 就能订阅，跟 native 推送的事件统一接口。
+     *
+     * 限制：visibilitychange 不覆盖 webview 销毁场景，没有 app.destroy。
+     */
+    Coconut.prototype._setupLifecycle = function () {
+        if (this._lifecycleBound) return;
+        this._lifecycleBound = true;
+        var self = this;
+        if (typeof document === 'undefined') return;
+        document.addEventListener('visibilitychange', function () {
+            var topic = document.hidden ? 'app.background' : 'app.foreground';
+            var handler = self.handlers[topic];
+            if (typeof handler === 'function') {
+                try {
+                    handler({ topic: topic, timestamp: Date.now() });
+                } catch (e) {
+                    self.error('Lifecycle handler error:', e);
+                }
+            }
+        });
     };
 
     Coconut.prototype._loadSecurityConfig = function () {

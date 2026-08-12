@@ -82,6 +82,21 @@ coconut.call('storage', 'setItem', { key: 'foo', value: 'bar' }, (err, data) => 
 - 失败：`err = { code, message }`，`data = undefined`
 - 流式响应：每次响应都触发 callback；`response.streaming === true` 时 timer 重置，callback 保留；最终响应（无 `streaming`）触发 callback 后释放
 
+**Lifecycle events（内置事件，无需注册组件）**
+
+coconut.js 在 `init()` 里监听 `document.visibilitychange`，自动派发到标准事件通道，H5 用 `coconut.on(topic, cb)` 即可订阅：
+
+| topic | 触发时机 | callback 收到的 data |
+|---|---|---|
+| `app.foreground` | WebView 由隐藏转可见（app 切回前台） | `{ topic:'app.foreground', timestamp:<ms> }` |
+| `app.background` | WebView 由可见转隐藏（app 切到后台） | `{ topic:'app.background', timestamp:<ms> }` |
+
+依赖：现代 WebView（WKWebView iOS 9+ / Chromium Android / Harmony ArkWeb）原生支持 `visibilitychange`，三端无需额外 native 代码。
+
+**限制**：visibilitychange 不覆盖 webview 销毁场景，不提供 `app.destroy`。如有"webview 即将销毁"的需求，需要走 native 钩子（pagehide / 能力级事件）单独补。
+
+派发路径跟 native 推送的事件一致（走 `coconut.handlers[topic]`），所以订阅 / 取消订阅 API 与 4.3 event 组件统一（`coconut.on` / `coconut.off`）。
+
 ---
 
 ## 1. 组件可用性矩阵

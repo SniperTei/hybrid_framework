@@ -140,6 +140,12 @@ npm run dev
 - `coconut.off(topic)` —— 取消订阅
 - `coconut.call('event', 'echo', payload, cb)` —— 自验证：500ms 后 native 推送 `test.echo` 事件
 
+### lifecycle — 内置事件（无需注册组件）
+- `coconut.on('app.foreground', cb)` —— WebView 由隐藏转可见（app 切回前台）时触发
+- `coconut.on('app.background', cb)` —— WebView 由可见转隐藏（app 切到后台）时触发
+- cb 收到 `{ topic, timestamp }`
+- 依赖 `document.visibilitychange`，三端 WebView 原生支持，无需 native 代码
+
 完整契约见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)。
 
 ---
