@@ -156,6 +156,9 @@ export class CoconutSDK {
     builder.put('appName', appName);
     builder.put('appVersion', appVersion);
     builder.put('hybridVersion', '3');
+    // Capabilities: {componentName: [method names]} — H5 reads via
+    // coconut.env.capabilities / coconut.supports(component, fn).
+    builder.putJson('capabilities', ComponentManager.getInstance().getCapabilities());
     return builder.build();
   }
 

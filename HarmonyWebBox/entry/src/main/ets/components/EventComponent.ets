@@ -18,6 +18,7 @@ export class EventComponent extends BaseComponent {
   name: string = 'event';
   version: string = '1.0.0';
   description: string = 'Event subscription component';
+  methods: string[] = ['on', 'off', 'echo'];
 
   async handle(functionName: string, paramsJson: string): Promise<string> {
     switch (functionName) {

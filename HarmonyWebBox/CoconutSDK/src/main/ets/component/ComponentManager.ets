@@ -153,6 +153,7 @@ export class ComponentManager {
     builder.put('version', component.version);
     builder.put('description', component.description);
     builder.putStringArray('dependencies', component.dependencies);
+    builder.putStringArray('methods', component.methods);
     builder.putBool('isInitialized', component.isInitialized);
     return builder.build();
   }
@@ -170,12 +171,28 @@ export class ComponentManager {
       builder.put('version', c.version);
       builder.put('description', c.description);
       builder.putStringArray('dependencies', c.dependencies);
+      builder.putStringArray('methods', c.methods);
       builder.putBool('isInitialized', c.isInitialized);
       items.push(builder);
     }
     const root = new JsonObject();
     root.putNumber('count', items.length);
     root.putObjectArray('components', items);
+    return root.build();
+  }
+
+  /**
+   * Snapshot of {componentName: [methods]} for capability detection.
+   * Returned as JSON object string (e.g. `{"device":["getInfo",...]}`).
+   *
+   * H5 reads this via `__coconutConfig.capabilities` so it can guard
+   * feature calls with coconut.supports(component, fn).
+   */
+  getCapabilities(): string {
+    const root = new JsonObject();
+    this.components.forEach((component: CoconutPlugin, name: string) => {
+      root.putStringArray(name, component.methods);
+    });
     return root.build();
   }
 

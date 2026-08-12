@@ -27,6 +27,7 @@ class StorageComponent : BaseComponent() {
     override val name = "storage"
     override val version = "1.0.0"
     override val description = "Persistent storage component"
+    override val methods = listOf("setItem", "getItem", "removeItem", "clear", "getAllKeys", "getSize")
 
     private var context: Context? = null
     private val preferences: SharedPreferences?

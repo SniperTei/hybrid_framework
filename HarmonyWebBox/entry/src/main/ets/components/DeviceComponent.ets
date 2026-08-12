@@ -14,6 +14,7 @@ export class DeviceComponent extends BaseComponent {
   name: string = 'device';
   version: string = '1.0.0';
   description: string = 'Device and system information component';
+  methods: string[] = ['getInfo', 'getSystemInfo', 'getAppInfo', 'getAll'];
 
   async handle(functionName: string, paramsJson: string): Promise<string> {
     switch (functionName) {

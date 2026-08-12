@@ -138,12 +138,14 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             ?? Bundle.main.bundleIdentifier
             ?? "unknown"
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let capabilities = ComponentManager.shared.getCapabilities()
 
         let js = Self.bridgeBootstrapJS(
             token: token,
             appName: appName,
             appVersion: appVersion,
-            hybridVersion: "3"
+            hybridVersion: "3",
+            capabilities: capabilities
         )
         webView.evaluateJavaScript(js)
         Logger.shared.d(tag, "Bridge config injected (token: \(token.prefix(8))..., app: \(appName) \(appVersion))")
@@ -151,13 +153,14 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
 
     /// Builds the bootstrap JS injected into the page after navigation finishes.
     /// Extracted to a static method so the script shape is unit-testable without a WebView.
-    private static func bridgeBootstrapJS(token: String, appName: String, appVersion: String, hybridVersion: String) -> String {
+    private static func bridgeBootstrapJS(token: String, appName: String, appVersion: String, hybridVersion: String, capabilities: [String: [String]]) -> String {
         // Build config object as JSON to avoid quote-escaping pitfalls in app names.
         let config: [String: Any] = [
             "token": token,
             "appName": appName,
             "appVersion": appVersion,
-            "hybridVersion": hybridVersion
+            "hybridVersion": hybridVersion,
+            "capabilities": capabilities
         ]
         let data = (try? JSONSerialization.data(withJSONObject: config)) ?? Data()
         let configJson = String(data: data, encoding: .utf8) ?? "{}"

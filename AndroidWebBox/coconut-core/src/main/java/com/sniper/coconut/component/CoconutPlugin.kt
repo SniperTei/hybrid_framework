@@ -30,6 +30,14 @@ interface CoconutPlugin {
         get() = ""
 
     /**
+     * Methods this component exposes via handle().
+     * Used by ComponentManager.getCapabilities() so H5 can probe
+     * feature support via coconut.supports(component, fn).
+     */
+    val methods: List<String>
+        get() = emptyList()
+
+    /**
      * Component dependencies
      * List of component names that this component depends on
      */

@@ -51,8 +51,23 @@ window.__coconutConfig = {
   token: '<UUID bridgeToken>',       // 必填，由 native BridgeTokenManager.generateToken() 生成
   appName: '<原生应用名>',            // 可选，空串时 coconut.env.appName 返回 ''
   appVersion: '<原生应用版本>',        // 可选，空串时 coconut.env.appVersion 返回 ''
+  capabilities: {                    // 必填（v3.2.0+），由 ComponentManager.getCapabilities() 生成
+    device:  ['getInfo', 'getSystemInfo', 'getAppInfo', 'getAll'],
+    storage: ['setItem', 'getItem', 'removeItem', 'clear', 'getAllKeys', 'getSize'],
+    event:   ['on', 'off', 'echo']
+  }
 };
-// hybridVersion 不是 config 字段，是 SDK 编译期常量（当前 "3"）
+// hybridVersion 不是 config 字段，是 SDK 编译期常量（当前 "3")
+```
+
+**能力探测**：H5 通过 `coconut.supports(component, functionName)` 同步查表，不发 bridge call：
+
+```js
+if (coconut.supports('storage', 'getSize')) {
+  coconut.storage.getSize(cb);
+} else {
+  // 老版本 native 不支持 getSize，走 fallback
+}
 ```
 
 **`coconut.env` 字段**：
@@ -64,6 +79,7 @@ window.__coconutConfig = {
 | `version` / `sdkVersion` | coconut.js 文件版本 | `'3.2.0'` |
 | `hybridVersion` | Bridge 协议主版本（编译期常量） | `'3'` |
 | `appName` / `appVersion` | lazy getter，每次访问读 `window.__coconutConfig` | — |
+| `capabilities` | lazy getter，读 `__coconutConfig.capabilities`，形如 `{componentName: [method names]}` | `{device:['getInfo','getSystemInfo','getAppInfo','getAll'], storage:[...6], event:['on','off','echo']}` |
 | `userAgent` / `language` / `screen*` / `viewport*` / `isMobile` / `isTouchDevice` 等 | 浏览器侧信息 | — |
 
 **Error-first callback**：

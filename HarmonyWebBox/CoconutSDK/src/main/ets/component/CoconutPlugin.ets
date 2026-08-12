@@ -20,6 +20,13 @@ export interface CoconutPlugin {
   description: string;
 
   /**
+   * Methods this component exposes via handle().
+   * Used by ComponentManager.getCapabilities() so H5 can probe
+   * feature support via coconut.supports(component, fn).
+   */
+  methods: string[];
+
+  /**
    * Component dependencies
    */
   dependencies: string[];

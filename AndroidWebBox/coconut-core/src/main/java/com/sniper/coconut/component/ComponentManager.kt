@@ -173,6 +173,18 @@ class ComponentManager private constructor() {
     }
 
     /**
+     * Snapshot of {componentName: [methods]} for capability detection.
+     * Non-suspend: iterates the ConcurrentHashMap directly, safe to call
+     * from main thread (e.g. CoconutWebActivity.injectBridgeJavaScript).
+     *
+     * H5 reads this via `__coconutConfig.capabilities` so it can guard
+     * feature calls with coconut.supports(component, fn).
+     */
+    fun getCapabilities(): Map<String, List<String>> {
+        return components.mapValues { it.value.methods }
+    }
+
+    /**
      * Cleanup all components
      */
     suspend fun cleanup() {

@@ -27,6 +27,7 @@ class DeviceComponent : BaseComponent() {
     override val name = "device"
     override val version = "1.0.0"
     override val description = "Device and system information component"
+    override val methods = listOf("getInfo", "getSystemInfo", "getAppInfo", "getAll")
 
     override suspend fun handle(function: String, params: JsonObject?): JsonElement {
         return when (function) {

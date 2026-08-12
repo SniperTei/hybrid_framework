@@ -10,6 +10,7 @@ open class BaseComponent: CoconutPlugin {
     open var version: String { "1.0.0" }
     open var pluginDescription: String { "" }
     open var dependencies: [String] { [] }
+    open var methods: [String] { [] }
 
     private var _initialized = false
     public var isInitialized: Bool { _initialized }

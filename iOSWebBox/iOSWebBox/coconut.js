@@ -182,6 +182,17 @@
                     window.__coconutConfig.appVersion) || '';
             }
         });
+        // Capabilities: {componentName: [method names]} — populated by native
+        // at page-finish from ComponentManager.getCapabilities(). Read lazy so
+        // H5 sees the post-injection value even though env is built earlier.
+        Object.defineProperty(env, 'capabilities', {
+            configurable: true,
+            enumerable: true,
+            get: function () {
+                return (typeof window !== 'undefined' && window.__coconutConfig &&
+                    window.__coconutConfig.capabilities) || {};
+            }
+        });
 
         return env;
     };
@@ -529,6 +540,26 @@
         if (this.debug) {
             this.log('🚫 Off:', topic);
         }
+    };
+
+    /**
+     * 能力探测：当前 native 版本是否支持某个组件的某个方法
+     *
+     * 数据来源：native 注入的 `window.__coconutConfig.capabilities`
+     * 形如 `{device:['getInfo',...], storage:[...], event:[...]}`。
+     * 纯前端查表，不发 bridge call，可同步调用。
+     *
+     * @param {string} component   例：'storage'
+     * @param {string} functionName 例：'setItem'
+     * @return {boolean}
+     */
+    Coconut.prototype.supports = function (component, functionName) {
+        if (typeof component !== 'string' || typeof functionName !== 'string') {
+            return false;
+        }
+        var caps = this.env.capabilities || {};
+        var methods = caps[component];
+        return Array.isArray(methods) && methods.indexOf(functionName) !== -1;
     };
 
     /**

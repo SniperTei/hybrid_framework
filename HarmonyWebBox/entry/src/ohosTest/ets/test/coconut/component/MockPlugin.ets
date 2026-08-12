@@ -10,6 +10,7 @@ export class MockPlugin implements CoconutPlugin {
   name: string;
   version: string = '1.0.0';
   description: string = 'mock';
+  methods: string[] = [];
   dependencies: string[] = [];
 
   private _isInitialized: boolean = false;

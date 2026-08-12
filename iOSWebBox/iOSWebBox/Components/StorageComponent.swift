@@ -7,6 +7,7 @@ public class StorageComponent: BaseComponent {
     override public var name: String { "storage" }
     override public var version: String { "1.0.0" }
     override public var pluginDescription: String { "Persistent storage component" }
+    override public var methods: [String] { ["setItem", "getItem", "removeItem", "clear", "getAllKeys", "getSize"] }
 
     private var defaults: UserDefaults? {
         return UserDefaults(suiteName: "CoconutStorage")

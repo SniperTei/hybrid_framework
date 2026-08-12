@@ -7,6 +7,7 @@ public protocol CoconutPlugin: AnyObject {
     var version: String { get }
     var pluginDescription: String { get }
     var dependencies: [String] { get }
+    var methods: [String] { get }
     var isInitialized: Bool { get }
 
     func initComponent(context: ComponentContext) async throws
@@ -17,4 +18,5 @@ public protocol CoconutPlugin: AnyObject {
 public extension CoconutPlugin {
     var pluginDescription: String { "" }
     var dependencies: [String] { [] }
+    var methods: [String] { [] }
 }

@@ -101,6 +101,17 @@ public class ComponentManager {
         return getRegisteredComponents().compactMap { getComponentInfo(name: $0) }
     }
 
+    /// Snapshot of {componentName: [methods]} for capability detection.
+    /// H5 reads this via `__coconutConfig.capabilities` so it can guard feature
+    /// calls with coconut.supports(component, fn) instead of try/catching errors.
+    public func getCapabilities() -> [String: [String]] {
+        var result: [String: [String]] = [:]
+        for (name, component) in components {
+            result[name] = component.methods
+        }
+        return result
+    }
+
     public func cleanup() async {
         let allComponents = Array(components.values)
         components.removeAll()

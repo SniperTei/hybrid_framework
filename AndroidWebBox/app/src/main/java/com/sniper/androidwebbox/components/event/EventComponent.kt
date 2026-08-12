@@ -28,6 +28,7 @@ class EventComponent : BaseComponent() {
     override val name = "event"
     override val version = "1.0.0"
     override val description = "Event subscription component"
+    override val methods = listOf("on", "off", "echo")
 
     private lateinit var sharedContext: ComponentContext
 

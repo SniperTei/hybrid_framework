@@ -8,6 +8,7 @@ public class DeviceComponent: BaseComponent {
     override public var name: String { "device" }
     override public var version: String { "1.0.0" }
     override public var pluginDescription: String { "Device and system information component" }
+    override public var methods: [String] { ["getInfo", "getSystemInfo", "getAppInfo", "getAll"] }
 
     override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {

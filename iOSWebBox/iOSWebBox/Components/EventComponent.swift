@@ -16,6 +16,7 @@ public class EventComponent: BaseComponent {
     override public var name: String { "event" }
     override public var version: String { "1.0.0" }
     override public var pluginDescription: String { "Event subscription component" }
+    override public var methods: [String] { ["on", "off", "echo"] }
 
     private var sharedContext: ComponentContext?
 

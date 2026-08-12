@@ -10,6 +10,7 @@ export class StorageComponent extends BaseComponent {
   name: string = 'storage';
   version: string = '1.0.0';
   description: string = 'Persistent storage component';
+  methods: string[] = ['setItem', 'getItem', 'removeItem', 'clear', 'getAllKeys', 'getSize'];
 
   private store: preferences.Preferences | null = null;
   private keySet: Set<string> = new Set();

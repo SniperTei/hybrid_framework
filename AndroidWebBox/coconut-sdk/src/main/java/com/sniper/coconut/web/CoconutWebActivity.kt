@@ -19,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONArray
 import org.json.JSONObject
 import androidx.appcompat.widget.Toolbar
 import com.sniper.coconut.CoconutSDK
@@ -453,6 +454,13 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
             put("appName", appName)
             put("appVersion", appVersion)
             put("hybridVersion", "3")
+            // Capabilities: {componentName: [method names]} — H5 reads via
+            // coconut.env.capabilities / coconut.supports(component, fn).
+            val capabilities = JSONObject()
+            ComponentManager.getInstance().getCapabilities().forEach { (name, methods) ->
+                capabilities.put(name, JSONArray(methods))
+            }
+            put("capabilities", capabilities)
         }
 
         val javascript = """

@@ -13,6 +13,17 @@
       <pre class="muted">{{ envSummary }}</pre>
     </div>
 
+    <div class="panel">
+      <h3>🛠 Capabilities（coconut.supports）</h3>
+      <pre class="muted">{{ capabilitiesJson }}</pre>
+      <div class="cap-grid">
+        <div v-for="c in capabilityChecks" :key="c.label" :class="['cap-chip', c.value ? 'on' : 'off']">
+          <span class="cap-dot">{{ c.value ? '✓' : '✗' }}</span>
+          <code>{{ c.label }}</code>
+        </div>
+      </div>
+    </div>
+
     <section>
       <h2>端到端验证</h2>
       <div class="btns">
@@ -152,6 +163,24 @@ const envSummary = computed(() => {
 const responseClass = computed(() => {
   if (!lastResponse.value || lastResponse.value === '—') return 'muted'
   return lastIsError.value ? 'err' : 'ok'
+})
+
+const capabilitiesJson = computed(() => {
+  const caps = (window.coconut && window.coconut.env && window.coconut.env.capabilities) || {}
+  return JSON.stringify(caps, null, 2)
+})
+
+const capabilityChecks = computed(() => {
+  const c = window.coconut
+  if (!c || !c.supports) return []
+  return [
+    { label: 'device.getInfo',     value: c.supports('device', 'getInfo') },
+    { label: 'storage.setItem',    value: c.supports('storage', 'setItem') },
+    { label: 'storage.getSize',    value: c.supports('storage', 'getSize') },
+    { label: 'event.on',           value: c.supports('event', 'on') },
+    { label: 'event.echo',         value: c.supports('event', 'echo') },
+    { label: 'foo.bar (missing)',  value: c.supports('foo', 'bar') }
+  ]
 })
 
 function setRequest(component, fn, params) {
@@ -543,4 +572,15 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .event-item { margin-bottom: 8px; }
 .event-item:last-child { margin-bottom: 0; }
 .event-time { font-size: 11px; color: #8a8f99; margin-bottom: 4px; font-family: "SF Mono", Menlo, monospace; }
+
+/* Capability chips */
+.cap-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cap-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12px;
+  font-family: "SF Mono", Menlo, monospace;
+}
+.cap-chip.on  { background: #f0fff4; color: #00b42c; }
+.cap-chip.off { background: #fff5f5; color: #f53f3f; }
+.cap-dot { font-weight: 700; }
 </style>

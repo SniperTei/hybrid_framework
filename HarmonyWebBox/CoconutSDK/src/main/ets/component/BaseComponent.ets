@@ -14,6 +14,7 @@ export abstract class BaseComponent implements CoconutPlugin {
   abstract name: string;
   abstract version: string;
   description: string = '';
+  methods: string[] = [];
   dependencies: string[] = [];
   abstract handle(functionName: string, paramsJson: string): Promise<string>;
 
