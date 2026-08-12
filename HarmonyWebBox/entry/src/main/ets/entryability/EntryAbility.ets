@@ -2,7 +2,6 @@ import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { CoconutSDK } from '@coconut/sdk';
-import { PopupUtil } from '../utils/PopupUtil';
 
 const DOMAIN = 0x0000;
 const TAG = 'EntryAbility';
@@ -15,8 +14,6 @@ export default class EntryAbility extends UIAbility {
       config.isDebugMode = true;
       config.enableBridgeToken = true;
     });
-
-    PopupUtil.init(this.context);
 
     hilog.info(DOMAIN, TAG, 'Ability onCreate');
   }

@@ -199,5 +199,5 @@ HAR 模块通过 `oh-package.json5` 引用。在你的 entry 模块的 `oh-packa
    - 不能用 untyped object literal（`{}`），改用 `new Object()` 或显式 class
    - `throw` 必须是 `Error` 子类
    - 组件 mock 必须用 class 实现
-3. **`promptAction.BaseDialogOptions` 没有 `onDidDismiss`**：dismiss 回调要在 `closeCustomDialog` 之后手动触发（详见 `entry/src/main/ets/utils/PopupUtil.ets`）。
+3. **`promptAction.BaseDialogOptions` 没有 `onDidDismiss`**：dismiss 回调要在 `closeCustomDialog` 之后手动触发。
 4. **`fileIo.writeSync` 拒收 `Uint8Array`**，要传 `bytes.buffer`（ArrayBuffer）。`fileIo.accessSync` 在 HarmonyOS 6.1 不抛错，判存在用 `statSync`。
