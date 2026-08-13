@@ -215,7 +215,11 @@ function setResponse(err, data) {
 function startCheck(name, expected) {
   const check = { name, expected, status: 'running', actual: '', duration: 0 }
   runAllResults.value.push(check)
-  return check
+  // Return the reactive proxy, not the raw object. Mutating the raw target
+  // (the local `check` above) bypasses Vue's set trap, so computed() like
+  // passCount that depend on r.status never re-evaluate — leaving the header
+  // showing stale "N-1/N" even though all rows display ✅.
+  return runAllResults.value[runAllResults.value.length - 1]
 }
 
 function finishCheck(check, pass, actual) {
