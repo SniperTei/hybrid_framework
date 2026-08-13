@@ -22,6 +22,8 @@
           <code>{{ c.label }}</code>
         </div>
       </div>
+      <h3 style="margin-top: 12px">🔬 Raw __coconutConfig</h3>
+      <pre class="muted" style="font-size: 11px">{{ rawConfig }}</pre>
     </div>
 
     <section>
@@ -165,12 +167,30 @@ const responseClass = computed(() => {
   return lastIsError.value ? 'err' : 'ok'
 })
 
+// Reactive tick that bumps when coconut.js (re)loads __coconutConfig.
+// Plain window.__coconutConfig reads track zero Vue deps, so computed() that
+// read it would cache stale values from before native injection. Listening to
+// the 'coconut:config-loaded' event forces re-evaluation.
+const configTick = ref(0)
+
 const capabilitiesJson = computed(() => {
+  configTick.value  // reactive dep
   const caps = (window.coconut && window.coconut.env && window.coconut.env.capabilities) || {}
   return JSON.stringify(caps, null, 2)
 })
 
+const rawConfig = computed(() => {
+  configTick.value  // reactive dep
+  try {
+    const cfg = window.__coconutConfig
+    return JSON.stringify(cfg, null, 2)
+  } catch (e) {
+    return 'Error: ' + e.message
+  }
+})
+
 const capabilityChecks = computed(() => {
+  configTick.value  // reactive dep
   const c = window.coconut
   if (!c || !c.supports) return []
   return [
@@ -371,6 +391,23 @@ onMounted(() => {
       'color: #3370ff; font-size: 20px; font-weight: bold;')
   } catch (error) {
     console.error('初始化出错:', error)
+  }
+
+  // Refresh config-derived computed() when native injection completes.
+  // coconut.js dispatches 'coconut:config-loaded' from _loadSecurityConfig.
+  // Fallback polling covers older bundles without the dispatch.
+  window.addEventListener('coconut:config-loaded', () => { configTick.value++ })
+  let pollCount = 0
+  const poll = setInterval(() => {
+    configTick.value++
+    if (++pollCount >= 5) clearInterval(poll)
+  }, 500)
+
+  // Auto-run smoke test when URL has ?autorun=1 — used by e2e test scripts
+  // (no UI automation available in iOS sim without accessibility permission).
+  // Slight delay so env injection + bridge wiring settle first.
+  if (new URLSearchParams(window.location.search).get('autorun') === '1') {
+    setTimeout(() => { runAll() }, 800)
   }
 })
 

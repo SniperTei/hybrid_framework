@@ -253,6 +253,14 @@
                 this.log('🔒 Security config loaded: token=' +
                     (this._securityConfig.token ? '***' : 'none'));
             }
+            // Notify H5 subscribers (e.g. Vue reactive wrappers) that the
+            // config has been (re)loaded. Without this, computed() that read
+            // window.__coconutConfig cache stale values from before injection.
+            if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+                try {
+                    window.dispatchEvent(new CustomEvent('coconut:config-loaded'));
+                } catch (e) { /* no-op */ }
+            }
         } else {
             this._securityConfig = null;
         }
