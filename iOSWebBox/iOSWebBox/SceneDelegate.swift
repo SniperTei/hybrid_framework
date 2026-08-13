@@ -42,7 +42,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             await MainActor.run {
                 // 入口页（带两个按钮：bundle HTML / dev server），
                 // 对标 Android MainActivity。SDK 在 loadUrl 前已注册完组件。
-                window.rootViewController = HomeViewController()
+                //
+                // Debug-only deep link: launch with `-coconutUrl <URL>` to skip
+                // the menu and present CoconutWebViewController directly. Used
+                // for automated e2e testing (no accessibility permission for UI
+                // automation). Production builds never set this launch arg.
+                let env = ProcessInfo.processInfo.environment
+                if let directURL = env["COCONUT_URL"] ?? env["coconutUrl"], !directURL.isEmpty {
+                    let webVC = CoconutWebViewController()
+                    webVC.enableDebug = true
+                    window.rootViewController = webVC
+                    webVC.loadUrl(directURL)
+                } else {
+                    window.rootViewController = HomeViewController()
+                }
             }
         }
     }

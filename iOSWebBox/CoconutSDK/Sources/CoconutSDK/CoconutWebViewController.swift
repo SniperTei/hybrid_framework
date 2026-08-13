@@ -148,7 +148,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             capabilities: capabilities
         )
         webView.evaluateJavaScript(js)
-        Logger.shared.d(tag, "Bridge config injected (token: \(token.prefix(8))..., app: \(appName) \(appVersion))")
+        Logger.shared.d(tag, "Bridge config injected (token: \(token.prefix(8))..., app: \(appName) \(appVersion), caps: \(capabilities)")
     }
 
     /// Builds the bootstrap JS injected into the page after navigation finishes.
