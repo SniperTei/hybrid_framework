@@ -13,8 +13,11 @@ enum class Environment(
 ) {
     DEV(
         displayName = "Development",
-        defaultH5Domain = "http://192.168.3.49:5174",
-        defaultApiDomain = "http://192.168.3.49:8080"
+        // localhost:5174 + `adb reverse tcp:5174 tcp:5174` —— works on any network
+        // (emulator + USB real device) without hardcoding a LAN IP. For Wi-Fi real
+        // device testing, override at app startup or use STAGING/PROD.
+        defaultH5Domain = "http://localhost:5174",
+        defaultApiDomain = "http://localhost:8080"
     ),
     TEST(
         displayName = "Testing",
