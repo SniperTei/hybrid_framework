@@ -79,6 +79,19 @@
   </section>
 
   <section>
+    <h2>弹窗组件（原生 Dialog）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onDialogAlert()">Alert</button>
+      <button class="btn-b" onclick="onDialogConfirm()">Confirm</button>
+      <button class="btn-r" onclick="onDialogToast()">Toast</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button class="btn-d" onclick="onDialogLoading()">Loading (2s 后自动关闭)</button>
+      <button class="btn-c" onclick="onDialogHideLoading()">隐藏 Loading</button>
+    </div>
+  </section>
+
+  <section>
     <h2>事件订阅（原生 → H5 推送）</h2>
     <div class="btns">
       <button class="btn-d" onclick="onSubscribe()">订阅 test.echo</button>
@@ -198,6 +211,44 @@
       setRequestView('event', 'off', { topic: 'test.echo' });
       coconut.off('test.echo');
       setEventView({ stage: 'off sent', topic: 'test.echo' });
+    }
+    function onDialogAlert() {
+      setRequestView('dialog', 'alert', { title: '提示', message: '来自 H5 的原生 Alert', buttonText: '知道了' });
+      coconut.call('dialog', 'alert', { title: '提示', message: '来自 H5 的原生 Alert', buttonText: '知道了' }, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onDialogConfirm() {
+      var params = { title: '确认', message: '确定要执行此操作吗？', confirmText: '确定', cancelText: '取消' };
+      setRequestView('dialog', 'confirm', params);
+      coconut.call('dialog', 'confirm', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onDialogToast() {
+      var params = { message: '来自 H5 的原生 Toast', duration: 2, position: 'bottom' };
+      setRequestView('dialog', 'toast', params);
+      coconut.call('dialog', 'toast', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onDialogLoading() {
+      setRequestView('dialog', 'showLoading', { message: '加载中...' });
+      coconut.call('dialog', 'showLoading', { message: '加载中...' }, function (err, data) {
+        setResponseView(err, data);
+      });
+      setTimeout(function () {
+        setRequestView('dialog', 'hideLoading', {});
+        coconut.call('dialog', 'hideLoading', {}, function (err, data) {
+          setResponseView(err, data);
+        });
+      }, 2000);
+    }
+    function onDialogHideLoading() {
+      setRequestView('dialog', 'hideLoading', {});
+      coconut.call('dialog', 'hideLoading', {}, function (err, data) {
+        setResponseView(err, data);
+      });
     }
   </script>
 </body>

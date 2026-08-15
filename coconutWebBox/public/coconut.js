@@ -25,7 +25,7 @@
  *   appName / appVersion            （由 native 经 window.__coconutConfig 注入）
  *   userAgent / language / screen / viewport / ...  （浏览器侧信息）
  *
- * @version 3.2.0
+ * @version 3.3.0
  */
 
 (function (global, factory) {
@@ -49,7 +49,7 @@
      * coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '3.2.0';
+        this.version = '3.3.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -655,6 +655,35 @@
         },
         getSize: function (callback) {
             return coconutSDK.call('storage', 'getSize', {}, callback);
+        }
+    };
+
+    /**
+     * 快捷方法 - 弹窗组件（v3.3.0）
+     *
+     * duration 单位为秒；position 可选 'top'|'center'|'bottom'（部分平台忽略）
+     */
+    Coconut.prototype.dialog = {
+        alert: function (title, message, buttonText, callback) {
+            return coconutSDK.call('dialog', 'alert', {
+                title: title, message: message, buttonText: buttonText
+            }, callback);
+        },
+        confirm: function (title, message, confirmText, cancelText, callback) {
+            return coconutSDK.call('dialog', 'confirm', {
+                title: title, message: message, confirmText: confirmText, cancelText: cancelText
+            }, callback);
+        },
+        toast: function (message, duration, position, callback) {
+            return coconutSDK.call('dialog', 'toast', {
+                message: message, duration: duration || 2, position: position || 'bottom'
+            }, callback);
+        },
+        showLoading: function (message, callback) {
+            return coconutSDK.call('dialog', 'showLoading', { message: message }, callback);
+        },
+        hideLoading: function (callback) {
+            return coconutSDK.call('dialog', 'hideLoading', {}, callback);
         }
     };
 

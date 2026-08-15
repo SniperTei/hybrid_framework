@@ -30,7 +30,7 @@
       <h2>端到端验证</h2>
       <div class="btns">
         <button class="btn-r" style="flex-basis: 100%" @click="runAll" :disabled="running">
-          {{ running ? '运行中...' : '🧪 Run All Tests (15 项)' }}
+          {{ running ? '运行中...' : '🧪 Run All Tests (16 项)' }}
         </button>
       </div>
       <div v-if="runAllResults.length > 0" class="panel">
@@ -49,6 +49,17 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>💬 Dialog 组件</h2>
+      <div class="btns">
+        <button class="btn-a" @click="dialogAlert" :disabled="loading">alert</button>
+        <button class="btn-b" @click="dialogConfirm" :disabled="loading">confirm</button>
+        <button class="btn-r" @click="dialogToast" :disabled="loading">toast</button>
+        <button class="btn-d" @click="dialogShowLoading" :disabled="loading">showLoading (2s 后自动 hide)</button>
+        <button class="btn-c" @click="dialogHideLoading" :disabled="loading">hideLoading</button>
       </div>
     </section>
 
@@ -199,6 +210,8 @@ const capabilityChecks = computed(() => {
     { label: 'storage.getSize',    value: c.supports('storage', 'getSize') },
     { label: 'event.on',           value: c.supports('event', 'on') },
     { label: 'event.echo',         value: c.supports('event', 'echo') },
+    { label: 'dialog.alert',       value: c.supports('dialog', 'alert') },
+    { label: 'dialog.showLoading', value: c.supports('dialog', 'showLoading') },
     { label: 'foo.bar (missing)',  value: c.supports('foo', 'bar') }
   ]
 })
@@ -327,6 +340,14 @@ async function runAll() {
   c = startCheck('Storage.clear', 'err=null, success=true')
   t0 = performance.now()
   r = await pcall('storage', 'clear', {})
+  c.duration = Math.round(performance.now() - t0)
+  finishCheck(c, !r.err && r.data && r.data.success === true,
+    r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}`)
+
+  // ---------- Dialog (toast only — alert/confirm 需要用户交互，不进 Run All) ----------
+  c = startCheck('Dialog.toast (non-blocking)', 'err=null, success=true')
+  t0 = performance.now()
+  r = await pcall('dialog', 'toast', { message: 'Run All toast', duration: 2, position: 'bottom' })
   c.duration = Math.round(performance.now() - t0)
   finishCheck(c, !r.err && r.data && r.data.success === true,
     r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}`)
@@ -472,6 +493,55 @@ function testGetSize() {
   withLoading((done) => {
     setRequest('storage', 'getSize', {})
     window.coconut.storage.getSize((err, data) => { setResponse(err, data); done() })
+  })
+}
+
+// ---- Dialog ----
+function dialogAlert() {
+  withLoading((done) => {
+    setRequest('dialog', 'alert', { title: '提示', message: '来自 H5 的原生 Alert', buttonText: '知道了' })
+    window.coconut.dialog.alert('提示', '来自 H5 的原生 Alert', '知道了', (err, data) => {
+      setResponse(err, data)
+      done()
+    })
+  })
+}
+
+function dialogConfirm() {
+  withLoading((done) => {
+    setRequest('dialog', 'confirm', { title: '确认', message: '确定要执行此操作吗？', confirmText: '确定', cancelText: '取消' })
+    window.coconut.dialog.confirm('确认', '确定要执行此操作吗？', '确定', '取消', (err, data) => {
+      setResponse(err, data)
+      done()
+    })
+  })
+}
+
+function dialogToast() {
+  setRequest('dialog', 'toast', { message: '来自 H5 的原生 Toast', duration: 2, position: 'bottom' })
+  window.coconut.dialog.toast('来自 H5 的原生 Toast', 2, 'bottom', (err, data) => {
+    setResponse(err, data)
+  })
+}
+
+function dialogShowLoading() {
+  setRequest('dialog', 'showLoading', { message: '加载中...' })
+  window.coconut.dialog.showLoading('加载中...', (err, data) => {
+    setResponse(err, data)
+  })
+  // 演示：2s 后自动 hide
+  setTimeout(() => {
+    setRequest('dialog', 'hideLoading', {})
+    window.coconut.dialog.hideLoading((err, data) => {
+      setResponse(err, data)
+    })
+  }, 2000)
+}
+
+function dialogHideLoading() {
+  setRequest('dialog', 'hideLoading', {})
+  window.coconut.dialog.hideLoading((err, data) => {
+    setResponse(err, data)
   })
 }
 

@@ -140,6 +140,21 @@ export interface StorageAPI {
   getSize(cb: CoconutCallback<StorageGetSizeResult>): void;
 }
 
+// dialog component (v3.3.0)
+export interface DialogAlertResult { confirmed: boolean; }
+export interface DialogConfirmResult { confirmed: boolean; }
+export interface DialogOpResult { success: boolean; }
+
+export type DialogToastPosition = 'top' | 'center' | 'bottom';
+
+export interface DialogAPI {
+  alert(title: string, message: string, buttonText: string, cb?: CoconutCallback<DialogAlertResult>): void;
+  confirm(title: string, message: string, confirmText: string, cancelText: string, cb?: CoconutCallback<DialogConfirmResult>): void;
+  toast(message: string, duration?: number, position?: DialogToastPosition, cb?: CoconutCallback<DialogOpResult>): void;
+  showLoading(message: string, cb?: CoconutCallback<DialogOpResult>): void;
+  hideLoading(cb?: CoconutCallback<DialogOpResult>): void;
+}
+
 // Native-pushed event payload. coconut.on callbacks receive event.data
 // (not the envelope); lifecycle events deliver {topic, timestamp}.
 export type EventHandler = (data: unknown) => void;
@@ -193,6 +208,7 @@ export interface Coconut {
   // Shortcut namespaces
   device: DeviceAPI;
   storage: StorageAPI;
+  dialog: DialogAPI;
 
   // Internal (re-exposed for advanced use; not stable API)
   handlers: Record<string, EventHandler>;
