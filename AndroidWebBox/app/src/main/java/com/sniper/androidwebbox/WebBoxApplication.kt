@@ -3,6 +3,7 @@ package com.sniper.androidwebbox
 import android.app.Application
 import com.sniper.coconut.CoconutSDK
 import com.sniper.androidwebbox.components.device.DeviceComponent
+import com.sniper.androidwebbox.components.dialog.DialogComponent
 import com.sniper.androidwebbox.components.event.EventComponent
 import com.sniper.androidwebbox.components.storage.StorageComponent
 import com.sniper.coconut.config.Environment
@@ -55,7 +56,8 @@ class WebBoxApplication : Application() {
                 CoconutSDK.registerComponents(
                     DeviceComponent(),      // 设备信息
                     StorageComponent(),     // 本地存储
-                    EventComponent()        // 事件订阅
+                    EventComponent(),       // 事件订阅
+                    DialogComponent()       // 原生弹窗
                 )
 
                 val components = CoconutSDK.getRegisteredComponents()

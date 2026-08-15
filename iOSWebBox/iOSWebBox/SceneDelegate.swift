@@ -37,6 +37,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 DeviceComponent(),
                 StorageComponent(),
                 EventComponent(),
+                DialogComponent(),
             ])
 
             await MainActor.run {
