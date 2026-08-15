@@ -119,15 +119,16 @@ coconut.js 在 `init()` 里监听 `document.visibilitychange`，自动派发到�
 
 ## 1. 组件可用性矩阵
 
-> 当前活跃组件有 3 个。device + storage 来自 commit `3b3b6de` / `8a1437f` / `95b632a`（2026-07-26 三端 trim）；
-> event 为 2026-08-09 新增（native → H5 push 能力）。
-> 已删除的 12 个组件契约保留在文末「附录 A」供 git 历史参考。
+> 当前活跃组件有 4 个。device + storage 来自 commit `3b3b6de` / `8a1437f` / `95b632a`（2026-07-26 三端 trim）；
+> event 为 2026-08-09 新增（native → H5 push 能力）；dialog 为 2026-08-15 从 git 历史恢复（§4.4）。
+> 其余 11 个已删除组件契约保留在文末「附录 A」供 git 历史参考。
 
 | 组件 | iOS | Android | Harmony | 状态 |
 |---|:---:|:---:|:---:|---|
 | device | ✅ | ✅ | ✅ | 活跃 |
 | storage | ✅ | ✅ | ✅ | 活跃 |
 | event | ✅ | ✅ | ✅ | 活跃（v2.4.0 on/off/emit API） |
+| dialog | ✅ | ✅ | ✅ | 活跃（v3.3.0 恢复，见 §4.4；`prompt` 不恢复——旧实现 Harmony input 恒空） |
 
 ---
 
@@ -260,16 +261,47 @@ coconut.call('event', 'echo', { hello: 'world' });
 
 ---
 
-### 4.4 dialog（已删除）
+### 4.4 dialog ✅ 原生弹窗（v3.3.0 恢复）
 
-> dialog 等 12 个组件已从 main 删除（commit `3b3b6de` / `8a1437f` / `95b632a`，2026-07-26）。
-> 完整契约和实现要点移到**附录 A**，git 历史可找回完整源码。
+**目标**：H5 调用原生品质的弹窗（alert / confirm / toast / loading），替代 H5 自绘 DOM 弹窗。
+
+**背景**：2026-07-26 随组件 trim 删除（commit `3b3b6de` / `8a1437f` / `95b632a`），2026-08-15 从 git 历史恢复并适配 v3.2 基类（`methods` 数组 + component/function 拆分签名）。旧 `prompt` 方法**不恢复**（Harmony input 恒空串的坏实现）。Harmony loading 本轮从「长 toast 假实现」升级为 `openCustomDialog` + `ComponentContent` 真实现。
+
+**标准签名**
+
+| 方法 | params | returns | 说明 |
+|---|---|---|---|
+| `alert` | `title`, `message`, `buttonText` | `{confirmed:true}` | 单按钮，点击后 resolve |
+| `confirm` | `title`, `message`, `confirmText`, `cancelText` | `{confirmed:boolean}` | 双按钮，确认 true / 取消 false |
+| `toast` | `message*`, `duration`(秒,默认2), `position`('top'/'center'/'bottom',默认'bottom') | `{success:true}` | 非阻塞；message 为空报 `200007` |
+| `showLoading` | `message` | `{success:true}` | 模态 loading；重复调用先关旧的 |
+| `hideLoading` | — | `{success:true}` | 关闭 loading；无 loading 时 no-op |
+
+**平台差异**
+- `duration` 单位统一**秒**，native 内部换算（Android Toast 按 3 秒阈值映射 SHORT/LONG；iOS 自绘 label 动画时长；Harmony ×1000 传 showToast）。
+- `position` 尽力支持：iOS 自绘全支持；Android `setGravity` 尽力（API 30+ 文本 toast 忽略 gravity，平台限制）；Harmony toast 静默忽略。
+- host VC / Activity / Window 不可用时报 `100005`。
+
+**H5 API（coconut.js v3.3.0+）**
+
+```js
+coconut.dialog.alert('提示', '消息', '知道了', (err, data) => { /* data.confirmed */ });
+coconut.dialog.confirm('确认', '确定吗？', '确定', '取消', (err, data) => { /* data.confirmed */ });
+coconut.dialog.toast('提示文案', 2, 'bottom', (err, data) => {});
+coconut.dialog.showLoading('加载中...', (err, data) => {});
+coconut.dialog.hideLoading((err, data) => {});
+```
+
+**实现要点**
+- iOS：`UIAlertController`（alert/confirm/loading + `UIActivityIndicatorView`）、自绘 UILabel toast。
+- Android：`AlertDialog.Builder`（`suspendCancellableCoroutine` 挂起等结果）、`Toast.makeText`；loading 用 AlertDialog + ProgressBar 自定义 view（`ProgressDialog` 已 deprecated）。
+- Harmony：`promptAction.showDialog/showToast`；loading 用 `window.getLastWindow(context)` → `getUIContext()` → `openCustomDialog(ComponentContent)`（注意 `UIAbility.windowStage` 非 public，编译会报错）。
 
 ---
 
 ## 5. 验收方式
 
-用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + event 三组）：
+用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + dialog + event 四组）：
 - 返回 `code:'000000'` 且 result 字段符合本契约 → 合规 ✅
 - 字段缺失/命名不符 → 不合规 ❌
 
@@ -285,7 +317,8 @@ coconut.call('event', 'echo', { hello: 'world' });
 
 ## 附录 A：已删除组件契约（历史参考）
 
-> 以下 12 个组件在 2026-07-26 的三端 trim（commit `3b3b6de` / `8a1437f` / `95b632a`）中从 main 删除。
+> 以下 11 个组件在 2026-07-26 的三端 trim（commit `3b3b6de` / `8a1437f` / `95b632a`）中从 main 删除。
+> dialog 已于 2026-08-15 恢复（见 §4.4）。
 > 当前业务只用到 device + storage。下述契约保留供未来重新激活组件时直接复用，无需重新设计。
 > 完整源码与配套基础设施（FileProvider / PermissionResultDispatcher / QrScannerActivity / file_paths.xml / Info.plist 权限声明 等）都在 git 历史里，`git log --grep=<组件名>` 可定位。
 
@@ -293,7 +326,6 @@ coconut.call('event', 'echo', { hello: 'world' });
 
 | 组件 | 主要方法 | 删除时的关键约定 |
 |---|---|---|
-| dialog | `alert / confirm / toast / showLoading / hideLoading / prompt` | 三端命名已对齐（`toast` 非 `showToast`，`confirmText` 非 `okText`，`duration` 数字秒，返回 `success`） |
 | clipboard | `getText / setText / hasText / clear` | `getText` 返回 `{text, hasText}`，三端都有 `clear` |
 | permission | `check / request / openSettings` | 统一返回 `{permission, status}`，`status` 枚举：`authorized / denied / restricted / notDetermined / unsupported` |
 | network | `getType / getState / isConnected / request / get / post` | iOS/Android 有 `headers` 入参；Android 失败时应走错误码而非 `statusCode:-1` |
