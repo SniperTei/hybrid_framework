@@ -485,8 +485,25 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     // ---- Public Methods ----
 
     protected open fun loadUrl(url: String) {
-        Logger.d(TAG, "Loading URL: $url")
-        webView.loadUrl(url)
+        val translated = translateOfflineUrl(url)
+        Logger.d(TAG, "Loading URL: $url -> $translated")
+        currentUrl = translated
+        webView.loadUrl(translated)
+    }
+
+    /**
+     * Translate coconut:// offline package URLs into asset file:// URLs.
+     * Android WebView custom-scheme main-frame interception is unreliable, so we
+     * load the asset URL directly; sub-resource requests under the same prefix
+     * then flow through shouldInterceptRequest (sandbox > assets).
+     *
+     *   coconut://demo/index.html
+     *     -> file:///android_asset/coconut-web/demo/index.html
+     */
+    protected open fun translateOfflineUrl(url: String): String {
+        if (!url.startsWith("coconut://")) return url
+        val path = url.removePrefix("coconut://").trimStart('/')
+        return "file:///android_asset/coconut-web/$path"
     }
 
     protected open fun reload() {

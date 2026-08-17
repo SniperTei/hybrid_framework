@@ -32,6 +32,10 @@ class MainActivity : AppCompatActivity() {
             openLocalTestPage()
         }
 
+        findViewById<MaterialButton>(R.id.btnOpenOfflinePackage).setOnClickListener {
+            openOfflinePackage()
+        }
+
         Logger.d("MainActivity", "Views setup complete")
     }
 
@@ -53,6 +57,16 @@ class MainActivity : AppCompatActivity() {
         Logger.d("MainActivity", "Opening local test page: $url")
         CoconutWebActivity.start(this, url)
         Toast.makeText(this, "Opening local test page...", Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Open H5 from the bundled offline package (coconut:// scheme)
+     */
+    private fun openOfflinePackage() {
+        val url = "coconut://demo/index.html"
+        Logger.d("MainActivity", "Opening offline package: $url")
+        CoconutWebActivity.start(this, url)
+        Toast.makeText(this, "Opening offline package...", Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {
