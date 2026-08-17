@@ -37,10 +37,17 @@ final class BridgeSecurityValidatorTests: XCTestCase {
 
     func testUnresolvableHostRejected() {
         validator.setAllowedDomains(["example.com"])
-        // URL with no host
-        let result = validator.validateDomain("about:blank")
+        // String with no scheme and no host
+        let result = validator.validateDomain("not a url")
         XCTAssertFalse(result.isValid)
         XCTAssertTrue(result.message.contains("Cannot extract host"))
+    }
+
+    func testLocalSchemesExemptFromWhitelist() {
+        validator.setAllowedDomains(["example.com"])
+        // Offline-package / bundled-content schemes carry no meaningful host
+        XCTAssertTrue(validator.validateDomain("coconut://demo/index.html").isValid)
+        XCTAssertTrue(validator.validateDomain("file:///var/containers/page.html").isValid)
     }
 
     func testAddAllowedDomainAccumulates() {

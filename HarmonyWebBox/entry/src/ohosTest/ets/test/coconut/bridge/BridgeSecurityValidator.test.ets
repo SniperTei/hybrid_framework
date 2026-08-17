@@ -53,6 +53,13 @@ export default function bridgeSecurityValidatorTest() {
       expect(v.validateDomain('https://anywhere.com/').isValid).assertTrue();
     });
 
+    it('validateDomain_localScheme_exemptFromWhitelist', 0, () => {
+      const v = new BridgeSecurityValidator();
+      v.addAllowedDomain('example.com');
+      expect(v.validateDomain('coconut://demo/index.html').isValid).assertTrue();
+      expect(v.validateDomain('resource://rawfile/coconut_index.html').isValid).assertTrue();
+    });
+
     it('validateParamsSize_underLimit_passes', 0, () => {
       const v = new BridgeSecurityValidator();
       expect(v.validateParamsSize('{}').isValid).assertTrue();

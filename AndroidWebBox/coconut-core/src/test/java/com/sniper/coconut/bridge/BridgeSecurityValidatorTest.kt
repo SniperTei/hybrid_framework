@@ -127,6 +127,15 @@ class BridgeSecurityValidatorTest {
         assertFalse(validator.validateDomain("https://notexample.com/").isValid)
     }
 
+    @Test
+    fun validateDomain_localScheme_exemptFromWhitelist() {
+        // Offline-package / bundled-content schemes carry no host
+        validator.setAllowedDomains(listOf("example.com"))
+
+        assertTrue(validator.validateDomain("coconut://demo/index.html").isValid)
+        assertTrue(validator.validateDomain("file:///android_asset/coconut-web/demo/index.html").isValid)
+    }
+
     // -------------------- checkRateLimit --------------------
 
     @Test

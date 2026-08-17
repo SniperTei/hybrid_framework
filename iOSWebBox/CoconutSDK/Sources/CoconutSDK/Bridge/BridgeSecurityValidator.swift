@@ -68,6 +68,13 @@ public class BridgeSecurityValidator: @unchecked Sendable {
 
         if domains.isEmpty { return .valid }
 
+        // Local schemes (file://, coconut://) carry no meaningful host and serve
+        // app-bundled offline content — exempt from the remote-domain whitelist.
+        if let scheme = URL(string: url)?.scheme?.lowercased(),
+           !scheme.isEmpty, scheme != "http", scheme != "https" {
+            return .valid
+        }
+
         guard let host = extractHost(url), !host.isEmpty else {
             return .invalid("Cannot extract host from URL: \(url)")
         }

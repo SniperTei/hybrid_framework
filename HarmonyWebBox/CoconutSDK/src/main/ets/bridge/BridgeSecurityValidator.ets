@@ -47,6 +47,16 @@ export class BridgeSecurityValidator {
       return SecurityResult.Valid();
     }
 
+    // Local schemes (resource://, coconut://) carry no host and serve app-bundled
+    // offline content — exempt from the remote-domain whitelist.
+    const schemeMatch = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(url);
+    if (schemeMatch) {
+      const scheme = schemeMatch[1].toLowerCase();
+      if (scheme !== 'http' && scheme !== 'https') {
+        return SecurityResult.Valid();
+      }
+    }
+
     const host = this.extractHost(url);
     if (!host) {
       return SecurityResult.Invalid(`Cannot extract host from URL: ${url}`);

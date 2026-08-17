@@ -70,6 +70,17 @@ class BridgeSecurityValidator {
             return SecurityResult.Valid
         }
 
+        // Local schemes (file://, coconut://) carry no host and serve app-bundled
+        // offline content — exempt from the remote-domain whitelist.
+        val scheme = try {
+            java.net.URI.create(url).scheme?.lowercase()
+        } catch (e: Exception) {
+            null
+        }
+        if (!scheme.isNullOrEmpty() && scheme != "http" && scheme != "https") {
+            return SecurityResult.Valid
+        }
+
         val host = extractHost(url)
         if (host.isEmpty()) {
             return SecurityResult.Invalid("Cannot extract host from URL: $url")
