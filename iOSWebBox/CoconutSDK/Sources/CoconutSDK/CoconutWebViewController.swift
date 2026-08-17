@@ -73,6 +73,9 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             config.defaultWebpagePreferences.allowsContentJavaScript = true
         }
 
+        // Offline package serving: coconut://<moduleId>/<path> → sandbox > bundle
+        config.setURLSchemeHandler(CoconutSchemeHandler(), forURLScheme: "coconut")
+
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.translatesAutoresizingMaskIntoConstraints = false
         wv.navigationDelegate = self

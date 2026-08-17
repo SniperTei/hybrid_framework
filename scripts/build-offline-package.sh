@@ -7,7 +7,7 @@
 #   2. dist/ 产物 + 生成的 manifest.json 组装到 staging 的 coconut-web/<moduleId>/
 #   3. staging 复制到三端（每次全量重建，drift 不可能）：
 #      Android : AndroidWebBox/app/src/main/assets/coconut-web/demo/
-#      iOS     : iOSWebBox/iOSWebBox/coconut-web/demo/
+#      iOS     : iOSWebBox/CoconutSDK/Sources/CoconutSDK/Resources/coconut-web/demo/ (SPM resource)
 #      Harmony : HarmonyWebBox/entry/src/main/resources/rawfile/coconut-web/demo/
 #
 # manifest.json 是 Android OfflineResourceManager ModuleVersion 解析器的超集
@@ -29,7 +29,10 @@ H5_DIR="$REPO_ROOT/coconutWebBox"
 MODULE_ID="demo"
 
 ANDROID_BASE="$REPO_ROOT/AndroidWebBox/app/src/main/assets/coconut-web"
-IOS_BASE="$REPO_ROOT/iOSWebBox/iOSWebBox/coconut-web"
+# iOS: 离线包放 CoconutSDK SPM resources（.copy 保留目录结构）；
+# iOSWebBox/iOSWebBox/ 是 PBXFileSystemSynchronizedRootGroup，会把子目录平铺到
+# bundle 根（文件名冲突 + 丢 coconut-web/<moduleId>/ 路径），不可用。
+IOS_BASE="$REPO_ROOT/iOSWebBox/CoconutSDK/Sources/CoconutSDK/Resources/coconut-web"
 HARMONY_BASE="$REPO_ROOT/HarmonyWebBox/entry/src/main/resources/rawfile/coconut-web"
 
 CHECK_ONLY=0

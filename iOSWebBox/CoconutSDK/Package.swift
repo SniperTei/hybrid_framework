@@ -11,7 +11,12 @@ let package = Package(
     targets: [
         .target(
             name: "CoconutSDK",
-            path: "Sources/CoconutSDK"
+            path: "Sources/CoconutSDK",
+            resources: [
+                // Offline H5 package (coconut:// scheme) — .copy preserves the
+                // coconut-web/<moduleId>/ directory structure in the bundle.
+                .copy("Resources/coconut-web")
+            ]
         ),
         .testTarget(
             name: "CoconutSDKTests",

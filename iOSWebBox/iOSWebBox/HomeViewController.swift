@@ -66,6 +66,11 @@ class HomeViewController: UIViewController {
         openLocalBtn.addTarget(self, action: #selector(openDevServer), for: .touchUpInside)
         view.addSubview(openLocalBtn)
 
+        // ---- 按钮 3：打开离线包（coconut:// scheme） ----
+        let openOfflineBtn = makeButton(title: "打开离线包 (coconut://)", primary: false)
+        openOfflineBtn.addTarget(self, action: #selector(openOfflinePackage), for: .touchUpInside)
+        view.addSubview(openOfflineBtn)
+
         // ---- 版本信息 ----
         let versionLabel = UILabel()
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -99,6 +104,11 @@ class HomeViewController: UIViewController {
             openLocalBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
             openLocalBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             openLocalBtn.heightAnchor.constraint(equalToConstant: 56),
+
+            openOfflineBtn.topAnchor.constraint(equalTo: openLocalBtn.bottomAnchor, constant: 16),
+            openOfflineBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            openOfflineBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            openOfflineBtn.heightAnchor.constraint(equalToConstant: 56),
 
             versionLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
             versionLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -140,6 +150,11 @@ class HomeViewController: UIViewController {
     /// 打开 Vite dev server（对标 Android openLocalTestPage）
     @objc private func openDevServer() {
         presentWebVC(with: "http://localhost:5174/")
+    }
+
+    /// 打开离线包（coconut:// scheme，对标 Android openOfflinePackage）
+    @objc private func openOfflinePackage() {
+        presentWebVC(with: "coconut://demo/index.html")
     }
 
     private func presentWebVC(with urlString: String) {
