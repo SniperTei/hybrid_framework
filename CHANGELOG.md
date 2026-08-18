@@ -17,6 +17,7 @@
 ### Fixed
 
 - **module script 在离线 scheme 下被 CORS 拦截**（`7fa83d9`）：ES module 规范上永远走 CORS 模式请求，`file://` / `resource://` 的 null origin 必被拒（Harmony 真机抓到）。构建管线改 rollup iife 输出 + 剥 `type="module"` / `crossorigin` 属性，一次修三端。
+- **Android 沙箱覆盖层从未生效**：`coconut://` 曾翻译成 `file:///android_asset/…`，但 Chromium 对 `file:` scheme 不触发 `shouldInterceptRequest`，拦截路径（沙箱 > assets）整体静默旁路。改翻译成虚拟域 `https://coconut.local/coconut-web/…`，主帧 + 子资源可靠走拦截（模拟器 e2e：`adb push` 沙箱文件 → 红幅标记生效 → Run All 16/16 → 删除后回落 assets）。
 
 ## [3.2.0] - 2026-08-15
 

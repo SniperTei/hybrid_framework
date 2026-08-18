@@ -61,6 +61,10 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
     companion object {
         private const val TAG = "CoconutWebActivity"
+        /** Offline-package virtual host. HTTPS so requests reliably flow
+         *  through shouldInterceptRequest (file: does not). The host is
+         *  fictional and only meaningful inside interception. */
+        private const val OFFLINE_HOST_PREFIX = "https://coconut.local/coconut-web/"
         private const val EXTRA_URL = "extra_url"
         private const val EXTRA_ENABLE_DEBUG = "extra_enable_debug"
         private const val EXTRA_USER_AGENT = "extra_user_agent"
@@ -492,18 +496,20 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     }
 
     /**
-     * Translate coconut:// offline package URLs into asset file:// URLs.
-     * Android WebView custom-scheme main-frame interception is unreliable, so we
-     * load the asset URL directly; sub-resource requests under the same prefix
-     * then flow through shouldInterceptRequest (sandbox > assets).
+     * Translate coconut:// offline package URLs into a virtual-host https URL.
+     * shouldInterceptRequest is NOT called for file: scheme requests (long-
+     * standing Chromium behavior, issues.chromium.org/issues/40419811), so a
+     * file:///android_asset translation would silently skip the sandbox
+     * overlay. An https virtual host flows through interception reliably,
+     * where OfflineResourceManager serves sandbox > assets.
      *
      *   coconut://demo/index.html
-     *     -> file:///android_asset/coconut-web/demo/index.html
+     *     -> https://coconut.local/coconut-web/demo/index.html
      */
     protected open fun translateOfflineUrl(url: String): String {
         if (!url.startsWith("coconut://")) return url
         val path = url.removePrefix("coconut://").trimStart('/')
-        return "file:///android_asset/coconut-web/$path"
+        return "https://coconut.local/coconut-web/$path"
     }
 
     protected open fun reload() {
@@ -550,8 +556,9 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
      * Override in subclasses to customize.
      */
     protected open fun shouldServeOffline(url: String): Boolean {
-        // By default, only intercept local/coconut:// scheme or matching H5 domain resources
-        return url.startsWith("file:///android_asset/coconut-web/")
+        // Offline virtual host (see translateOfflineUrl); file: requests never
+        // reach shouldInterceptRequest, so only the https prefix matters here.
+        return url.startsWith(OFFLINE_HOST_PREFIX)
     }
 
     /**
@@ -559,8 +566,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
      */
     protected open fun extractResourcePath(url: String): String? {
         return when {
-            url.startsWith("file:///android_asset/coconut-web/") ->
-                url.removePrefix("file:///android_asset/coconut-web/")
+            url.startsWith(OFFLINE_HOST_PREFIX) ->
+                url.removePrefix(OFFLINE_HOST_PREFIX)
             else -> null
         }
     }

@@ -337,11 +337,11 @@ bash scripts/build-offline-package.sh --check  # CI 校验三端一致性（drif
 
 查找顺序三端一致：**沙箱覆盖层 → 内置包 → 404**（为热更新铺路）。
 
-- **Android**：`CoconutWebActivity.loadUrl()` 把 `coconut://` 翻译成 `file:///android_asset/coconut-web/…`，子资源走既有 `shouldInterceptRequest` 拦截 → `OfflineResourceManager`（沙箱 > assets）。自定义 scheme 主帧拦截在 Android WebView 不可靠，故走翻译。
+- **Android**：`CoconutWebActivity.loadUrl()` 把 `coconut://` 翻译成虚拟域 `https://coconut.local/coconut-web/…`，主帧 + 子资源全走 `shouldInterceptRequest` 拦截 → `OfflineResourceManager`（沙箱 > assets）。⚠️ 不能用 `file:///android_asset/…`：Chromium 对 `file:` scheme **不触发** `shouldInterceptRequest`（[issues.chromium.org/issues/40419811](https://issues.chromium.org/issues/40419811)），沙箱覆盖层会静默失效（内置包仍能加载，纯靠 WebView 原生 file 支持，具有迷惑性）。
 - **iOS**：`CoconutSchemeHandler`（`WKURLSchemeHandler`，注册 `coconut` scheme）。主帧 + 子资源全走 handler，无需翻译。in-flight task Set 守卫 `stop()` 后回调 crash。
 - **Harmony**：ArkWeb 无自定义 scheme 注册。`CoconutWebPage` 把主帧 `coconut://` 翻译成 `resource://rawfile/coconut-web/…`（内置 load 路径），`onInterceptRequest` 对两种 URL 形态做沙箱 > rawfile 服务（`CoconutOfflineResources`）。返回 null = 不拦截普通 http(s)。
 
-> **已知 scheme 偏差**：Harmony 主帧实际加载的是翻译后的 `resource://rawfile/…` URL（H5 里 `location.href` 可见）；Android 同理（`file:///android_asset/…`）。仅 iOS 主帧保持 `coconut://` 原样。
+> **已知 scheme 偏差**：Harmony 主帧实际加载的是翻译后的 `resource://rawfile/…` URL（H5 里 `location.href` 可见）；Android 同理（`https://coconut.local/…`）。仅 iOS 主帧保持 `coconut://` 原样。Android 虚拟域是 https origin —— 若 App 启用了域名白名单，需把 `coconut.local` 加入白名单。
 
 ### 关键约束：module script 与 null origin
 
