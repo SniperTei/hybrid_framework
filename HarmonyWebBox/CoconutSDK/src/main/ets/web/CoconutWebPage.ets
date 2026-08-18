@@ -3,6 +3,7 @@ import { CoconutSDK } from '../../CoconutSDK';
 import { ComponentManager } from '../component/ComponentManager';
 import { Logger } from '../utils/Logger';
 import { WebViewHelper } from './WebViewHelper';
+import { CoconutOfflineResources } from './CoconutOfflineResources';
 
 /**
  * Bridge proxy class for javaScriptProxy registration.
@@ -41,6 +42,11 @@ export struct CoconutWebPage {
   @State private bridgeProxy: CoconutBridgeProxy = new CoconutBridgeProxy();
 
   aboutToAppear(): void {
+    // ArkWeb cannot load a custom scheme directly: translate coconut://
+    // to resource://rawfile/coconut-web/… before the Web component
+    // builds with this.url as src. onInterceptRequest then applies the
+    // sandbox overlay per file.
+    this.url = CoconutOfflineResources.translateUrl(this.url);
     // Ensure bridge exists
     CoconutSDK.bridge?.securityValidator;
     // Bind proxy to this page
@@ -126,6 +132,16 @@ export struct CoconutWebPage {
           }
           return false;
         })
+        .onInterceptRequest((event) => {
+          if (event) {
+            const ctx = ComponentManager.getInstance().getSharedContext();
+            return CoconutOfflineResources.intercept(
+              event.request.getRequestUrl(),
+              ctx !== null ? ctx.context : null);
+          }
+          // null response = keep default loading (non-offline requests)
+          return null;
+        })
 
       // Loading indicator
       if (this.isLoading) {
@@ -195,8 +211,12 @@ export struct CoconutWebPage {
    * Load a new URL
    */
   loadUrl(url: string): void {
-    this.url = url;
-    this.webController.loadUrl(url);
+    const translated = CoconutOfflineResources.translateUrl(url);
+    if (translated !== url) {
+      Logger.d('CoconutWebPage', `Offline URL: ${url} -> ${translated}`);
+    }
+    this.url = translated;
+    this.webController.loadUrl(translated);
   }
 
   /**

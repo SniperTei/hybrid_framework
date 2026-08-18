@@ -18,6 +18,7 @@ struct Index {
   // ⚠️ dev server URL：Harmony 模拟器/真机不共享 Mac loopback，
   //    不能用 localhost/10.0.2.2，必须用 Mac 局域网 IP。IP 变了改这里。
   private readonly devServerUrl: string = 'http://192.168.112.128:5174/';
+  private readonly offlinePackageUrl: string = 'coconut://demo/index.html';
 
   private navPathStack: NavPathStack = new NavPathStack();
 
@@ -96,6 +97,19 @@ struct Index {
               .margin({ top: 16 })
               .onClick(() => {
                 this.targetUrl = this.devServerUrl;
+                this.showWebView = true;
+              })
+
+            // 离线包：coconut:// 统一入口（CoconutWebPage 内部翻译 + 拦截服务，
+            // 不依赖 dev server / 局域网 IP）
+            Button('打开离线包 (coconut://)')
+              .fontSize(18)
+              .width(200)
+              .height(50)
+              .backgroundColor('#F53F3F')
+              .margin({ top: 16 })
+              .onClick(() => {
+                this.targetUrl = this.offlinePackageUrl;
                 this.showWebView = true;
               })
 

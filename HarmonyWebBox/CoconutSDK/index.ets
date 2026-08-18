@@ -32,4 +32,5 @@ export { EventEmitter, JsExecutor } from './src/main/ets/event/EventEmitter'
 // Web Container
 export { CoconutWebPage } from './src/main/ets/web/CoconutWebPage'
 export { WebViewHelper } from './src/main/ets/web/WebViewHelper'
+export { CoconutOfflineResources } from './src/main/ets/web/CoconutOfflineResources'
 
