@@ -2,12 +2,13 @@
 
 本文件记录 Coconut Hybrid Framework 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased]
+## [3.3.0] - 2026-08-18
 
-离线包（方向 4a 最小版）：`coconut://` 统一 scheme，coconutWebBox vite 构建产物打包进 App 本地服务，三端沙箱覆盖层为热更新预留。**不含**动态更新（下载 / 版本比对 / 回滚）。架构详见 `ARCHITECTURE.md` §7。
+离线包（方向 4a 最小版）：`coconut://` 统一 scheme，coconutWebBox vite 构建产物打包进 App 本地服务，三端沙箱覆盖层为热更新预留。**不含**动态更新（下载 / 版本比对 / 回滚）。架构详见 `ARCHITECTURE.md` §7。三端 e2e 全过：iOS Run All 全序列 + scheme handler stop() 路径；Harmony / Android 模拟器 Run All 16/16 + 沙箱覆盖证明（adb push / run-as overlay → 生效 → 回落内置包）。
 
 ### Added
 
+- **Dialog 组件复活**（`cff5853`/`11d5ae3`/`f126161`，2026-08-15）：三端 `DialogComponent`（alert / confirm / toast / showLoading / hideLoading；prompt 不恢复——旧实现坏）。coconut.js v3.3.0 新增 `coconut.dialog` 命名空间；Run All 增至 16 项（+dialog.toast）。Android loading 弃 ProgressDialog 用 AlertDialog+ProgressBar；Harmony loading 真实现（openCustomDialog + ComponentContent）。契约移入 API_CONTRACT.md §4.4。
 - **H5 构建管线**（`67a0149`）：vite 相对 base + 无 hash 文件名 + `scripts/build-offline-package.sh`（构建 + manifest 生成 + 三端全量分发，`--check` CI 校验）。
 - **Android 离线包服务**（`9b7629a`）：`coconut://` 主帧翻译成 `file:///android_asset/coconut-web/…`，复用休眠的 `OfflineResourceManager` 拦截（沙箱 > assets）。
 - **iOS `CoconutSchemeHandler`**（`c413cfb`）：`WKURLSchemeHandler` 注册 `coconut` scheme，沙箱 > bundle 查找，in-flight task 守卫 stop() 后回调 crash。

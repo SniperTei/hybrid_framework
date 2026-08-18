@@ -4,7 +4,7 @@
 > H5 通过 `coconut.call(component, functionName, params, callback)` 调用，每个组件方法的「标准签名」以本文档为准。
 > 三端实现必须对齐到「标准签名」列；「现状差异」列记录当前漂移，用于追踪对齐进度。
 >
-> **当前协议版本：v3.2.0**（`component` + `function` 拆分、streaming 流式响应、`__coconutConfig` 注入）。
+> **当前协议版本：v3.3.0**（`component` + `function` 拆分、streaming 流式响应、`__coconutConfig` 注入）。
 
 ---
 
