@@ -2,6 +2,22 @@
 
 本文件记录 Coconut Hybrid Framework 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+离线包（方向 4a 最小版）：`coconut://` 统一 scheme，coconutWebBox vite 构建产物打包进 App 本地服务，三端沙箱覆盖层为热更新预留。**不含**动态更新（下载 / 版本比对 / 回滚）。架构详见 `ARCHITECTURE.md` §7。
+
+### Added
+
+- **H5 构建管线**（`67a0149`）：vite 相对 base + 无 hash 文件名 + `scripts/build-offline-package.sh`（构建 + manifest 生成 + 三端全量分发，`--check` CI 校验）。
+- **Android 离线包服务**（`9b7629a`）：`coconut://` 主帧翻译成 `file:///android_asset/coconut-web/…`，复用休眠的 `OfflineResourceManager` 拦截（沙箱 > assets）。
+- **iOS `CoconutSchemeHandler`**（`c413cfb`）：`WKURLSchemeHandler` 注册 `coconut` scheme，沙箱 > bundle 查找，in-flight task 守卫 stop() 后回调 crash。
+- **Harmony 离线包服务**（`5f419fd`）：主帧翻译成 `resource://rawfile/…` + `onInterceptRequest` 沙箱 > rawfile 服务（`CoconutOfflineResources`，13 个 Hypium 测试）。
+- 三端 bridge 安全豁免非 http(s) scheme（`8fcabf6`）：`coconut://` / `file://` / `resource://` 页面不走域名白名单。
+
+### Fixed
+
+- **module script 在离线 scheme 下被 CORS 拦截**（`7fa83d9`）：ES module 规范上永远走 CORS 模式请求，`file://` / `resource://` 的 null origin 必被拒（Harmony 真机抓到）。构建管线改 rollup iife 输出 + 剥 `type="module"` / `crossorigin` 属性，一次修三端。
+
 ## [3.2.0] - 2026-08-15
 
 SDK 成熟度补齐轮：lifecycle hooks + 能力探测 + TypeScript 类型。三端（iOS / Android / HarmonyOS）实现并对齐，全部通过端到端验证（Run All 15/15 × 3 平台）。

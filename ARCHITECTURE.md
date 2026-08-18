@@ -301,7 +301,59 @@ CoconutBridge.env.isNative   // 任一原生环境
 
 ---
 
-## 7. 关键 API 签名对照
+## 7. 离线包（coconut://）
+
+H5 构建产物打包进 App 本地服务，统一入口 `coconut://<moduleId>/<path>`（如 `coconut://demo/index.html`）。不依赖网络 / dev server / 局域网 IP。
+
+### 目录布局与构建
+
+```bash
+bash scripts/build-offline-package.sh          # 构建 + 分发三端
+bash scripts/build-offline-package.sh --check  # CI 校验三端一致性（drift exit 1）
+```
+
+构建产物（`coconutWebBox` vite build，**iife 格式 + classic script**）+ 生成的 `manifest.json`，全量重建分发到三端：
+
+| 平台 | 内置包位置 | 沙箱覆盖层（热更新预留） |
+|------|-----------|------------------------|
+| Android | `app/src/main/assets/coconut-web/<moduleId>/` | `filesDir/coconut_resources/<moduleId>/` |
+| iOS | SPM resource `CoconutSDK/.../Resources/coconut-web/<moduleId>/` | `Application Support/CoconutResources/<moduleId>/` |
+| Harmony | `entry/src/main/resources/rawfile/coconut-web/<moduleId>/` | `filesDir/coconut_resources/<moduleId>/` |
+
+`manifest.json`（Android `OfflineResourceManager` 解析器的超集）：
+
+```json
+{
+  "moduleId": "demo",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "files": ["index.html", "assets/index.js", "..."],
+  "md5": "<全部文件 md5 拼接后的 md5>",
+  "fileHashes": { "index.html": "…" }
+}
+```
+
+### 三端服务机制
+
+查找顺序三端一致：**沙箱覆盖层 → 内置包 → 404**（为热更新铺路）。
+
+- **Android**：`CoconutWebActivity.loadUrl()` 把 `coconut://` 翻译成 `file:///android_asset/coconut-web/…`，子资源走既有 `shouldInterceptRequest` 拦截 → `OfflineResourceManager`（沙箱 > assets）。自定义 scheme 主帧拦截在 Android WebView 不可靠，故走翻译。
+- **iOS**：`CoconutSchemeHandler`（`WKURLSchemeHandler`，注册 `coconut` scheme）。主帧 + 子资源全走 handler，无需翻译。in-flight task Set 守卫 `stop()` 后回调 crash。
+- **Harmony**：ArkWeb 无自定义 scheme 注册。`CoconutWebPage` 把主帧 `coconut://` 翻译成 `resource://rawfile/coconut-web/…`（内置 load 路径），`onInterceptRequest` 对两种 URL 形态做沙箱 > rawfile 服务（`CoconutOfflineResources`）。返回 null = 不拦截普通 http(s)。
+
+> **已知 scheme 偏差**：Harmony 主帧实际加载的是翻译后的 `resource://rawfile/…` URL（H5 里 `location.href` 可见）；Android 同理（`file:///android_asset/…`）。仅 iOS 主帧保持 `coconut://` 原样。
+
+### 关键约束：module script 与 null origin
+
+ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，而 `file://` / `resource://` 等离线 scheme 的 origin 是 `null` → 必被 CORS 拦截（与 `crossorigin` 属性无关）。因此构建管线强制 **rollup `format: 'iife'`**（CSS 转 JS 注入）+ 剥掉 vite 仍写入的 `type="module"` / `crossorigin` 属性（`build-offline-package.sh` 内 sed）。新增离线包入口时勿改回 ES module 输出。
+
+### 范围注记
+
+本轮**不含**动态更新：无下载 / 版本比对 / 回滚。沙箱覆盖层目录已就位（手工 `adb push` / `hdc file send` 放文件即可生效），下载与版本管理留给热更新轮次。
+
+---
+
+## 8. 关键 API 签名对照
 
 ### 初始化
 
@@ -329,7 +381,7 @@ CoconutBridge.env.isNative   // 任一原生环境
 
 ---
 
-## 8. 错误码命名空间
+## 9. 错误码命名空间
 
 | 段 | 含义 | 示例 |
 |----|------|------|
@@ -342,7 +394,7 @@ CoconutBridge.env.isNative   // 任一原生环境
 
 ---
 
-## 9. 相关文档
+## 10. 相关文档
 
 - [`API_CONTRACT.md`](./API_CONTRACT.md) — 三端 API 契约（组件方法签名、错误码、安全机制）
 - [`coconutWebBox/README.md`](./coconutWebBox/README.md) — H5 端 JS Bridge 用法
@@ -350,7 +402,7 @@ CoconutBridge.env.isNative   // 任一原生环境
 
 ---
 
-## 10. 设计原则
+## 11. 设计原则
 
 1. **三端对齐**：API 签名、错误码、安全机制三端必须一致（详见 `API_CONTRACT.md`）
 2. **SDK 纯净**：框架只放 Bridge / 安全 / ComponentManager；组件归 App 装配

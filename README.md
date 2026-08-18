@@ -73,6 +73,8 @@ open iOSWebBox.xcodeproj
 
 CoconutSDK 是内嵌的 SPM 包（`iOSWebBox/CoconutSDK/`），无需额外配置。组件在 `iOSWebBox/iOSWebBox/Components/` 下，注册在 `SceneDelegate.swift`。
 
+离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。
+
 ### 3. Android（Android Studio + Gradle）
 
 ```bash
@@ -84,6 +86,8 @@ cd AndroidWebBox
 
 集成到自己的 Android 项目见 [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md)。
 
+离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。
+
 ### 4. HarmonyOS NEXT（DevEco Studio）
 
 需要 DevEco Studio + HarmonyOS 模拟器或真机。
@@ -94,6 +98,8 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 ```
 
 或用 DevEco Studio 打开 `HarmonyWebBox/` 直接 Run。组件在 `entry/src/main/ets/components/`，注册在 `pages/Index.ets`。
+
+离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。
 
 ---
 
