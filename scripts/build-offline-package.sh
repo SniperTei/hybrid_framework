@@ -90,6 +90,16 @@ mkdir -p "$PKG_DIR"
 cp -R "$H5_DIR/dist/." "$PKG_DIR/"
 find "$PKG_DIR" -name '.DS_Store' -delete
 
+# vite 即使在 iife 输出下仍给入口 script 写 type="module" crossorigin；
+# module script 规范上永远走 CORS 模式请求，而离线 scheme（resource:// 等）
+# origin 为 null → 必被网络层拒绝。剥成 classic script 走 no-cors 本地加载。
+# 必须在 manifest 哈希之前。
+sed -i '' -e 's/ crossorigin//g' -e 's/ type="module"//g' "$PKG_DIR/index.html"
+if grep -qE 'crossorigin|type="module"' "$PKG_DIR/index.html"; then
+  errlog "✗ Failed to strip module/crossorigin attrs from index.html"
+  exit 2
+fi
+
 cd "$PKG_DIR"
 MANIFEST_FILES_JSON=""
 FILE_HASHES_JSON=""

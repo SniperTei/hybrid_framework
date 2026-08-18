@@ -2,7 +2,7 @@
   "moduleId": "demo",
   "version": "1.0.0",
   "entry": "index.html",
-  "files": ["assets/index.css","assets/index.js","coconut.d.ts","coconut.js","coconut.min.js","favicon.svg","icons.svg","index.html"],
-  "md5": "19ce57230188fef96f5f7336b1c35502",
-  "fileHashes": {"assets/index.css":"5341ef451855c7d7b34eeaae5aff9481","assets/index.js":"353d69bc93719fdf79823fd73b80fe97","coconut.d.ts":"b5f4b9d07f58a8c901b7910f0e508850","coconut.js":"e9ecb198afb52bc447a5aa901414cf30","coconut.min.js":"70cc66a222af8f90f7b120055bca80e8","favicon.svg":"7e840862161341271697daa99a40d76b","icons.svg":"3b4fcfcf393eca4d264dca4a4663bc37","index.html":"a7c4cd39bf9f5970997400c1e628b85a"}
+  "files": ["assets/index.js","coconut.d.ts","coconut.js","coconut.min.js","favicon.svg","icons.svg","index.html"],
+  "md5": "dfad150b7c865e94ceca5d8b67970d32",
+  "fileHashes": {"assets/index.js":"c2207794c728770fc259044c00472cda","coconut.d.ts":"b5f4b9d07f58a8c901b7910f0e508850","coconut.js":"e9ecb198afb52bc447a5aa901414cf30","coconut.min.js":"70cc66a222af8f90f7b120055bca80e8","favicon.svg":"7e840862161341271697daa99a40d76b","icons.svg":"3b4fcfcf393eca4d264dca4a4663bc37","index.html":"fcb89a4cf1dd303d4001387cf16a2f34"}
 }
