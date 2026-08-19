@@ -28,14 +28,15 @@ hybrid_framework/
 ├── coconutWebBox/         # H5 SDK：coconut.js（JS Bridge 客户端）
 ├── iOSWebBox/             # iOS 宿主 App + CoconutSDK SPM 包
 │   ├── CoconutSDK/        # SPM 包（框架）
-│   └── iOSWebBox/         # 宿主 App（持有 3 个组件：device / storage / event）
+│   └── iOSWebBox/         # 宿主 App（持有 4 个组件：device / storage / event / dialog）
 ├── AndroidWebBox/         # Android 宿主 App + CoconutSDK Gradle 模块
 │   ├── coconut-core/      # 核心库（Bridge / Component / Security）
 │   ├── coconut-sdk/       # SDK 入口 + WebView 封装
-│   └── app/               # 宿主 App（持有 3 个组件：device / storage / event）
+│   └── app/               # 宿主 App（持有 4 个组件：device / storage / event / dialog）
 ├── HarmonyWebBox/         # HarmonyOS 宿主 App + CoconutSDK HAR
 │   ├── CoconutSDK/        # HAR 库（框架）
-│   └── entry/             # HAP 宿主 App（持有 3 个组件：device / storage / event）
+│   ├── CoconutNetwork/    # 独立 HTTP 引擎 HAR（@coconut/network，零依赖，可单独使用）
+│   └── entry/             # HAP 宿主 App（持有 5 个组件：device / storage / event / dialog / network）
 ├── ARCHITECTURE.md        # 三端架构对照（详细模块图 / Bridge / 安全管线）
 └── API_CONTRACT.md        # 三端 API 契约（组件方法签名、错误码、安全机制）
 ```
@@ -99,7 +100,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 或用 DevEco Studio 打开 `HarmonyWebBox/` 直接 Run。组件在 `entry/src/main/ets/components/`，注册在 `pages/Index.ets`。
 
-离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 须用 Mac 局域网 IP）。
+离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 须用 Mac 局域网 IP）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network`（`CoconutNetwork/`，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
 
 ---
 
@@ -109,7 +110,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 |------|------|--------|------|
 | iOS | XCTest | 102 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
 | Android | JUnit (JVM) | 113 | `./gradlew :coconut-core:testDebugUnitTest` |
-| Harmony | Hypium (on-device) | 156 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
+| Harmony | Hypium (on-device) | 225 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
 
