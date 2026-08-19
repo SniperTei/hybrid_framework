@@ -2,6 +2,28 @@
 
 本文件记录 Coconut Hybrid Framework 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+热更新（离线包续集）：逐文件下载 + 版本比对 + 原子切换 + 回滚，三端对齐。`checkUpdate / performUpdate / rollback` 三 API，native demo 按钮触发，无 H5 bridge 组件、无进度回调。架构详见 `ARCHITECTURE.md` §7。
+
+### Added
+
+- **Android**（`a2a57af`/`8bcb417`）：`OfflineResourceManager` 新增更新 API + 22 个 JVM 测试（compareVersions / 路径守卫 / md5 向量 / staging swap / rollback 真值表）。
+- **iOS**（`b1dbba5`/`82f75b1`）：`CoconutUpdateManager.swift`（CryptoKit MD5）+ 15 个 XCTest；HomeViewController 检查更新 / 回滚按钮。
+- **Harmony**（`7d7152c`/`9d90203`）：`CoconutUpdateManager.ets` + 19 个 Hypium 测试；Index.ets 按钮 + manifest URL 输入框（须 Mac 局域网 IP）。
+- **e2e fixture**：`scripts/serve-hot-update.sh`（bump 1.0.1 + 注 marker + 重算哈希；`--corrupt` 篡改哈希供失败路径）。
+- 三端 demo 按钮入口（检查更新可用即自动下载应用 / 回滚到内置版本）。
+
+### Changed
+
+- 删除 Android 休眠的 zip 热更新路径（`dd30092`）—— 单一机制（逐文件），git 可找回。
+
+### Fixed
+
+- Harmony manifest 解析不容忍 pretty-print JSON（`"key": "value"` 带空格）→ 空白容忍正则 + 回归测试（e2e 抓到，单测漏网）。
+- Harmony `fileIo.mkdirSync` 目标已存在时抛 "File exists"（recursive=true 也抛）→ 全部建目录走守卫 `ensureDir`，否则 performUpdate 首个根级文件即失败、version.json 永不落盘（e2e 抓到）。
+- Harmony `cryptoFramework` MD5 在部分模拟器镜像 HUKS 层失败 → 纯 JS RFC 1321 实现（已知向量钉死）。
+
 ## [3.3.0] - 2026-08-18
 
 离线包（方向 4a 最小版）：`coconut://` 统一 scheme，coconutWebBox vite 构建产物打包进 App 本地服务，三端沙箱覆盖层为热更新预留。**不含**动态更新（下载 / 版本比对 / 回滚）。架构详见 `ARCHITECTURE.md` §7。三端 e2e 全过：iOS Run All 全序列 + scheme handler stop() 路径；Harmony / Android 模拟器 Run All 16/16 + 沙箱覆盖证明（adb push / run-as overlay → 生效 → 回落内置包）。

@@ -73,7 +73,7 @@ open iOSWebBox.xcodeproj
 
 CoconutSDK 是内嵌的 SPM 包（`iOSWebBox/CoconutSDK/`），无需额外配置。组件在 `iOSWebBox/iOSWebBox/Components/` 下，注册在 `SceneDelegate.swift`。
 
-离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。
+离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`）。
 
 ### 3. Android（Android Studio + Gradle）
 
@@ -86,7 +86,7 @@ cd AndroidWebBox
 
 集成到自己的 Android 项目见 [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md)。
 
-离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。
+离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`）。
 
 ### 4. HarmonyOS NEXT（DevEco Studio）
 
@@ -99,7 +99,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 或用 DevEco Studio 打开 `HarmonyWebBox/` 直接 Run。组件在 `entry/src/main/ets/components/`，注册在 `pages/Index.ets`。
 
-离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。
+离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 须用 Mac 局域网 IP）。
 
 ---
 
@@ -107,9 +107,9 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
-| iOS | XCTest | 74 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
-| Android | JUnit (JVM) | 71 | `./gradlew :coconut-core:testDebugUnitTest` |
-| Harmony | Hypium (on-device) | 122 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
+| iOS | XCTest | 102 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
+| Android | JUnit (JVM) | 113 | `./gradlew :coconut-core:testDebugUnitTest` |
+| Harmony | Hypium (on-device) | 156 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
 

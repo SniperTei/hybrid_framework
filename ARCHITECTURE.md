@@ -347,9 +347,27 @@ bash scripts/build-offline-package.sh --check  # CI 校验三端一致性（drif
 
 ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，而 `file://` / `resource://` 等离线 scheme 的 origin 是 `null` → 必被 CORS 拦截（与 `crossorigin` 属性无关）。因此构建管线强制 **rollup `format: 'iife'`**（CSS 转 JS 注入）+ 剥掉 vite 仍写入的 `type="module"` / `crossorigin` 属性（`build-offline-package.sh` 内 sed）。新增离线包入口时勿改回 ES module 输出。
 
-### 范围注记
+### 热更新（逐文件下载 + 原子切换 + 回滚）
 
-本轮**不含**动态更新：无下载 / 版本比对 / 回滚。沙箱覆盖层目录已就位（手工 `adb push` / `hdc file send` 放文件即可生效），下载与版本管理留给热更新轮次。
+三端管理器语义一致：Android `OfflineResourceManager`（coconut-core）、iOS `CoconutUpdateManager.swift`、Harmony `CoconutUpdateManager.ets`。触发方式为 native demo 按钮（检查更新 / 回滚），暂无 H5 bridge 组件、无进度回调。
+
+**版本持久化**：`<沙箱根>/version.json` = `{"<moduleId>": "<version>"}`。当前版本 = max(沙箱 version.json, 内置包 manifest version)，缺失视为 0.0.0。
+
+**checkUpdate(moduleId, manifestUrl)**：GET manifest → 解析 → `available = compareVersions(remote, current) > 0`。manifest 解析宽容（未知字段忽略、pretty-print 容忍）；网络/解析失败返回 `error`，不抛异常。
+
+**performUpdate(manifest, baseUrl)**：
+1. 校验：files 非空；每个文件必须有 fileHashes 条目（缺失即拒，fail-closed）；路径过 `isSafePackagePath`（拒 `..` 段 / 前导 `/` / `\` / 空段）
+2. 逐文件：下载 → md5 比对（小写 hex）→ 匹配写 `.staging_<moduleId>/`；任何失败 → 递归删 staging 返回失败，**旧版本原封不动**
+3. 全过 → 原子切换：删模块目录 → rename staging → 写 version.json
+
+**rollback(moduleId)**：递归删沙箱模块目录 + 删 version.json 条目 → 回落内置包。
+
+**e2e fixture**：`scripts/serve-hot-update.sh` 拷内置 demo 包 → bump 1.0.1 + 注入 `<div>HOT UPDATE v1.0.1</div>` marker + 重算哈希，`python3 -m http.server 8000`。flags：`--corrupt`（篡改 index.html 哈希供失败路径验证）/ `--quiet`。注意模拟器网络：Android 用 `10.0.2.2`、iOS sim 用 `localhost`、Harmony 必须用 Mac 局域网 IP。
+
+**平台注记**：
+- Harmony `fileIo.mkdirSync` 在目标已存在时抛 "File exists"（recursive=true 也一样）——所有建目录走守卫过的 `ensureDir`
+- Harmony `cryptoFramework` MD5 在部分模拟器镜像上 HUKS 层失败 → 纯 JS RFC 1321 实现（已知向量测试钉死正确性）
+- Android rollback 后重建内存版本 map（内置版本 re-merge）
 
 ---
 
