@@ -19,9 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * Manages H5 resources:
  * - Loads from assets (bundled with APK) as baseline
- * - Supports hot update: download zip → extract to sandbox → serve from sandbox
+ * - Serves sandbox overlay over bundled assets (coconut:// scheme)
  * - Version management: local version vs remote version
- * - MD5 integrity check
  */
 class OfflineResourceManager(private val context: Context) {
 
@@ -48,16 +47,6 @@ class OfflineResourceManager(private val context: Context) {
         val version: String = "0.0.0",
         val files: List<String> = emptyList(),
         val md5: String = ""
-    )
-
-    @Serializable
-    data class UpdateInfo(
-        val moduleId: String = "",
-        val version: String = "",
-        val downloadUrl: String = "",
-        val md5: String = "",
-        val fileSize: Long = 0,
-        val releaseNotes: String = ""
     )
 
     // ---- Init ----
@@ -180,137 +169,37 @@ class OfflineResourceManager(private val context: Context) {
         }
     }
 
-    // ---- Hot Update ----
-
-    /**
-     * Download and apply a resource update
-     *
-     * @param updateInfo Update info from server
-     * @param onProgress Progress callback (0-100)
-     * @return true if update applied successfully
-     */
-    suspend fun applyUpdate(
-        updateInfo: UpdateInfo,
-        onProgress: ((Int) -> Unit)? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            Logger.i(TAG, "Downloading update: ${updateInfo.moduleId} v${updateInfo.version}")
-
-            // 1. Download zip to temp
-            val tempFile = File(context.cacheDir, "update_${updateInfo.moduleId}.zip")
-            val downloaded = downloadFile(updateInfo.downloadUrl, tempFile, onProgress)
-            if (!downloaded) {
-                Logger.e(TAG, "Download failed")
-                return@withContext false
-            }
-
-            // 2. MD5 check
-            if (updateInfo.md5.isNotEmpty()) {
-                val actualMd5 = calculateMD5(tempFile)
-                if (actualMd5 != updateInfo.md5) {
-                    Logger.e(TAG, "MD5 mismatch: expected=${updateInfo.md5}, actual=$actualMd5")
-                    tempFile.delete()
-                    return@withContext false
-                }
-            }
-
-            // 3. Extract to sandbox
-            val moduleDir = File(resourceDir, updateInfo.moduleId)
-            if (moduleDir.exists()) {
-                moduleDir.deleteRecursively()
-            }
-            moduleDir.mkdirs()
-
-            extractZip(tempFile, moduleDir)
-
-            // 4. Update version
-            localVersions[updateInfo.moduleId] = updateInfo.version
-            saveVersions()
-
-            // 5. Cleanup temp
-            tempFile.delete()
-
-            Logger.i(TAG, "Update applied: ${updateInfo.moduleId} v${updateInfo.version}")
-            true
-        } catch (e: Exception) {
-            Logger.e(TAG, "Failed to apply update", e)
-            false
-        }
-    }
-
-    /**
-     * Check for updates by comparing local version with remote
-     */
-    fun needsUpdate(moduleId: String, remoteVersion: String): Boolean {
-        val local = localVersions[moduleId] ?: "0.0.0"
-        return compareVersions(remoteVersion, local) > 0
-    }
-
     // ---- Helpers ----
 
-    private suspend fun downloadFile(
-        urlStr: String,
-        targetFile: File,
-        onProgress: ((Int) -> Unit)?
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 15000
-            connection.readTimeout = 30000
+    internal suspend fun downloadToFile(urlStr: String, targetFile: File): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = URL(urlStr)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
 
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                return@withContext false
-            }
-
-            val contentLength = connection.contentLength.toLong()
-            var bytesRead = 0L
-
-            connection.inputStream.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    val buffer = ByteArray(8192)
-                    var read: Int
-                    while (input.read(buffer).also { read = it } != -1) {
-                        output.write(buffer, 0, read)
-                        bytesRead += read
-                        if (contentLength > 0 && onProgress != null) {
-                            val progress = ((bytesRead * 100) / contentLength).toInt()
-                            onProgress(progress)
-                        }
-                    }
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    return@withContext false
                 }
-            }
-            true
-        } catch (e: Exception) {
-            Logger.e(TAG, "Download error: $urlStr", e)
-            false
-        }
-    }
 
-    private fun extractZip(zipFile: File, targetDir: File) {
-        java.util.zip.ZipInputStream(zipFile.inputStream()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val outFile = File(targetDir, entry.name)
-                if (entry.isDirectory) {
-                    outFile.mkdirs()
-                } else {
-                    outFile.parentFile?.mkdirs()
-                    FileOutputStream(outFile).use { fos ->
+                connection.inputStream.use { input ->
+                    FileOutputStream(targetFile).use { output ->
                         val buffer = ByteArray(8192)
-                        var len: Int
-                        while (zis.read(buffer).also { len = it } > 0) {
-                            fos.write(buffer, 0, len)
+                        var read: Int
+                        while (input.read(buffer).also { read = it } != -1) {
+                            output.write(buffer, 0, read)
                         }
                     }
                 }
-                zis.closeEntry()
-                entry = zis.nextEntry
+                true
+            } catch (e: Exception) {
+                Logger.e(TAG, "Download error: $urlStr", e)
+                false
             }
         }
-    }
 
-    private fun calculateMD5(file: File): String {
+    internal fun calculateMD5(file: File): String {
         val md = MessageDigest.getInstance("MD5")
         file.inputStream().use { fis ->
             val buffer = ByteArray(8192)
