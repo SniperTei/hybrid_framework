@@ -30,6 +30,13 @@
       text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
     }
     .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+    .net-input {
+      width: 100%; height: 40px; margin-bottom: 10px; padding: 0 12px;
+      font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace;
+      border: 1px solid #dcdfe6; border-radius: 8px; background: #fff; color: #1f2329;
+      outline: none;
+    }
+    .net-input:focus { border-color: #3370ff; }
     button {
       flex: 1; min-width: calc(50% - 5px); height: 46px;
       font-size: 15px; border: none; border-radius: 10px;
@@ -97,6 +104,17 @@
       <button class="btn-d" onclick="onSubscribe()">订阅 test.echo</button>
       <button class="btn-d" onclick="onEcho()">Echo（500ms 后回推）</button>
       <button class="btn-c" onclick="onUnsubscribe()">取消订阅</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Network 组件（Harmony 先行，走 native HTTP）</h2>
+    <input id="netUrl" class="net-input" value="http://192.168.3.49:8000/manifest.json">
+    <div class="btns">
+      <button class="btn-a" onclick="onNetGet()">GET</button>
+      <button class="btn-b" onclick="onNetPost()">POST (501 反例)</button>
+      <button class="btn-d" onclick="onNetType()">getNetworkType</button>
+      <button class="btn-g" onclick="onNetSubscribe()">订阅 network.change</button>
     </div>
   </section>
 
@@ -249,6 +267,35 @@
       coconut.call('dialog', 'hideLoading', {}, function (err, data) {
         setResponseView(err, data);
       });
+    }
+
+    // ---------- Network（Harmony 先行） ----------
+    function onNetGet() {
+      var params = { url: document.getElementById('netUrl').value, method: 'GET', timeoutMs: 10000 };
+      setRequestView('network', 'request', params);
+      coconut.call('network', 'request', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNetPost() {
+      var params = { url: document.getElementById('netUrl').value, method: 'POST', body: { hello: 'world' }, timeoutMs: 10000 };
+      setRequestView('network', 'request', params);
+      coconut.call('network', 'request', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNetType() {
+      setRequestView('network', 'getNetworkType', {});
+      coconut.call('network', 'getNetworkType', {}, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNetSubscribe() {
+      setRequestView('event', 'on', { topic: 'network.change' });
+      coconut.on('network.change', function (data) {
+        setEventView({ stage: 'event received', topic: 'network.change', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'network.change' });
     }
   </script>
 </body>

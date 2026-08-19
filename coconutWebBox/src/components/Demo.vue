@@ -30,7 +30,7 @@
       <h2>端到端验证</h2>
       <div class="btns">
         <button class="btn-r" style="flex-basis: 100%" @click="runAll" :disabled="running">
-          {{ running ? '运行中...' : '🧪 Run All Tests (16 项)' }}
+          {{ running ? '运行中...' : '🧪 Run All Tests' }}
         </button>
       </div>
       <div v-if="runAllResults.length > 0" class="panel">
@@ -40,6 +40,7 @@
             <span class="run-icon">
               <span v-if="r.status === 'pass'">✅</span>
               <span v-else-if="r.status === 'fail'">❌</span>
+              <span v-else-if="r.status === 'skip'">⏭</span>
               <span v-else>⏳</span>
             </span>
             <div class="run-body">
@@ -88,6 +89,22 @@
         <button class="btn-d" @click="eventOn" :disabled="loading">订阅 test.echo</button>
         <button class="btn-d" @click="eventEcho" :disabled="loading">触发 echo</button>
         <button class="btn-c" @click="eventOff" :disabled="loading">取消订阅</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>🌐 Network 组件（Harmony 先行，走 native HTTP）</h2>
+      <input v-model="netUrl" class="net-input" placeholder="http://<Mac-IP>:8000/manifest.json" />
+      <div class="btns">
+        <button class="btn-a" @click="netRequestGet" :disabled="loading">GET</button>
+        <button class="btn-b" @click="netRequestPost" :disabled="loading">POST (501 反例)</button>
+        <button class="btn-d" @click="netGetNetworkType" :disabled="loading">getNetworkType</button>
+        <button class="btn-g" @click="netSubscribeChange">订阅 network.change</button>
+      </div>
+      <div v-if="netLogs.length === 0" class="hint" style="margin-top:8px">订阅后切换模拟器 Wi-Fi / 开关飞行模式，可看到 network.change 推送（去重）。</div>
+      <div v-for="(log, idx) in netLogs" :key="idx" class="event-item">
+        <div class="event-time">{{ log.time }}</div>
+        <pre class="ok">{{ log.payload }}</pre>
       </div>
     </section>
 
@@ -212,6 +229,8 @@ const capabilityChecks = computed(() => {
     { label: 'event.echo',         value: c.supports('event', 'echo') },
     { label: 'dialog.alert',       value: c.supports('dialog', 'alert') },
     { label: 'dialog.showLoading', value: c.supports('dialog', 'showLoading') },
+    { label: 'network.request',    value: c.supports('network', 'request') },
+    { label: 'network.getNetworkType', value: c.supports('network', 'getNetworkType') },
     { label: 'foo.bar (missing)',  value: c.supports('foo', 'bar') }
   ]
 })
@@ -392,6 +411,38 @@ async function runAll() {
   await sleep(1500)
   c.duration = 0
   finishCheck(c, !echoReceived, echoReceived ? 'FAIL: event leaked through' : 'no event received')
+
+  // ---------- Network (Harmony-only this round; skip elsewhere) ----------
+  if (window.coconut.supports && window.coconut.supports('network', 'request')) {
+    c = startCheck('Network.request GET → success:true (需 serve-hot-update.sh)', 'err=null, success=true')
+    t0 = performance.now()
+    r = await pcall('network', 'request', { url: netUrl.value, method: 'GET', timeoutMs: 10000 })
+    c.duration = Math.round(performance.now() - t0)
+    finishCheck(c, !r.err && r.data && r.data.success === true,
+      r.err ? `err ${r.err.code}: ${r.err.message}` :
+        `success=${r.data && r.data.success}, httpStatus=${r.data && r.data.httpStatus}`)
+
+    c = startCheck('Network.request POST → 业务层失败 (success:false)', 'success=false')
+    t0 = performance.now()
+    r = await pcall('network', 'request',
+      { url: netUrl.value, method: 'POST', body: { hello: 'world' }, timeoutMs: 10000 })
+    c.duration = Math.round(performance.now() - t0)
+    finishCheck(c, !r.err && r.data && r.data.success === false,
+      r.err ? `err ${r.err.code}: ${r.err.message}` :
+        `success=${r.data && r.data.success}, httpStatus=${r.data && r.data.httpStatus}`)
+
+    c = startCheck('Network.getNetworkType → type 合法', 'wifi/cellular/ethernet/none/unknown')
+    t0 = performance.now()
+    r = await pcall('network', 'getNetworkType', {})
+    c.duration = Math.round(performance.now() - t0)
+    const netType = r.data && r.data.type
+    finishCheck(c, !r.err && ['wifi', 'cellular', 'ethernet', 'none', 'unknown'].includes(netType),
+      r.err ? `err ${r.err.code}` : `type=${netType}, online=${r.data && r.data.online}`)
+  } else {
+    c = startCheck('Network 组件（skip）', 'skip on iOS/Android this round')
+    c.status = 'skip'
+    c.actual = 'coconut.supports("network") = false'
+  }
 
   running.value = false
 }
@@ -574,6 +625,53 @@ function eventOff() {
   setResponse(null, { topic: 'test.echo', subscribed: false })
 }
 
+// ---- Network ----
+const netUrl = ref('http://192.168.3.49:8000/manifest.json')
+const netLogs = ref([])
+
+function netRequestGet() {
+  withLoading((done) => {
+    const params = { url: netUrl.value, method: 'GET', timeoutMs: 10000 }
+    setRequest('network', 'request', params)
+    window.coconut.call('network', 'request', params, (err, data) => {
+      setResponse(err, data)
+      done()
+    })
+  })
+}
+
+function netRequestPost() {
+  withLoading((done) => {
+    const params = { url: netUrl.value, method: 'POST', body: { hello: 'world' }, timeoutMs: 10000 }
+    setRequest('network', 'request', params)
+    window.coconut.call('network', 'request', params, (err, data) => {
+      setResponse(err, data)
+      done()
+    })
+  })
+}
+
+function netGetNetworkType() {
+  withLoading((done) => {
+    setRequest('network', 'getNetworkType', {})
+    window.coconut.call('network', 'getNetworkType', {}, (err, data) => {
+      setResponse(err, data)
+      done()
+    })
+  })
+}
+
+function netSubscribeChange() {
+  if (!window.coconut.handlers['network.change']) {
+    window.coconut.on('network.change', (data) => {
+      const time = new Date().toLocaleTimeString()
+      netLogs.value.unshift({ time, payload: JSON.stringify(data, null, 2) })
+      if (netLogs.value.length > 5) netLogs.value.pop()
+    })
+  }
+  setResponse(null, { topic: 'network.change', subscribed: true, note: '切换网络后观察推送' })
+}
+
 // ---- Lifecycle ----
 const lifecycleLogs = ref([])
 
@@ -633,6 +731,13 @@ section > h2 {
   text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
 }
 .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.net-input {
+  width: 100%; box-sizing: border-box; height: 40px; margin-bottom: 10px;
+  padding: 0 12px; font-size: 13px; font-family: "SF Mono", Menlo, monospace;
+  border: 1px solid #dcdfe6; border-radius: 8px; background: #fff; color: #1f2329;
+  outline: none;
+}
+.net-input:focus { border-color: #3370ff; }
 button {
   flex: 1; min-width: calc(50% - 5px); height: 46px;
   font-size: 15px; border: none; border-radius: 10px;
@@ -672,6 +777,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 }
 .run-row.pass { background: #f0fff4; }
 .run-row.fail { background: #fff5f5; }
+.run-row.skip { background: #f7f8fa; opacity: .75; }
 .run-row.running { background: #fffbe6; }
 .run-icon { font-size: 16px; line-height: 1.4; flex-shrink: 0; }
 .run-body { flex: 1; min-width: 0; }
