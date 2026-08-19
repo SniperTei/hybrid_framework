@@ -1,4 +1,5 @@
-import { CoconutSDK, CoconutWebPage } from '@coconut/sdk';
+import { CoconutSDK, CoconutWebPage, CoconutUpdateManager } from '@coconut/sdk';
+import { promptAction } from '@kit.ArkUI';
 import { DeviceComponent } from '../components/DeviceComponent';
 import { DialogComponent } from '../components/DialogComponent';
 import { EventComponent } from '../components/EventComponent';
@@ -19,6 +20,9 @@ struct Index {
   //    不能用 localhost/10.0.2.2，必须用 Mac 局域网 IP。IP 变了改这里。
   private readonly devServerUrl: string = 'http://192.168.112.128:5174/';
   private readonly offlinePackageUrl: string = 'coconut://demo/index.html';
+  // 热更新 manifest URL：同 devServerUrl 的限制 —— 模拟器不共享 Mac loopback，
+  // 必须用 Mac 局域网 IP（scripts/serve-hot-update.sh 默认起在 8000 端口）
+  @State manifestUrl: string = 'http://192.168.112.128:8000/manifest.json';
 
   private navPathStack: NavPathStack = new NavPathStack();
 
@@ -46,6 +50,35 @@ struct Index {
       new EventComponent(),
       new DialogComponent()
     ]);
+  }
+
+  private async checkHotUpdate(): Promise<void> {
+    const check = await CoconutUpdateManager.checkUpdate('demo', this.manifestUrl);
+    if (check.error !== null) {
+      promptAction.showToast({ message: `检查失败: ${check.error}`, duration: 3000 });
+      return;
+    }
+    if (!check.available || check.manifest === null) {
+      promptAction.showToast({ message: `无更新，当前版本 ${check.currentVersion}` });
+      return;
+    }
+    const baseUrl = this.manifestUrl.substring(0, this.manifestUrl.lastIndexOf('/'));
+    const result = await CoconutUpdateManager.performUpdate(check.manifest, baseUrl);
+    if (result.success) {
+      promptAction.showToast({ message: `更新成功: ${check.currentVersion} → ${result.version}`, duration: 3000 });
+    } else {
+      promptAction.showToast({ message: `更新失败: ${result.error ?? 'unknown'}`, duration: 3000 });
+    }
+  }
+
+  private async rollbackHotUpdate(): Promise<void> {
+    const ok = await CoconutUpdateManager.rollback('demo');
+    if (ok) {
+      const version = CoconutUpdateManager.currentVersion('demo');
+      promptAction.showToast({ message: `已回滚，内置版本 ${version}`, duration: 3000 });
+    } else {
+      promptAction.showToast({ message: '回滚失败，见日志', duration: 3000 });
+    }
   }
 
   @Builder
@@ -111,6 +144,35 @@ struct Index {
               .onClick(() => {
                 this.targetUrl = this.offlinePackageUrl;
                 this.showWebView = true;
+              })
+
+            // 热更新（对标 iOS/Android demo）：检查更新（可用则自动下载+应用）/ 回滚
+            TextInput({ text: this.manifestUrl, placeholder: 'manifest URL' })
+              .fontSize(14)
+              .width(320)
+              .height(44)
+              .margin({ top: 24 })
+              .onChange((value: string) => {
+                this.manifestUrl = value;
+              })
+
+            Button('检查热更新')
+              .fontSize(18)
+              .width(200)
+              .height(44)
+              .backgroundColor('#0095FF')
+              .margin({ top: 12 })
+              .onClick(() => {
+                this.checkHotUpdate();
+              })
+
+            Button('回滚到内置版本')
+              .fontSize(18)
+              .width(200)
+              .height(44)
+              .margin({ top: 8 })
+              .onClick(() => {
+                this.rollbackHotUpdate();
               })
 
             Button('人脸识别弹窗')

@@ -3,7 +3,6 @@ import { fileIo } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
 import { util } from '@kit.ArkTS';
 import { ComponentManager } from '../component/ComponentManager';
-import { JsonParser } from '../utils/JsonHelper';
 import { Logger } from '../utils/Logger';
 
 /**
@@ -80,14 +79,14 @@ export class CoconutUpdateManager {
 
     const stagingDir = `${rootDir}/.staging_${manifest.moduleId}`;
     CoconutUpdateManager.removeDir(stagingDir);
-    fileIo.mkdirSync(stagingDir, true);
+    CoconutUpdateManager.ensureDir(stagingDir);
 
     try {
       for (let i = 0; i < manifest.files.length; i++) {
         const file = manifest.files[i];
         const target = `${stagingDir}/${file}`;
         const parentDir = target.substring(0, target.lastIndexOf('/'));
-        fileIo.mkdirSync(parentDir, true);
+        CoconutUpdateManager.ensureDir(parentDir);
         const data = await CoconutUpdateManager.downloadBytes(
           CoconutUpdateManager.joinUrl(baseUrl, file));
         if (data === null) {
@@ -195,7 +194,7 @@ export class CoconutUpdateManager {
   }
 
   private static copyTree(srcDir: string, destDir: string): void {
-    fileIo.mkdirSync(destDir, true);
+    CoconutUpdateManager.ensureDir(destDir);
     const entries = fileIo.listFileSync(srcDir);
     for (let i = 0; i < entries.length; i++) {
       const name = `${entries[i]}`;
@@ -246,6 +245,16 @@ export class CoconutUpdateManager {
     }
   }
 
+  private static ensureDir(path: string): void {
+    try {
+      fileIo.mkdirSync(path, true);
+    } catch (e) {
+      // mkdirSync throws "File exists" even with recursive=true (device
+      // pitfall — caught by e2e, not unit tests). Real failures (permission
+      // etc.) surface at the subsequent openSync/listFileSync call.
+    }
+  }
+
   // ---- version.json persistence ----
 
   static readSandboxVersions(rootDir: string): Map<string, string> {
@@ -288,7 +297,7 @@ export class CoconutUpdateManager {
     });
     const json = `{${pairs.join(',')}}`;
     try {
-      fileIo.mkdirSync(rootDir, true);
+      CoconutUpdateManager.ensureDir(rootDir);
       const file = fileIo.openSync(`${rootDir}/${CoconutUpdateManager.VERSION_FILE}`,
         fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC);
       try {
@@ -558,10 +567,12 @@ export class RemoteManifest {
       return null;
     }
     const manifest = new RemoteManifest();
-    manifest.moduleId = JsonParser.getString(json, 'moduleId', '');
-    manifest.version = JsonParser.getString(json, 'version', '');
-    manifest.entry = JsonParser.getString(json, 'entry', '');
-    manifest.md5 = JsonParser.getString(json, 'md5', '');
+    // Whitespace-tolerant lookup: real servers pretty-print manifests
+    // ("key": "value"), unlike the compact wire JSON JsonParser targets.
+    manifest.moduleId = RemoteManifest.getString(json, 'moduleId');
+    manifest.version = RemoteManifest.getString(json, 'version');
+    manifest.entry = RemoteManifest.getString(json, 'entry');
+    manifest.md5 = RemoteManifest.getString(json, 'md5');
 
     // files: ["a","b", ...]
     const filesIdx = json.indexOf('"files":');
@@ -608,6 +619,17 @@ export class RemoteManifest {
       return null;
     }
     return manifest;
+  }
+
+  private static getString(json: string, key: string): string {
+    // Matches `"key"<ws>:<ws>"value"` — tolerant of pretty-printed JSON.
+    const match = json.match(new RegExp(`"${key}"\\s*:\\s*"`));
+    if (match === null) {
+      return '';
+    }
+    const valueStart = (match.index ?? 0) + match[0].length;
+    const valueEnd = json.indexOf('"', valueStart);
+    return valueEnd === -1 ? '' : json.substring(valueStart, valueEnd);
   }
 }
 

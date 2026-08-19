@@ -190,6 +190,24 @@ export default function coconutUpdateManagerTest() {
       }
     });
 
+    it('parse_prettyPrintedJson', 0, () => {
+      // Real fixture servers (serve-hot-update.sh) pretty-print with spaces
+      // after colons — naive `"key":"` extraction misses those.
+      const json = '{\n  "moduleId": "demo",\n  "version": "1.0.1",\n'
+        + '  "entry": "index.html",\n  "files": ["index.html", "js/app.js"],\n'
+        + '  "md5": "pkg",\n  "fileHashes": {"index.html": "aa", "js/app.js": "bb"}\n}';
+      const manifest = RemoteManifest.parse(json);
+      expect(manifest !== null).assertTrue();
+      if (manifest !== null) {
+        expect(manifest.moduleId).assertEqual('demo');
+        expect(manifest.version).assertEqual('1.0.1');
+        expect(manifest.entry).assertEqual('index.html');
+        expect(manifest.files.length).assertEqual(2);
+        expect(manifest.files[1]).assertEqual('js/app.js');
+        expect(manifest.fileHashes.get('js/app.js')).assertEqual('bb');
+      }
+    });
+
     it('parse_emptyOrGarbageReturnsNull', 0, () => {
       expect(RemoteManifest.parse('')).assertNull();
       expect(RemoteManifest.parse('   ')).assertNull();
