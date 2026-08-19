@@ -33,4 +33,5 @@ export { EventEmitter, JsExecutor } from './src/main/ets/event/EventEmitter'
 export { CoconutWebPage } from './src/main/ets/web/CoconutWebPage'
 export { WebViewHelper } from './src/main/ets/web/WebViewHelper'
 export { CoconutOfflineResources } from './src/main/ets/web/CoconutOfflineResources'
+export { CoconutUpdateManager, RemoteManifest, UpdateCheckResult, UpdateResult } from './src/main/ets/web/CoconutUpdateManager'
 

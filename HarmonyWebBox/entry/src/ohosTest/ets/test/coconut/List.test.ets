@@ -13,6 +13,7 @@ import componentExceptionTest from './component/ComponentException.test';
 import environmentTest from './config/Environment.test';
 import eventEmitterTest from './event/EventEmitter.test';
 import coconutOfflineResourcesTest from './web/CoconutOfflineResources.test';
+import coconutUpdateManagerTest from './web/CoconutUpdateManager.test';
 
 export default function testsuite() {
   errorCodeTest();
@@ -30,4 +31,5 @@ export default function testsuite() {
   environmentTest();
   eventEmitterTest();
   coconutOfflineResourcesTest();
+  coconutUpdateManagerTest();
 }
