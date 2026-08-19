@@ -132,4 +132,49 @@ export class JsonParser {
     }
     return '{}';
   }
+
+  /**
+   * List top-level keys of a JSON object string.
+   *
+   * Whitespace-tolerant char scan (avoids the compact-only `"key":` pitfall):
+   * skips string contents entirely, so braces inside string values
+   * (e.g. "url":"http://x/{y}") do not break depth tracking.
+   * Only keys at depth 1 (direct children) are returned.
+   */
+  static getKeys(objJson: string): string[] {
+    const keys: string[] = [];
+    let depth = 0;
+    let i = 0;
+    while (i < objJson.length) {
+      const ch = objJson[i];
+      if (ch === '"' && depth >= 1) {
+        // scan the whole string, then decide if it is a key (followed by ':')
+        let j = i + 1;
+        const startIdx = j;
+        while (j < objJson.length && objJson[j] !== '"') {
+          if (objJson[j] === '\\') {
+            j++; // skip escaped char
+          }
+          j++;
+        }
+        let k = j + 1;
+        while (k < objJson.length &&
+          (objJson[k] === ' ' || objJson[k] === '\n' || objJson[k] === '\t' || objJson[k] === '\r')) {
+          k++;
+        }
+        if (depth === 1 && objJson[k] === ':') {
+          keys.push(objJson.substring(startIdx, j));
+        }
+        i = j + 1;
+        continue;
+      }
+      if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+      }
+      i++;
+    }
+    return keys;
+  }
 }

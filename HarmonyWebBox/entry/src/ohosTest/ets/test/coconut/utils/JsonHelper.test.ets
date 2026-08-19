@@ -91,6 +91,35 @@ export default function jsonHelperTest() {
       it('getObject_missingKey_returnsEmptyBraces', 0, () => {
         expect(JsonParser.getObject('{"a":1}', 'b')).assertEqual('{}');
       });
+
+      it('getKeys_compactJson', 0, () => {
+        const keys = JsonParser.getKeys('{"url":"http://x","method":"GET","timeoutMs":500}');
+        expect(keys.join(',')).assertEqual('url,method,timeoutMs');
+      });
+
+      it('getKeys_prettyPrintedJson_isWhitespaceTolerant', 0, () => {
+        const pretty = '{\n  "a": "1",\n  "b": {\n    "c": "2"\n  }\n}';
+        expect(JsonParser.getKeys(pretty).join(',')).assertEqual('a,b');
+      });
+
+      it('getKeys_onlyTopLevel_nestedKeysExcluded', 0, () => {
+        const keys = JsonParser.getKeys('{"outer":{"inner1":1,"inner2":2},"top":3}');
+        expect(keys.join(',')).assertEqual('outer,top');
+      });
+
+      it('getKeys_bracesInsideStringValues_doNotBreakDepth', 0, () => {
+        const keys = JsonParser.getKeys('{"url":"http://x/{y}/z","ok":true}');
+        expect(keys.join(',')).assertEqual('url,ok');
+      });
+
+      it('getKeys_colonInsideStringValue_isNotAKey', 0, () => {
+        const keys = JsonParser.getKeys('{"note":"a: b","real":"c"}');
+        expect(keys.join(',')).assertEqual('note,real');
+      });
+
+      it('getKeys_emptyObject_returnsEmpty', 0, () => {
+        expect(JsonParser.getKeys('{}').length).assertEqual(0);
+      });
     });
   });
 }

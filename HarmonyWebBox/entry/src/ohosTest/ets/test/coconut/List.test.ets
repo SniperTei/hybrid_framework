@@ -10,6 +10,7 @@ import securityAuditLogTest from './bridge/SecurityAuditLog.test';
 import baseComponentTest from './component/BaseComponent.test';
 import componentManagerTest from './component/ComponentManager.test';
 import componentExceptionTest from './component/ComponentException.test';
+import networkComponentTest from './component/NetworkComponent.test';
 import environmentTest from './config/Environment.test';
 import eventEmitterTest from './event/EventEmitter.test';
 import coconutOfflineResourcesTest from './web/CoconutOfflineResources.test';
@@ -33,6 +34,7 @@ export default function testsuite() {
   baseComponentTest();
   componentManagerTest();
   componentExceptionTest();
+  networkComponentTest();
   environmentTest();
   eventEmitterTest();
   coconutOfflineResourcesTest();

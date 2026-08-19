@@ -3,6 +3,7 @@ import { promptAction } from '@kit.ArkUI';
 import { DeviceComponent } from '../components/DeviceComponent';
 import { DialogComponent } from '../components/DialogComponent';
 import { EventComponent } from '../components/EventComponent';
+import { NetworkComponent } from '../components/NetworkComponent';
 import { StorageComponent } from '../components/StorageComponent';
 import { VerifyDialog, VerifyDialogConfig } from '../components/VerifyDialog';
 import { SecondPage } from './SecondPage';
@@ -48,7 +49,8 @@ struct Index {
       new DeviceComponent(),
       new StorageComponent(),
       new EventComponent(),
-      new DialogComponent()
+      new DialogComponent(),
+      new NetworkComponent()
     ]);
   }
 
