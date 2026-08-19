@@ -195,7 +195,7 @@ public final class CoconutUpdateManager: Sendable {
             .appendingPathComponent(sandboxRootName, isDirectory: true)
     }
 
-    func currentVersion(moduleId: String) -> String {
+    public func currentVersion(moduleId: String) -> String {
         var current = "0.0.0"
         for v in [sandboxVersions()[moduleId], bundledManifestVersion(moduleId: moduleId)].compactMap({ $0 }) {
             if Self.compareVersions(v, current) > 0 { current = v }

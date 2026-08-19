@@ -57,6 +57,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 } else {
                     window.rootViewController = HomeViewController()
                 }
+
+                // Debug-only hot-update e2e hooks (same spirit as COCONUT_URL):
+                //   COCONUT_UPDATE_URL=<manifest url>  → check + auto-apply for module "demo"
+                //   COCONUT_ROLLBACK=1                 → rollback module "demo"
+                // Production builds never set these.
+                if let updateUrl = env["COCONUT_UPDATE_URL"], !updateUrl.isEmpty {
+                    Task {
+                        let check = await CoconutUpdateManager.shared.checkUpdate(moduleId: "demo", manifestUrl: updateUrl)
+                        print("[E2E] checkUpdate: available=\(check.available) current=\(check.currentVersion) remote=\(check.remoteVersion) error=\(check.error ?? "nil")")
+                        guard check.available, let manifest = check.manifest else { return }
+                        let baseUrl = (updateUrl as NSString).deletingLastPathComponent
+                        let result = await CoconutUpdateManager.shared.performUpdate(manifest: manifest, baseUrl: baseUrl)
+                        print("[E2E] performUpdate: success=\(result.success) version=\(result.version) error=\(result.error ?? "nil")")
+                    }
+                }
+                if env["COCONUT_ROLLBACK"] == "1" {
+                    Task {
+                        let ok = await CoconutUpdateManager.shared.rollback(moduleId: "demo")
+                        let version = CoconutUpdateManager.shared.currentVersion(moduleId: "demo")
+                        print("[E2E] rollback: success=\(ok) version=\(version)")
+                    }
+                }
             }
         }
     }

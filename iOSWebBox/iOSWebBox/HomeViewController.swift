@@ -11,6 +11,8 @@ import CoconutSDK
 
 class HomeViewController: UIViewController {
 
+    private var manifestUrlField: UITextField!
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -71,6 +73,28 @@ class HomeViewController: UIViewController {
         openOfflineBtn.addTarget(self, action: #selector(openOfflinePackage), for: .touchUpInside)
         view.addSubview(openOfflineBtn)
 
+        // ---- 热更新 manifest URL 输入框 ----
+        manifestUrlField = UITextField()
+        manifestUrlField.text = "http://localhost:8000/manifest.json"
+        manifestUrlField.font = .systemFont(ofSize: 13)
+        manifestUrlField.borderStyle = .roundedRect
+        manifestUrlField.autocapitalizationType = .none
+        manifestUrlField.autocorrectionType = .no
+        manifestUrlField.keyboardType = .URL
+        manifestUrlField.textAlignment = .center
+        manifestUrlField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(manifestUrlField)
+
+        // ---- 按钮 4：检查热更新 ----
+        let checkUpdateBtn = makeButton(title: "检查热更新", primary: false)
+        checkUpdateBtn.addTarget(self, action: #selector(checkHotUpdate), for: .touchUpInside)
+        view.addSubview(checkUpdateBtn)
+
+        // ---- 按钮 5：回滚到内置版本 ----
+        let rollbackBtn = makeButton(title: "回滚到内置版本", primary: false)
+        rollbackBtn.addTarget(self, action: #selector(rollbackHotUpdate), for: .touchUpInside)
+        view.addSubview(rollbackBtn)
+
         // ---- 版本信息 ----
         let versionLabel = UILabel()
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -109,6 +133,21 @@ class HomeViewController: UIViewController {
             openOfflineBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
             openOfflineBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             openOfflineBtn.heightAnchor.constraint(equalToConstant: 56),
+
+            manifestUrlField.topAnchor.constraint(equalTo: openOfflineBtn.bottomAnchor, constant: 24),
+            manifestUrlField.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            manifestUrlField.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            manifestUrlField.heightAnchor.constraint(equalToConstant: 36),
+
+            checkUpdateBtn.topAnchor.constraint(equalTo: manifestUrlField.bottomAnchor, constant: 12),
+            checkUpdateBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            checkUpdateBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            checkUpdateBtn.heightAnchor.constraint(equalToConstant: 48),
+
+            rollbackBtn.topAnchor.constraint(equalTo: checkUpdateBtn.bottomAnchor, constant: 8),
+            rollbackBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            rollbackBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            rollbackBtn.heightAnchor.constraint(equalToConstant: 48),
 
             versionLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
             versionLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -157,6 +196,56 @@ class HomeViewController: UIViewController {
         presentWebVC(with: "coconut://demo/index.html")
     }
 
+    // MARK: - 热更新（对标 Android checkHotUpdate / rollbackHotUpdate）
+
+    /// 检查热更新；有更新则自动下载 + 应用
+    @objc private func checkHotUpdate() {
+        view.endEditing(true)
+        let manifestUrl = (manifestUrlField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !manifestUrl.isEmpty else {
+            showAlert(title: "热更新", message: "Manifest URL 为空")
+            return
+        }
+        showAlert(title: "热更新", message: "检查更新中...")
+        Task { @MainActor in
+            let check = await CoconutUpdateManager.shared.checkUpdate(moduleId: "demo", manifestUrl: manifestUrl)
+            if let error = check.error {
+                showAlert(title: "检查失败", message: error)
+                return
+            }
+            guard check.available, let manifest = check.manifest else {
+                showAlert(title: "无更新", message: "当前版本 \(check.currentVersion)")
+                return
+            }
+            let baseUrl = manifestUrl.substringBeforeLastSlash()
+            let result = await CoconutUpdateManager.shared.performUpdate(manifest: manifest, baseUrl: baseUrl)
+            if result.success {
+                showAlert(title: "更新成功", message: "\(check.currentVersion) → \(result.version)")
+            } else {
+                showAlert(title: "更新失败", message: result.error ?? "unknown error")
+            }
+        }
+    }
+
+    /// 回滚到内置离线包
+    @objc private func rollbackHotUpdate() {
+        Task { @MainActor in
+            let ok = await CoconutUpdateManager.shared.rollback(moduleId: "demo")
+            if ok {
+                let version = CoconutUpdateManager.shared.currentVersion(moduleId: "demo")
+                showAlert(title: "已回滚", message: "回落内置版本 v\(version)")
+            } else {
+                showAlert(title: "回滚失败", message: "见日志")
+            }
+        }
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
     private func presentWebVC(with urlString: String) {
         let webVC = CoconutWebViewController()
         webVC.enableDebug = true
@@ -188,5 +277,12 @@ class HomeViewController: UIViewController {
 
     @objc private func dismissWebVC() {
         presentedViewController?.dismiss(animated: true)
+    }
+}
+
+private extension String {
+    func substringBeforeLastSlash() -> String {
+        guard let idx = lastIndex(of: "/") else { return self }
+        return String(self[..<idx])
     }
 }
