@@ -6,7 +6,8 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "@coconut/sdk": "file:../CoconutSDK"
+    "@coconut/sdk": "file:../CoconutSDK",
+    "@coconut/network": "file:../CoconutNetwork"
   }
 }
 

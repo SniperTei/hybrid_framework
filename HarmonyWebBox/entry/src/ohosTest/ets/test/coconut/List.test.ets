@@ -14,6 +14,11 @@ import environmentTest from './config/Environment.test';
 import eventEmitterTest from './event/EventEmitter.test';
 import coconutOfflineResourcesTest from './web/CoconutOfflineResources.test';
 import coconutUpdateManagerTest from './web/CoconutUpdateManager.test';
+import urlGuardTest from './network/UrlGuard.test';
+import httpErrorTest from './network/HttpError.test';
+import httpRequestTest from './network/HttpRequest.test';
+import callTest from './network/Call.test';
+import mockInterceptorTest from './network/MockInterceptor.test';
 
 export default function testsuite() {
   errorCodeTest();
@@ -32,4 +37,9 @@ export default function testsuite() {
   eventEmitterTest();
   coconutOfflineResourcesTest();
   coconutUpdateManagerTest();
+  urlGuardTest();
+  httpErrorTest();
+  httpRequestTest();
+  callTest();
+  mockInterceptorTest();
 }

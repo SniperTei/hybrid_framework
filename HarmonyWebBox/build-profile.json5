@@ -63,6 +63,18 @@
           ]
         }
       ]
+    },
+    {
+      "name": "CoconutNetwork",
+      "srcPath": "./CoconutNetwork",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
     }
   ]
 }
