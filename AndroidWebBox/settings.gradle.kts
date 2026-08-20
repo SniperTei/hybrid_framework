@@ -23,3 +23,4 @@ rootProject.name = "AndroidWebBox"
 include(":app")
 include(":coconut-core")
 include(":coconut-sdk")
+include(":coconut-network")

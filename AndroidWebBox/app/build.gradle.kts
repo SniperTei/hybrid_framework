@@ -47,6 +47,9 @@ dependencies {
     // Coconut SDK
     implementation(project(":coconut-sdk"))
 
+    // Coconut Network engine (pure JVM HTTP library)
+    implementation(project(":coconut-network"))
+
     // AndroidX libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
