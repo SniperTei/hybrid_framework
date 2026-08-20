@@ -27,6 +27,7 @@ Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTT
 
 ### Fixed
 
+- **Harmony NetworkComponent 真机全废**（2026-08-20 真机验证抓到，模拟器未暴露）：`hasDefaultNet`/`getDefaultNet`/`getNetCapabilities` 是 ACL 权限 API，debug profile 的 `allowed-acls` 不背书时恒抛 201（被静默 catch 吞掉 → `getNetworkType` 恒报 `none`）——之前记录的"模拟器怪癖"实为同一 bug。修复：改为 `NetConnection` 事件流驱动（register/netAvailable/netLost/netCapabilitiesChange 不受 ACL 限制，宿主无需申 ACL），拉取式 API 仅作冷启动兜底（保留 error 日志可诊断）；`netAvailable` 延迟 150ms 合并推送防双发；补 `netLost` 监听（部分版本断网不触发 `netUnavailable`）；`module.json5` 补声明 `GET_NETWORK_INFO`。真机（MatePad Pro / HarmonyOS 6.1）验证：getNetworkType 报真实 bearer + 断网/重连双向推送；Hypium 225/225。
 - Harmony manifest 解析不容忍 pretty-print JSON（`"key": "value"` 带空格）→ 空白容忍正则 + 回归测试（e2e 抓到，单测漏网）。
 - Harmony `fileIo.mkdirSync` 目标已存在时抛 "File exists"（recursive=true 也抛）→ 全部建目录走守卫 `ensureDir`，否则 performUpdate 首个根级文件即失败、version.json 永不落盘（e2e 抓到）。
 - Harmony `cryptoFramework` MD5 在部分模拟器镜像 HUKS 层失败 → 纯 JS RFC 1321 实现（已知向量钉死）。

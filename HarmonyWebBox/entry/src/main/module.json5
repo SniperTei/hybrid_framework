@@ -50,6 +50,11 @@
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
+      },
+      {
+        // hasDefaultNet / getDefaultNet / getNetCapabilities / NetConnection
+        // 注册都需要；缺失时抛 201 被 catch 吞掉 → getNetworkType 恒报 none
+        "name": "ohos.permission.GET_NETWORK_INFO"
       }
     ]
   }

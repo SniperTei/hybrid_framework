@@ -317,7 +317,7 @@ coconut.dialog.hideLoading((err, data) => {});
 | 方法 | params | returns | 说明 |
 |---|---|---|---|
 | `request` | `url*`, `method`('GET' 默认 / 'POST' / 'PUT' / 'DELETE'), `headers`{string:string}, `params`(query), `body`(对象，raw JSON string 直通), `timeoutMs`(connect+read 共用) | `{success, httpStatus, code, msg, data, headers, costTime, message}` | 缺 url / 未知 method / 守卫拦截 → `200007` |
-| `getNetworkType` | — | `{type:'wifi'|'cellular'|'ethernet'|'none'|'unknown', online, success}` | Harmony `hasDefaultNet`+`getNetCapabilities`；Android `ConnectivityManager.activeNetwork` + `NetworkCapabilities` bearer 映射 |
+| `getNetworkType` | — | `{type:'wifi'|'cellular'|'ethernet'|'none'|'unknown', online, success}` | Harmony 读 NetConnection 事件流缓存（`netCapabilitiesChange` bearer 映射；拉取式 `hasDefaultNet`/`getNetCapabilities` 是 ACL 权限 API，仅冷启动兜底）；Android `ConnectivityManager.activeNetwork` + `NetworkCapabilities` bearer 映射 |
 
 **envelope 语义**：body 是 JSON object 且含 `code` 字段 → 按业务 envelope 解析（`000000` = 成功）；非 envelope 的 2xx JSON（如静态 manifest.json）→ `data` 直通 + 补 `code:'000000'`。HTTP ≥400 / 业务 code 非 000000 → bridge `000000` + result `success:false`（业务层失败约定，**不走** bridge error code）。
 
@@ -329,11 +329,16 @@ coconut.dialog.hideLoading((err, data) => {});
 
 **method 白名单刻意只有 4 个**（GET/POST/PUT/DELETE）；PATCH/HEAD 等后续轮次再加。
 
-**network.change 事件**：Harmony `NetConnection`（netAvailable / netUnavailable / netCapabilitiesChange）；Android `ConnectivityManager.registerDefaultNetworkCallback`（onAvailable / onLost / onCapabilitiesChanged）→ `eventEmitter.emit('network.change', {type, online})`，按 `type|online` 组合键去重防刷屏；`onCleanup` unregister。H5 用 `coconut.on('network.change', cb)` 订阅（复用 §4.3 event 通道，coconut.js 零改动）。⚠️ 模拟器连接栈怪癖：Harmony HTTP 可用但 `hasDefaultNet()`=false → type 恒报 `none`；Android 模拟器常报 `ethernet`（虚拟 NAT）。两端推送语义验证均建议真机。
+**network.change 事件**：Harmony `NetConnection`（netAvailable / netUnavailable / **netLost** / netCapabilitiesChange，netAvailable 延迟 150ms 合并推送防双发）；Android `ConnectivityManager.registerDefaultNetworkCallback`（onAvailable / onLost / onCapabilitiesChanged）→ `eventEmitter.emit('network.change', {type, online})`，按 `type|online` 组合键去重防刷屏；`onCleanup` unregister。H5 用 `coconut.on('network.change', cb)` 订阅（复用 §4.3 event 通道，coconut.js 零改动）。✅ 2026-08-20 真机（MatePad Pro / HarmonyOS 6.1）验证通过：断网推 `none|false`、重连推 `wifi|true`。Android 模拟器常报 `ethernet`（虚拟 NAT，正常）。
+
+**Harmony 权限注意**（真机验证踩坑，2026-08-20）：
+- `module.json5` 需声明 `ohos.permission.GET_NETWORK_INFO`（`hasDefaultNet`/`getDefaultNet`/`getNetCapabilities`/`NetConnection.register` 均要求）
+- 该权限是 **ACL 权限**：debug 签名 profile 的 `allowed-acls` 不背书时，**拉取式 API（hasDefaultNet 等）真机/模拟器均抛 201**；`NetConnection` 事件流（register + netAvailable/netLost/netCapabilitiesChange）不受影响 → 组件已改为事件流驱动，宿主**无需**申 ACL 即可使用全部功能（拉取仅作冷启动兜底，抛 201 时有 error 日志可诊断）
+- HarmonyOS 部分版本断网时 `netUnavailable` 不触发，`netLost` 会触发 → 两个都监听
 
 **限制**：响应按 JSON 解析（Harmony `expectDataType OBJECT` / Android adapter 统一 JsonElement），非 JSON body 在 http 层抛错 → surface 为 NETWORK_ERROR 业务失败；upload/download/流式进度下轮。
 
-**平台**：Harmony + Android（2026-08-20 起，Demo Run All 19/19）。iOS 落地前 H5 用 `coconut.supports('network','request')` gating（Demo Run All 显示 skip 行）。
+**平台**：Harmony + Android（2026-08-20 起三端 e2e 全过：Android 模拟器 Run All 19/19；Harmony 真机 getNetworkType + network.change 双向推送）。iOS 落地前 H5 用 `coconut.supports('network','request')` gating（Demo Run All 显示 skip 行）。
 
 ---
 

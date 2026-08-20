@@ -37,6 +37,13 @@ export class NetworkComponent extends BaseComponent {
   private client: HttpClient;
   private netConn: connection.NetConnection | null = null;
   private lastStateKey: string = '';
+  // Cached state from the NetConnection event stream. Pull APIs
+  // (hasDefaultNet/getDefaultNet/getNetCapabilities) throw 201 unless the
+  // signing profile carries the GET_NETWORK_INFO ACL — events don't, so they
+  // are the source of truth; the pull path remains only as cold-start fallback.
+  private cachedType: string = 'unknown';
+  private cachedOnline: boolean = false;
+  private hasCachedState: boolean = false;
 
   constructor(client?: HttpClient) {
     super();
@@ -69,16 +76,31 @@ export class NetworkComponent extends BaseComponent {
     }
     this.netConn = connection.createNetConnection();
     this.netConn.on('netAvailable', () => {
-      this.pushCurrentState();
+      console.debug('[NetworkComponent] event: netAvailable');
+      this.cachedOnline = true;
+      this.hasCachedState = true;
+      // Coalesce: the netCapabilitiesChange that follows within ms refines
+      // the bearer; the deferred emit dedups against it (single push).
+      setTimeout(() => {
+        this.updateCacheAndEmit(
+          this.cachedType === 'none' ? 'unknown' : this.cachedType, true);
+      }, 150);
     });
     this.netConn.on('netUnavailable', () => {
-      this.emitState('none', false);
+      console.debug('[NetworkComponent] event: netUnavailable');
+      this.updateCacheAndEmit('none', false);
+    });
+    this.netConn.on('netLost', () => {
+      // Some HarmonyOS builds deliver netLost instead of netUnavailable
+      // when the default network dies (observed on real device)
+      console.debug('[NetworkComponent] event: netLost');
+      this.updateCacheAndEmit('none', false);
     });
     this.netConn.on('netCapabilitiesChange',
       (data: connection.NetCapabilityInfo) => {
         // NB: this SDK calls the field `netCap` (docs say netCapabilities)
-        const type = NetworkComponent.bearerToType(data.netCap.bearerTypes);
-        this.emitState(type, true);
+        this.updateCacheAndEmit(
+          NetworkComponent.bearerToType(data.netCap.bearerTypes), true);
       });
     this.netConn.register(() => {
     });
@@ -91,6 +113,9 @@ export class NetworkComponent extends BaseComponent {
       this.netConn = null;
     }
     this.lastStateKey = '';
+    this.cachedType = 'unknown';
+    this.cachedOnline = false;
+    this.hasCachedState = false;
   }
 
   /**
@@ -166,12 +191,21 @@ export class NetworkComponent extends BaseComponent {
 
   /**
    * getNetworkType → {type: wifi|cellular|ethernet|none|unknown, online, success}
+   *
+   * Served from the cached event-stream state; the pull path runs only when
+   * no NetConnection event has arrived yet (before register's first callback).
    */
   private async getNetworkTypeHandler(): Promise<string> {
-    const status = await NetworkComponent.fetchNetworkType();
+    let type = this.cachedType;
+    let online = this.cachedOnline;
+    if (!this.hasCachedState) {
+      const status = await NetworkComponent.fetchNetworkType();
+      type = status.type;
+      online = status.online;
+    }
     const builder = new JsonObject();
-    builder.put('type', status.type);
-    builder.putBool('online', status.online);
+    builder.put('type', type);
+    builder.putBool('online', online);
     builder.putBool('success', true);
     return this.success(builder);
   }
@@ -186,9 +220,13 @@ export class NetworkComponent extends BaseComponent {
     return map;
   }
 
-  private async pushCurrentState(): Promise<void> {
-    const status = await NetworkComponent.fetchNetworkType();
-    this.emitState(status.type, status.online);
+  /** Update the cached event-stream state, then emit (deduped) */
+  private updateCacheAndEmit(type: string, online: boolean): void {
+    console.debug(`[NetworkComponent] state → ${type}|${online}`);
+    this.cachedType = type;
+    this.cachedOnline = online;
+    this.hasCachedState = true;
+    this.emitState(type, online);
   }
 
   /** Emit network.change, deduped on type|online (first emit carries initial state) */
@@ -208,11 +246,17 @@ export class NetworkComponent extends BaseComponent {
     ctx.eventEmitter.emit(NETWORK_TOPIC_CHANGE, builder.build());
   }
 
+  /**
+   * Cold-start fallback only — pulls via hasDefaultNet/getDefaultNet, which
+   * throw 201 unless the signing profile carries the GET_NETWORK_INFO ACL.
+   * Never silently swallow: log so a missing ACL is diagnosable.
+   */
   private static async fetchNetworkType(): Promise<NetworkStatus> {
     const status = new NetworkStatus();
     try {
       status.online = await connection.hasDefaultNet();
     } catch (e) {
+      console.error(`[NetworkComponent] hasDefaultNet failed: ${JSON.stringify(e)}`);
       status.online = false;
     }
     if (!status.online) {
@@ -225,6 +269,7 @@ export class NetworkComponent extends BaseComponent {
       const caps = await connection.getNetCapabilities(net);
       status.type = NetworkComponent.bearerToType(caps.bearerTypes);
     } catch (e) {
+      console.error(`[NetworkComponent] getDefaultNet failed: ${JSON.stringify(e)}`);
       status.type = 'unknown';
     }
     return status;
