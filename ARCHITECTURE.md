@@ -10,9 +10,9 @@
 ```
 ┌──────────────────────────────────────────────────────────┐
 │              H5 (coconutWebBox / coconut.js)              │
-│            CoconutBridge.call('device.getInfo')           │
+│        coconut.call('device', 'getInfo', params, cb)      │
 └────────────────────────┬─────────────────────────────────┘
-                         │ JSON-RPC 2.0
+                         │ 类 JSON-RPC（v3 wire 协议）
                          ▼
 ┌──────────────┬─────────────────┬────────────────────────┐
 │    iOS       │     Android     │      HarmonyOS         │
@@ -27,9 +27,9 @@
 └──────────────┴─────────────────┴────────────────────────┘
 ```
 
-通信协议：JSON-RPC 2.0
-- 请求：`{ jsonrpc:'2.0', method:'组件.方法', params:{...}, id, bridgeToken }`
-- 响应：`{ jsonrpc:'2.0', id, code:'000000', message, result:'<JSON字符串>' }`
+通信协议：类 JSON-RPC（无版本字段，主版本号 = `coconut.env.hybridVersion` = `"3"`；v3.1.0 起 `method` 拆成顶级 `component` + `function` 两个字段）
+- 请求：`{ component:'storage', function:'setItem', params:{...}, id, bridgeToken }`
+- 响应：`{ id, code:'000000', message, result:'<JSON字符串或对象>' }`（流式响应带 `streaming:true`，详见 `API_CONTRACT.md` §0）
 
 ---
 
@@ -43,7 +43,14 @@ AndroidWebBox/
 │   └── com/sniper/coconut/
 │       ├── bridge/      # CoconutBridge, 安全管线
 │       ├── component/   # ComponentManager, BaseComponent, ComponentContext
+│       ├── resource/    # OfflineResourceManager（离线包 + 热更新）
 │       └── utils/
+├── coconut-network/     # 独立网络引擎（纯 Kotlin JVM 库，零 Android 依赖）
+│   └── com/sniper/coconut/network/
+│       ├── HttpClient / Call / HttpRequest / HttpResponse
+│       ├── adapter/     # HttpURLConnectionAdapter（默认）+ OkHttpAdapter
+│       ├── guard/       # UrlGuard（SSRF 防护）
+│       └── interceptors/  # Log / Mock
 ├── coconut-sdk/         # SDK 入口 + WebView 封装（不含组件）
 │   └── com/sniper/coconut/
 │       ├── CoconutSDK.kt
@@ -52,10 +59,7 @@ AndroidWebBox/
 └── app/                 # 宿主 App（持有全部组件源码）
     └── com/sniper/androidwebbox/
         ├── WebBoxApplication.kt   # 在此显式注册组件
-        └── components/            # 14 个框架组件 + 业务组件
-            ├── device/ network/ storage/ system/ ...
-            ├── camera/ mytest/
-            └── LoginComponent.kt  # 业务组件示例
+        └── components/            # 5 个组件：device / storage / event / dialog / network
 ```
 
 ### iOS
@@ -70,10 +74,11 @@ iOSWebBox/
 │       └── CoconutWebViewController.swift
 └── iOSWebBox/                           # 宿主 App
     ├── SceneDelegate.swift              # 在此显式注册组件
-    └── Components/                      # 14 个组件（不属于 SPM）
+    └── Components/                      # 4 个组件（不属于 SPM；network 未落地）
         ├── DeviceComponent.swift
-        ├── ClipboardComponent.swift
-        └── ...
+        ├── StorageComponent.swift
+        ├── EventComponent.swift
+        └── DialogComponent.swift
 ```
 
 ### HarmonyOS
@@ -85,17 +90,19 @@ HarmonyWebBox/
 │       ├── bridge/                # CoconutBridgeImpl, SecurityValidator, ...
 │       ├── component/             # ComponentManager, BaseComponent, CoconutPlugin
 │       ├── config/
-│       ├── web/                   # CoconutWebPage
+│       ├── web/                   # CoconutWebPage, CoconutUpdateManager（热更新）
 │       └── utils/
+├── CoconutNetwork/                # 独立网络引擎 HAR @coconut/network（零依赖）
+│   └── src/main/ets/
+│       ├── HttpClient / Call / HttpRequest / HttpResponse
+│       ├── adapter/               # HarmonyHttpAdapter（默认），可插拔
+│       ├── guard/                 # UrlGuard（SSRF 防护）
+│       └── interceptors/          # Log / Mock
 └── entry/                         # HAP：宿主 App（持有全部组件源码）
     └── src/main/ets/
         ├── entryability/EntryAbility.ets
         ├── pages/Index.ets        # 在此显式注册组件
-        └── components/            # 14 个组件（13 通用 + Camera）+ 业务 UI
-            ├── DeviceComponent.ets
-            ├── ...
-            ├── CameraComponent.ets
-            └── ui/                # CameraComponent 的 @Builder 弹窗
+        └── components/            # 5 个组件：device / storage / event / dialog / network
 ```
 
 ### 模块拆分原则（三端一致）
@@ -104,9 +111,12 @@ HarmonyWebBox/
 |----|------|---------|-----|---------|
 | **框架** | Bridge / 安全 / ComponentManager | coconut-core | CoconutSDK SPM | CoconutSDK HAR |
 | **SDK 入口** | 初始化 + WebView 封装 | coconut-sdk | CoconutSDK SPM | CoconutSDK HAR |
+| **独立引擎库** | 可脱离 SDK 复用的领域能力（如网络） | coconut-network（Kotlin JVM） | ❌ 未落地 | CoconutNetwork HAR |
 | **全部组件** | 框架组件 + 业务组件 | app/ | iOSWebBox/ | entry/ |
 
 > 三端统一：CoconutSDK 只放框架（Bridge / ComponentManager / 安全管线），**不含任何具体组件**。每个集成 CoconutSDK 的工程根据自己业务写组件，App 工程同时持有"通用参考组件"和"业务组件"，通过显式注册决定启用哪些。
+>
+> 独立引擎库（先例：CoconutNetwork）不依赖 CoconutSDK，纯 native 项目可直接集成；组件层（如 NetworkComponent）负责把它桥接到 H5 bridge。
 
 ---
 
@@ -137,8 +147,11 @@ HarmonyWebBox/
 CoconutSDK.initialize(this)
 CoconutSDK.configure { setDebugMode(true); setEnvironment(DEV) }
 CoconutSDK.registerComponents(
-    DeviceComponent(), NetworkComponent(), StorageComponent(),
-    // ... 共 15 个
+    DeviceComponent(),      // 设备信息
+    StorageComponent(),     // 本地存储
+    EventComponent(),       // 事件订阅
+    DialogComponent(),      // 原生弹窗
+    NetworkComponent()      // 网络请求 + 状态推送
 )
 ```
 
@@ -146,16 +159,22 @@ CoconutSDK.registerComponents(
 // iOS SceneDelegate.swift
 await CoconutSDK.initialize()
 await CoconutSDK.registerComponents([
-    DeviceComponent(), NetworkComponent(), StorageComponent(),
-    // ... 共 14 个
+    DeviceComponent(),
+    StorageComponent(),
+    EventComponent(),
+    DialogComponent(),
+    // NetworkComponent 未落地（组件矩阵见 API_CONTRACT.md §1）
 ])
 ```
 
 ```typescript
 // Harmony Index.ets
 CoconutSDK.registerComponents([
-    new DeviceComponent(), new StorageComponent(), new SystemComponent(),
-    // ... 共 14 个
+  new DeviceComponent(),
+  new StorageComponent(),
+  new EventComponent(),
+  new DialogComponent(),
+  new NetworkComponent()
 ])
 ```
 
@@ -247,16 +266,16 @@ H5 发起 call(component.method, params, bridgeToken)
 
 ```
 [H5]
-  CoconutBridge.call('device.getInfo', {})
+  coconut.call('device', 'getInfo', {}, cb)
       │
       │ 组装请求：
-      │ { method:'device.getInfo', params:{}, id:42, bridgeToken:'xxx' }
+      │ { component:'device', function:'getInfo', params:{}, id:42, bridgeToken:'xxx' }
       ▼
 [Bridge 层]（iOS/Harmony 异步；Android 同步）
       │
       ├─ 3 层安全校验（见上节）
       │
-      ├─ 解析 method → "device" + "getInfo"
+      ├─ 读顶级 component/function 字段路由（v3.1.0 起拆分）
       │
       ├─ ComponentManager.get('device') → DeviceComponent 实例
       │
@@ -272,30 +291,42 @@ H5 发起 call(component.method, params, bridgeToken)
       │
       ▼
 [H5]
-  window.__coconutXxxCallback(json) 触发 Promise resolve
+  iOS: window.__coconutIOSCallback(json)（evaluateJavaScript 回写）
+  Harmony: window.__coconutHarmonyCallback(json)（runJavaScript 回写）
+  Android: @JavascriptInterface 同步返回值直接拿到
       │
       ▼
-  .then(response => { /* 业务拿到设备信息 */ })
+  cb(err, data)   ← coconut.js error-first callback，err=null 时 data 为 result 对象
 ```
 
 ---
 
 ## 6. H5 端（coconut.js）
 
-H5 端通过 `coconutWebBox/` 提供统一的 JS Bridge SDK：
+H5 端通过 `coconutWebBox/` 提供统一的 JS Bridge SDK（`coconut.js`，UMD 单例，全局挂载小写 `window.coconut`，v3.0.0 起）：
 
 ```js
-// H5 调用
-const result = await CoconutBridge.call('device.getInfo', {});
+// H5 调用（error-first callback）
+coconut.call('device', 'getInfo', {}, (err, data) => {
+  if (err) { /* err = { code:'200007', message:'...' } */ }
+  else    { /* data = result 对象 */ }
+});
 
 // 环境检测
-CoconutBridge.env.isIOS      // iOS WebView
-CoconutBridge.env.isAndroid  // Android WebView
-CoconutBridge.env.isHarmony  // Harmony WebView
-CoconutBridge.env.isNative   // 任一原生环境
+coconut.env.isiOS      // iOS WebView
+coconut.env.isAndroid  // Android WebView
+coconut.env.isHarmony  // Harmony WebView
+coconut.env.isNative   // 任一原生环境
+coconut.env.hybridVersion  // bridge 协议主版本 '3'（lazy：appName/appVersion/capabilities 同）
+
+// 能力探测（组件方法是否在当前平台落地）
+coconut.supports('network', 'request')  // true / false
+
+// 生命周期（零 native 代码，visibilitychange 派生）
+coconut.on('app.foreground', cb); coconut.on('app.background', cb);
 ```
 
-`coconut.js` 内部按 `window.webkit.messageHandlers` / `window.AndroidBridge` / `window.CoconutHarmonyBridge` 判断当前平台，路由到对应 Bridge。
+`coconut.js` 内部按 `window.CoconutBridge`（Android）/ `window.webkit.messageHandlers.CoconutBridge`（iOS）/ `window.CoconutHarmonyBridge`（Harmony）判断当前平台，路由到对应 Bridge。
 
 详细 API 见 `coconutWebBox/README.md` 和 `API_CONTRACT.md`。
 
@@ -405,7 +436,7 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 |----|------|------|
 | `000000` | 成功 | `SUCCESS` |
 | `100001-100005` | 协议层错误 | `PARSE_ERROR`, `METHOD_NOT_FOUND`, `INVALID_PARAMS`, `INTERNAL_ERROR` |
-| `200001-200009` | 业务错误 | `UNKNOWN_COMPONENT`, `UNKNOWN_FUNCTION`, `PERMISSION_DENIED`, `TIMEOUT`, `PARAM_VALIDATION_FAILED`, `RATE_LIMIT_EXCEEDED` |
+| `200001-200007` | 业务错误 | `UNKNOWN_COMPONENT`, `UNKNOWN_FUNCTION`, `PERMISSION_DENIED`, `RATE_LIMIT_EXCEEDED`, `PARAM_VALIDATION_FAILED` |
 | `300004` | 安全错误 | `BRIDGE_TOKEN_INVALID` |
 
 三端 `ErrorCode` 常量定义一致，详见 `API_CONTRACT.md`。
