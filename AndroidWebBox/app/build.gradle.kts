@@ -41,6 +41,13 @@ android {
         // Suppress deprecated onBackPressed warning
         disable += "GestureBackNavigation"
     }
+
+    testOptions {
+        unitTests {
+            // android.util.Log / Context stubs return defaults instead of throwing
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -59,6 +66,8 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
