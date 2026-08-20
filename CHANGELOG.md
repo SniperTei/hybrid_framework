@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-Network 组件（Harmony 先行）：H5 请求走 native HTTP 栈 + 网络状态。引擎为独立 HAR `@coconut/network` v1.0.0（零依赖，可单独用于纯 native 项目），`NetworkComponent` 桥接到 H5 bridge。契约详见 `API_CONTRACT.md` §4.5。
+Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTTP 栈 + 网络状态。引擎为独立库——Harmony HAR `@coconut/network` v1.0.0 / Android 纯 Kotlin JVM `coconut-network` v1.0.0（均零依赖，可单独用于纯 native 项目），`NetworkComponent` 桥接到 H5 bridge。契约详见 `API_CONTRACT.md` §4.5。
 
 热更新（离线包续集）：逐文件下载 + 版本比对 + 原子切换 + 回滚，三端对齐。`checkUpdate / performUpdate / rollback` 三 API，native demo 按钮触发，无 H5 bridge 组件、无进度回调。架构详见 `ARCHITECTURE.md` §7。
 
@@ -12,7 +12,9 @@ Network 组件（Harmony 先行）：H5 请求走 native HTTP 栈 + 网络状态
 
 - **CoconutNetwork 独立 HAR**（`781ef8e`）：OkHttp 式分层（HttpClient / Call / HttpRequest / HttpResponse / interceptors），adapter 可插拔传输（默认 HarmonyHttpAdapter，测试 FakeAdapter，第三方栈可实现 IHttpAdapter 接入），MockInterceptor 规则命中即短路，引擎级 SSRF UrlGuard（scheme 白名单 + allowedDomains 后缀匹配）。47 个 Hypium 测试（UrlGuard/HttpError/HttpRequest/Call/MockInterceptor）。
 - **Harmony NetworkComponent**（`4b462f7`）：`request`（4-method 白名单、envelope/非 envelope 语义、业务失败 = `000000`+`success:false`、守卫命中 → `200007`）+ `getNetworkType`（wifi/cellular/ethernet/none/unknown）+ `network.change` 推送（type|online 去重）。默认 client 的 allowedDomains 与 CoconutSDK.config 引用同步。16 个 Hypium 测试。
-- **H5 Network panel**（`e996bee`）：Demo.vue Network 区（GET / POST 501 反例 / getNetworkType / 订阅 network.change）+ Run All 增至 19 项（`coconut.supports` gating，Android/iOS 显示 skip）；coconut_index.html 三端同步加 Network 按钮组。
+- **H5 Network panel**（`e996bee`）：Demo.vue Network 区（GET / POST 501 反例 / getNetworkType / 订阅 network.change）+ Run All 增至 19 项（`coconut.supports` gating，未落地平台显示 skip）；coconut_index.html 三端同步加 Network 按钮组。
+- **Android coconut-network JVM 引擎**（`d9d270e`）：Harmony 引擎 1:1 移植为纯 Kotlin JVM 库（零 Android 依赖），双 adapter——默认 `HttpURLConnectionAdapter` + 附赠 `OkHttpAdapter`（okhttp `compileOnly`，宿主自选）。47 个 JVM 单测对标 Harmony + JDK HttpServer 真 HTTP 集成测试（envelope / 501 业务失败 / 非 envelope 直通）+ OkHttp 冒烟。
+- **Android NetworkComponent**（`997b4df`）：第 5 个组件注册进 WebBoxApplication。`request` / `getNetworkType` / `network.change`（`registerDefaultNetworkCallback`，type|online 去重）；allowedDomains 与 CoconutSDK 配置 per-request 同步（Kotlin List 不可别名）。模拟器 e2e：coconut_index.html 四组按钮全过 + Demo Run All 19/19（network 3 行 skip → pass）。
 - **Android**（`a2a57af`/`8bcb417`）：`OfflineResourceManager` 新增更新 API + 22 个 JVM 测试（compareVersions / 路径守卫 / md5 向量 / staging swap / rollback 真值表）。
 - **iOS**（`b1dbba5`/`82f75b1`）：`CoconutUpdateManager.swift`（CryptoKit MD5）+ 15 个 XCTest；HomeViewController 检查更新 / 回滚按钮。
 - **Harmony**（`7d7152c`/`9d90203`）：`CoconutUpdateManager.ets` + 19 个 Hypium 测试；Index.ets 按钮 + manifest URL 输入框（须 Mac 局域网 IP）。

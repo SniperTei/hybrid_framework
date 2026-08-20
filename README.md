@@ -32,7 +32,8 @@ hybrid_framework/
 ├── AndroidWebBox/         # Android 宿主 App + CoconutSDK Gradle 模块
 │   ├── coconut-core/      # 核心库（Bridge / Component / Security）
 │   ├── coconut-sdk/       # SDK 入口 + WebView 封装
-│   └── app/               # 宿主 App（持有 4 个组件：device / storage / event / dialog）
+│   ├── coconut-network/   # 独立 HTTP 引擎（纯 Kotlin JVM 库，零 Android 依赖，可单独使用）
+│   └── app/               # 宿主 App（持有 5 个组件：device / storage / event / dialog / network）
 ├── HarmonyWebBox/         # HarmonyOS 宿主 App + CoconutSDK HAR
 │   ├── CoconutSDK/        # HAR 库（框架）
 │   ├── CoconutNetwork/    # 独立 HTTP 引擎 HAR（@coconut/network，零依赖，可单独使用）
@@ -83,11 +84,11 @@ cd AndroidWebBox
 ./gradlew installDebug   # 装到连着的设备
 ```
 
-模块依赖：`app` → `coconut-sdk` → `coconut-core`。组件在 `app/src/main/java/com/sniper/androidwebbox/components/`，注册在 `WebBoxApplication.kt`。
+模块依赖：`app` → `coconut-sdk` → `coconut-core`，`app` → `coconut-network`（HTTP 引擎）。组件在 `app/src/main/java/com/sniper/androidwebbox/components/`，注册在 `WebBoxApplication.kt`。
 
 集成到自己的 Android 项目见 [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md)。
 
-离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`）。
+离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network`（纯 Kotlin JVM 库，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
 
 ### 4. HarmonyOS NEXT（DevEco Studio）
 
@@ -109,7 +110,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
 | iOS | XCTest | 102 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
-| Android | JUnit (JVM) | 113 | `./gradlew :coconut-core:testDebugUnitTest` |
+| Android | JUnit (JVM) | 178 | `./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest` |
 | Harmony | Hypium (on-device) | 225 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
