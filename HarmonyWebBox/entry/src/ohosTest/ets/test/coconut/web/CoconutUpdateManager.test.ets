@@ -3,6 +3,8 @@ import { fileIo } from '@kit.CoreFileKit';
 import { abilityDelegatorRegistry } from '@kit.TestKit';
 import { common } from '@kit.AbilityKit';
 import { CoconutUpdateManager, RemoteManifest } from '@coconut/sdk';
+import { HttpClient, HttpConfig } from '@coconut/network';
+import { FakeAdapter } from '../network/FakeAdapter';
 
 /**
  * Hot-update tests: pure helpers (version compare, path guards, decideUpdate,
@@ -264,6 +266,41 @@ export default function coconutUpdateManagerTest() {
     it('versionJson_missingRootReturnsEmpty', 0, () => {
       const versions = CoconutUpdateManager.readSandboxVersions(`${tmpRoot}/no-such-root`);
       expect(versions.size).assertEqual(0);
+    });
+
+    // MARK: engine wiring (checkUpdate via useClient-injected FakeAdapter)
+
+    describe('CoconutUpdateManager.engineWiring', () => {
+      afterEach(() => {
+        // 还原默认 client，避免泄漏到后续测试
+        CoconutUpdateManager.useClient(new HttpClient(new HttpConfig()));
+      });
+
+      it('checkUpdate_manifestFetchFails_unavailable', 0, async () => {
+        const fake = new FakeAdapter();
+        fake.bytesResponse(404, stringToArrayBuffer('not found'));
+        CoconutUpdateManager.useClient(new HttpClient(new HttpConfig(), fake));
+        const result = await CoconutUpdateManager.checkUpdate('demo',
+          'https://cdn.test.com/demo/manifest.json');
+        expect(result.available).assertFalse();
+        expect(result.error !== null && result.error.includes('Failed to fetch manifest')).assertTrue();
+        // 走引擎 bytes 模式下载
+        expect(fake.requests[0].responseType).assertEqual('bytes');
+      });
+
+      it('checkUpdate_manifestServed_parsesAndAvailable', 0, async () => {
+        const fake = new FakeAdapter();
+        fake.bytesResponse(200, stringToArrayBuffer('{\n  "moduleId": "demo",\n  "version": "9.9.9",\n'
+          + '  "entry": "index.html",\n  "files": ["index.html"],\n'
+          + '  "fileHashes": {"index.html": "aa"}\n}'));
+        CoconutUpdateManager.useClient(new HttpClient(new HttpConfig(), fake));
+        const result = await CoconutUpdateManager.checkUpdate('demo',
+          'https://cdn.test.com/demo/manifest.json');
+        expect(result.available).assertTrue();
+        expect(result.remoteVersion).assertEqual('9.9.9');
+        expect(result.manifest !== null).assertTrue();
+        expect(result.manifest?.files.length).assertEqual(1);
+      });
     });
   });
 }

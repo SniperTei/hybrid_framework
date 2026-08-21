@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { http } from '@kit.NetworkKit';
 import { util } from '@kit.ArkTS';
+import { HttpClient, HttpConfig, HttpResponseType, RequestOptions } from '@coconut/network';
 import { ComponentManager } from '../component/ComponentManager';
 import { Logger } from '../utils/Logger';
 
@@ -32,10 +32,27 @@ export class CoconutUpdateManager {
   private static readonly SANDBOX_ROOT = 'coconut_resources';
   private static readonly BUNDLED_ROOT = 'coconut-web';
   private static readonly VERSION_FILE = 'version.json';
-  private static readonly CONNECT_TIMEOUT_MS = 15000;
-  private static readonly READ_TIMEOUT_MS = 30000;
+
+  /** 可注入的 HTTP 客户端（测试接线 / 共享宿主 client）；null = lazy 默认实例 */
+  private static httpClient: HttpClient | null = null;
 
   // ---- Update API ----
+
+  /**
+   * 注入 HTTP 客户端（测试接线 FakeAdapter / 宿主共享 client 用）。
+   * 不调则 lazy 创建默认实例：默认 HttpConfig（空 allowedDomains = 放行，
+   * 超时 15s/30s，重试 2 次 / 1s 间隔）。
+   */
+  static useClient(client: HttpClient): void {
+    CoconutUpdateManager.httpClient = client;
+  }
+
+  private static client(): HttpClient {
+    if (CoconutUpdateManager.httpClient === null) {
+      CoconutUpdateManager.httpClient = new HttpClient(new HttpConfig());
+    }
+    return CoconutUpdateManager.httpClient;
+  }
 
   static async checkUpdate(moduleId: string, manifestUrl: string): Promise<UpdateCheckResult> {
     const context = CoconutUpdateManager.sharedContext();
@@ -337,29 +354,17 @@ export class CoconutUpdateManager {
     }
   }
 
-  // ---- Network ----
+  // ---- Network (via @coconut/network engine: UrlGuard + retry + logging) ----
 
   private static async downloadBytes(url: string): Promise<ArrayBuffer | null> {
-    const session = http.createHttp();
-    try {
-      const response = await session.request(url, {
-        method: http.RequestMethod.GET,
-        expectDataType: http.HttpDataType.ARRAY_BUFFER,
-        connectTimeout: CoconutUpdateManager.CONNECT_TIMEOUT_MS,
-        readTimeout: CoconutUpdateManager.READ_TIMEOUT_MS,
-      } as http.HttpRequestOptions);
-      if (response.responseCode !== 200) {
-        Logger.e(CoconutUpdateManager.TAG, `downloadBytes ${url}: HTTP ${response.responseCode}`);
-        return null;
-      }
-      const data = response.result;
-      return data instanceof ArrayBuffer ? data : null;
-    } catch (e) {
-      Logger.e(CoconutUpdateManager.TAG, `downloadBytes ${url} failed: ${e}`);
+    const options: RequestOptions = { responseType: HttpResponseType.BYTES };
+    const resp = await CoconutUpdateManager.client().get(url, options);
+    if (!resp.isSuccess() || resp.rawData === null) {
+      Logger.e(CoconutUpdateManager.TAG,
+        `downloadBytes ${url}: HTTP ${resp.httpStatus} code=${resp.code} ${resp.msg}`);
       return null;
-    } finally {
-      session.destroy();
     }
+    return resp.rawData;
   }
 
   private static async downloadText(url: string): Promise<string | null> {
