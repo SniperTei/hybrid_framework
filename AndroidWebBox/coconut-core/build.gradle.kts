@@ -55,6 +55,9 @@ android {
 }
 
 dependencies {
+    // Coconut HTTP engine (pure JVM, zero Android deps) — hot update downloads
+    api(project(":coconut-network"))
+
     // Kotlin Coroutines
     api("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")

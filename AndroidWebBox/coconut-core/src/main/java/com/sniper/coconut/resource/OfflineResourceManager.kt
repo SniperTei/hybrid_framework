@@ -1,16 +1,17 @@
 package com.sniper.coconut.resource
 
 import android.content.Context
+import com.sniper.coconut.network.HttpClient
+import com.sniper.coconut.network.HttpConfig
+import com.sniper.coconut.network.RequestOptions
+import com.sniper.coconut.network.adapter.HttpResponseType
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
@@ -261,9 +262,11 @@ class OfflineResourceManager(private val context: Context) {
                 for (file in manifest.files) {
                     val target = File(staging, file)
                     target.parentFile?.mkdirs()
-                    if (!downloadToFile(joinUrl(baseUrl, file), target)) {
+                    val bytes = downloadBytes(joinUrl(baseUrl, file))
+                    if (bytes == null) {
                         throw IllegalStateException("Download failed: $file")
                     }
+                    target.writeBytes(bytes)
                     val expected = manifest.fileHashes[file]!!.lowercase()
                     val actual = calculateMD5(target)
                     if (actual != expected) {
@@ -302,15 +305,12 @@ class OfflineResourceManager(private val context: Context) {
     }
 
     private suspend fun fetchManifest(manifestUrl: String): RemoteManifest? {
-        val tmp = File.createTempFile("coconut_manifest", ".json")
+        val bytes = downloadBytes(manifestUrl) ?: return null
         return try {
-            if (!downloadToFile(manifestUrl, tmp)) return null
-            json.decodeFromString<RemoteManifest>(tmp.readText())
+            json.decodeFromString<RemoteManifest>(String(bytes, Charsets.UTF_8))
         } catch (e: Exception) {
-            Logger.e(TAG, "Failed to fetch manifest", e)
+            Logger.e(TAG, "Failed to parse manifest", e)
             null
-        } finally {
-            tmp.delete()
         }
     }
 
@@ -335,33 +335,27 @@ class OfflineResourceManager(private val context: Context) {
 
     // ---- Helpers ----
 
-    internal suspend fun downloadToFile(urlStr: String, targetFile: File): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                val url = URL(urlStr)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 15000
-                connection.readTimeout = 30000
-
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                    return@withContext false
-                }
-
-                connection.inputStream.use { input ->
-                    FileOutputStream(targetFile).use { output ->
-                        val buffer = ByteArray(8192)
-                        var read: Int
-                        while (input.read(buffer).also { read = it } != -1) {
-                            output.write(buffer, 0, read)
-                        }
-                    }
-                }
-                true
-            } catch (e: Exception) {
-                Logger.e(TAG, "Download error: $urlStr", e)
-                false
+    /**
+     * 经 @coconut/network 引擎下载（重试 / UrlGuard / 统一超时自动生效）。
+     * bytes 模式原始字节直通；失败返回 null。
+     * 行为差异（对旧裸 HttpURLConnection）：接受任意 2xx 且非空 body
+     * （≥400 走引擎错误路径；204/空 body 判失败）。
+     */
+    internal suspend fun downloadBytes(urlStr: String): ByteArray? {
+        return try {
+            val resp = client().get(urlStr, RequestOptions(responseType = HttpResponseType.BYTES))
+            val data = resp.rawData
+            if (!resp.isSuccess() || data == null || data.isEmpty()) {
+                Logger.e(TAG, "Download failed: $urlStr code=${resp.code} msg=${resp.msg}")
+                null
+            } else {
+                data
             }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Download error: $urlStr", e)
+            null
         }
+    }
 
     internal fun calculateMD5(file: File): String {
         val md = MessageDigest.getInstance("MD5")
@@ -388,6 +382,17 @@ class OfflineResourceManager(private val context: Context) {
         private const val ASSETS_BASE = "coconut-web"       // assets subdirectory for bundled H5
         private const val VERSION_FILE = "version.json"     // Version info file name
         private const val MANIFEST_FILE = "manifest.json"   // Resource manifest
+
+        // 热更新走 @coconut/network 引擎（native-first；宿主可共享 client 或测试注入 Fake）
+        private var httpClient: HttpClient? = null
+
+        /** 注入自定义 client（测试 FakeAdapter / 宿主共享带配置的 client）；null 恢复默认 */
+        @JvmStatic
+        fun useClient(client: HttpClient?) {
+            httpClient = client
+        }
+
+        private fun client(): HttpClient = httpClient ?: HttpClient(HttpConfig())
 
         /**
          * Compare two dotted version strings. Non-numeric segments parse as 0.

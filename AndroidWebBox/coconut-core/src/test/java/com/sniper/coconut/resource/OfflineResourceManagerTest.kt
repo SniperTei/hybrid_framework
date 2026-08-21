@@ -1,6 +1,12 @@
 package com.sniper.coconut.resource
 
 import android.content.Context
+import com.sniper.coconut.network.HttpClient
+import com.sniper.coconut.network.HttpConfig
+import com.sniper.coconut.network.adapter.AdapterRequest
+import com.sniper.coconut.network.adapter.AdapterResponse
+import com.sniper.coconut.network.adapter.HttpResponseType
+import com.sniper.coconut.network.adapter.IHttpAdapter
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -9,6 +15,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -275,5 +282,56 @@ class OfflineResourceManagerTest {
         assertFalse(result.available)
         assertNotNull(result.error)
         assertEquals("1.0.0", result.currentVersion)
+    }
+
+    // ---- engine wiring (useClient + scripted adapter) ----
+
+    /** coconut-network 的 FakeAdapter 在其 test sourceset，这里内联一个最小版 */
+    private class ScriptedAdapter : IHttpAdapter {
+        val requests = mutableListOf<AdapterRequest>()
+        var response: AdapterResponse = AdapterResponse(200, emptyMap(), null)
+        override suspend fun sendRequest(request: AdapterRequest): AdapterResponse {
+            requests.add(request)
+            return response
+        }
+    }
+
+    @After
+    fun tearDownClient() {
+        OfflineResourceManager.useClient(null)
+    }
+
+    @Test
+    fun engineWiring_manifest404_unavailable() = runTest {
+        stubBundledManifest("demo", "1.0.0")
+        manager.init()
+        val fake = ScriptedAdapter()
+        OfflineResourceManager.useClient(HttpClient(HttpConfig(), fake))
+        fake.response = AdapterResponse(404, emptyMap(), null)
+
+        val result = manager.checkUpdate("demo", "https://update.test.com/manifest.json")
+
+        assertFalse(result.available)
+        assertNotNull(result.error)
+    }
+
+    @Test
+    fun engineWiring_manifestServed_parsesAndAvailable_bytesMode() = runTest {
+        stubBundledManifest("demo", "1.0.0")
+        manager.init()
+        val fake = ScriptedAdapter()
+        OfflineResourceManager.useClient(HttpClient(HttpConfig(), fake))
+        fake.response = AdapterResponse(
+            200, emptyMap(), null,
+            rawBody = """{"moduleId":"demo","version":"1.0.1","entry":"index.html"}""".toByteArray(),
+        )
+
+        val result = manager.checkUpdate("demo", "https://update.test.com/manifest.json")
+
+        assertTrue(result.available)
+        assertEquals("1.0.1", result.remoteVersion)
+        assertNotNull(result.manifest)
+        // 下载必须走 bytes 模式（原始文本喂 JSON 解析器，不经 envelope 嗅探）
+        assertEquals(HttpResponseType.BYTES, fake.requests[0].responseType)
     }
 }
