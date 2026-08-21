@@ -54,6 +54,12 @@ class HttpURLConnectionAdapter : IHttpAdapter {
             } catch (e: Exception) {
                 null
             }
+
+            // bytes 模式：原始字节直通，不解析为 JsonElement
+            if (request.responseType == HttpResponseType.BYTES) {
+                return AdapterResponse(status, headers, null, rawBody = bodyBytes)
+            }
+
             val contentTypeHeader = conn.getHeaderField("Content-Type") ?: ""
             val body = parseBody(contentTypeHeader, bodyBytes)
 

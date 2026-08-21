@@ -54,6 +54,12 @@ class OkHttpAdapter(
             }
             val contentType = response.header("Content-Type") ?: ""
             val bodyBytes = response.body?.bytes()
+
+            // bytes 模式：原始字节直通，不解析为 JsonElement
+            if (request.responseType == HttpResponseType.BYTES) {
+                return AdapterResponse(response.code, headers, null, rawBody = bodyBytes)
+            }
+
             return AdapterResponse(response.code, headers, parseBody(contentType, bodyBytes))
         }
     }

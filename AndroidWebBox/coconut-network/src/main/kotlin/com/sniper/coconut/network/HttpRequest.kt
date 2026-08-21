@@ -1,6 +1,7 @@
 package com.sniper.coconut.network
 
 import com.sniper.coconut.network.adapter.FormDataItem
+import com.sniper.coconut.network.adapter.HttpResponseType
 import com.sniper.coconut.network.adapter.IHttpAdapter
 import com.sniper.coconut.network.interceptors.RequestInterceptor
 import kotlinx.serialization.json.JsonElement
@@ -22,6 +23,7 @@ data class RequestOptions(
     val connectTimeout: Int? = null,
     val readTimeout: Int? = null,
     val multiFormDataList: List<FormDataItem>? = null,
+    val responseType: HttpResponseType? = null,
 )
 
 /** HttpClient 上下文接口（避免循环依赖） */
@@ -73,6 +75,9 @@ class HttpRequest(
     /** 覆盖全局连接超时 */
     var connectTimeout: Int = -1
 
+    /** 响应模式（JSON 解析 / BYTES 原始字节直通） */
+    var responseType: HttpResponseType = HttpResponseType.JSON
+
     /** 单请求启用 Mock（由 MockInterceptor 打标，或手动 enableMocking） */
     var enableMock: Boolean = false
         internal set
@@ -97,6 +102,7 @@ class HttpRequest(
             options.tag?.let { tag = it }
             options.connectTimeout?.let { connectTimeout = it }
             options.readTimeout?.let { readTimeout = it }
+            options.responseType?.let { responseType = it }
             options.multiFormDataList?.let { multiFormDataList = it }
         }
     }

@@ -38,7 +38,7 @@ publishing {
             groupId = project.property("GROUP_ID") as String
             artifactId = "coconut-network"
             // Independent of the CoconutSDK VERSION_NAME — engine evolves on its own
-            version = "1.0.0"
+            version = "1.1.0"
 
             from(components["java"])
 

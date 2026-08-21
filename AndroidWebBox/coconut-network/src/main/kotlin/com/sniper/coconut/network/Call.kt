@@ -2,6 +2,7 @@ package com.sniper.coconut.network
 
 import com.sniper.coconut.network.adapter.AdapterRequest
 import com.sniper.coconut.network.adapter.AdapterResponse
+import com.sniper.coconut.network.adapter.HttpResponseType
 import com.sniper.coconut.network.adapter.IHttpAdapter
 import com.sniper.coconut.network.guard.UrlGuard
 import com.sniper.coconut.network.interceptors.MockResult
@@ -83,6 +84,7 @@ class Call internal constructor(
             connectTimeout = connectTimeout,
             readTimeout = readTimeout,
             multiFormDataList = currentRequest.multiFormDataList,
+            responseType = currentRequest.responseType,
         )
 
         var response: HttpResponse
@@ -97,7 +99,7 @@ class Call internal constructor(
             )
         } else {
             // 带重试的请求
-            response = executeWithRetry(retryCount, adapterRequest)
+            response = executeWithRetry(retryCount, adapterRequest, currentRequest.responseType)
         }
 
         response.costTime = System.currentTimeMillis() - startTime
@@ -112,11 +114,15 @@ class Call internal constructor(
     }
 
     /** 带重试的 adapter 派发：全部失败后映射为网络/超时/SSL 错误 */
-    private suspend fun executeWithRetry(retryCount: Int, adapterRequest: AdapterRequest): HttpResponse {
+    private suspend fun executeWithRetry(
+        retryCount: Int,
+        adapterRequest: AdapterRequest,
+        responseType: HttpResponseType,
+    ): HttpResponse {
         var lastError: Throwable? = null
         for (attempt in 0..retryCount) {
             try {
-                return parseResponse(adapter.sendRequest(adapterRequest))
+                return parseResponse(adapter.sendRequest(adapterRequest), responseType)
             } catch (err: Throwable) {
                 lastError = err
                 if (attempt < retryCount) {
@@ -175,12 +181,20 @@ class Call internal constructor(
         URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
     /** 解析 AdapterResponse → HttpResponse */
-    private fun parseResponse(adapterResp: AdapterResponse): HttpResponse {
+    private fun parseResponse(adapterResp: AdapterResponse, responseType: HttpResponseType): HttpResponse {
         val httpStatus = adapterResp.httpStatus
 
         // HTTP 错误
         if (httpStatus >= 400) {
             return HttpResponse.error(httpStatus.toString(), httpStatus, getHttpErrorMessage(httpStatus))
+        }
+
+        // bytes 模式：原始字节直通，不做 envelope 嗅探（内容恰为 envelope 形状也直通）
+        if (responseType == HttpResponseType.BYTES) {
+            val resp = HttpResponse.success(httpStatus, null)
+            resp.headers = adapterResp.headers
+            resp.rawData = adapterResp.rawBody
+            return resp
         }
 
         // 解析业务响应：body 是 object 且含 "code" 字段才视为 envelope { code, statusCode, msg, data, timestamp }，

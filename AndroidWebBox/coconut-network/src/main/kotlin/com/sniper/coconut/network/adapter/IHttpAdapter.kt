@@ -18,6 +18,9 @@ data class FormDataItem(
     val data: ByteArray,
 )
 
+/** 响应模式：JSON（默认，body 解析为 JsonElement）或 BYTES（rawBody 携带原始字节） */
+enum class HttpResponseType { JSON, BYTES }
+
 /** Adapter 层的请求对象 */
 data class AdapterRequest(
     val method: String,
@@ -28,13 +31,15 @@ data class AdapterRequest(
     val connectTimeout: Int,
     val readTimeout: Int,
     val multiFormDataList: List<FormDataItem>,
+    val responseType: HttpResponseType = HttpResponseType.JSON,
 )
 
-/** Adapter 层的响应对象 */
+/** Adapter 层的响应对象（BYTES 模式下 body=null、rawBody 携带原始字节） */
 data class AdapterResponse(
     val httpStatus: Int,
     val headers: Map<String, String>,
     val body: JsonElement?,
+    val rawBody: ByteArray? = null,
 )
 
 /** 传输层接口 */

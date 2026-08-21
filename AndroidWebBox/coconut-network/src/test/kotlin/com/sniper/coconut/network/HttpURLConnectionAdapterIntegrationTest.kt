@@ -1,5 +1,6 @@
 package com.sniper.coconut.network
 
+import com.sniper.coconut.network.adapter.HttpResponseType
 import com.sniper.coconut.network.adapter.HttpURLConnectionAdapter
 import com.sniper.coconut.network.utils.Logger
 import com.sun.net.httpserver.HttpExchange
@@ -11,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.int
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -123,5 +125,21 @@ class HttpURLConnectionAdapterIntegrationTest {
             .buildCall().execute()
         assertTrue(postResp.isSuccess())
         assertEquals("""{"k":"v"}""", postResp.data!!.jsonObject["body"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun bytesMode_rawPassthrough_overRealHttp() = runTest {
+        // bytes 模式真网络路径：二进制字节经 HttpURLConnection 全量到达 rawData，
+        // 不做 JSON 解析（内容恰为 JSON 也直通）
+        val binary = ByteArray(256) { it.toByte() }
+        server.createContext("/blob.bin") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "application/octet-stream")
+            exchange.sendResponseHeaders(200, binary.size.toLong())
+            exchange.responseBody.use { it.write(binary) }
+            exchange.close()
+        }
+        val resp = client.get("/blob.bin", RequestOptions(responseType = HttpResponseType.BYTES))
+        assertTrue(resp.isSuccess())
+        assertArrayEquals(binary, resp.rawData)
     }
 }

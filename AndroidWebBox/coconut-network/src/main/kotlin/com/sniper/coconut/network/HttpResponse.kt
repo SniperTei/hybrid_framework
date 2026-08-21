@@ -33,6 +33,9 @@ class HttpResponse {
     /** 响应头 */
     var headers: Map<String, String> = emptyMap()
 
+    /** 原始响应字节（BYTES 模式直通，不做 envelope 嗅探；JSON 模式恒为 null） */
+    var rawData: ByteArray? = null
+
     /** 请求耗时（毫秒） */
     var costTime: Long = 0
 

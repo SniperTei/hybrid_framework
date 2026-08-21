@@ -3,6 +3,7 @@ package com.sniper.coconut.network
 import com.sniper.coconut.network.adapter.HttpURLConnectionAdapter
 import com.sniper.coconut.network.adapter.IHttpAdapter
 import com.sniper.coconut.network.interceptors.RequestInterceptor
+import kotlinx.serialization.json.JsonElement
 
 /**
  * HTTP 客户端 — Call 的工厂
@@ -20,6 +21,27 @@ class HttpClient(
     fun newRequest(url: String, options: RequestOptions? = null): HttpRequest {
         return HttpRequest(url, options, this)
     }
+
+    // ---- 一发式便利 API（native-first：主要消费者是 native，如热更新下载）----
+    // 内部统一走 newRequest().buildCall().execute() 完整管线：
+    // 拦截器 / UrlGuard / 重试 / header 合并 / mock 短路全部自动生效
+
+    /** 一发式请求（method 等由 options 指定） */
+    suspend fun request(url: String, options: RequestOptions? = null): HttpResponse =
+        newRequest(url, options).buildCall().execute()
+
+    suspend fun get(url: String, options: RequestOptions? = null): HttpResponse =
+        request(url, (options ?: RequestOptions()).copy(method = HttpMethod.GET))
+
+    /** body 显式传入时优先于 options.body */
+    suspend fun post(url: String, body: JsonElement? = null, options: RequestOptions? = null): HttpResponse =
+        request(url, (options ?: RequestOptions()).copy(method = HttpMethod.POST, body = body ?: options?.body))
+
+    suspend fun put(url: String, body: JsonElement? = null, options: RequestOptions? = null): HttpResponse =
+        request(url, (options ?: RequestOptions()).copy(method = HttpMethod.PUT, body = body ?: options?.body))
+
+    suspend fun delete(url: String, options: RequestOptions? = null): HttpResponse =
+        request(url, (options ?: RequestOptions()).copy(method = HttpMethod.DELETE))
 
     /** 添加拦截器 */
     fun addInterceptor(interceptor: RequestInterceptor) {

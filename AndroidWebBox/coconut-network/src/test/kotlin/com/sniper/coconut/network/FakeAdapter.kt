@@ -45,4 +45,9 @@ class FakeAdapter : IHttpAdapter {
     fun rawResponse(httpStatus: Int, bodyJson: String) {
         response = AdapterResponse(httpStatus, emptyMap(), Json.parseToJsonElement(bodyJson))
     }
+
+    /** 设置 bytes 模式响应（rawBody 携带原始字节，body=null） */
+    fun bytesResponse(httpStatus: Int, data: ByteArray) {
+        response = AdapterResponse(httpStatus, emptyMap(), null, rawBody = data)
+    }
 }
