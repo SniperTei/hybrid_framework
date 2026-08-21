@@ -7,12 +7,12 @@ AndroidWebBox/
 ├── app/                          # 主应用模块（持有全部组件源码）
 │   └── src/main/java/com/sniper/androidwebbox/
 │       ├── WebBoxApplication.kt  # 在此显式注册组件
-│       └── components/           # 14 个框架组件 + 业务组件
+│       └── components/           # 通用参考组件 + 业务组件
 │           ├── device/DeviceComponent.kt
 │           ├── network/NetworkComponent.kt
 │           ├── storage/StorageComponent.kt
-│           ├── ... (clipboard / dialog / permission / router / stack / system / ...)
-│           ├── camera/ mytest/ security/ performance/ resource/
+│           ├── event/EventComponent.kt
+│           ├── dialog/DialogComponent.kt
 │           └── LoginComponent.kt  # 业务组件示例
 │
 ├── coconut-core/                 # 核心模块（Bridge / Component / Security）
@@ -121,22 +121,29 @@ class MyActivity : AppCompatActivity() {
 
 ### 4. H5端调用
 
+页面引入 `coconut.js`（随 SDK 分发，见 `app/src/main/assets/`）后，用全局小写 `coconut`，error-first callback 风格：
+
 ```javascript
 // 调用设备组件
-Coconut.call('device.getInfo', {}, function(response) {
-    console.log(response.result);
+coconut.call('device', 'getInfo', {}, (err, data) => {
+    if (err) { console.error(err.message); return; }
+    console.log(JSON.stringify(data));
 });
 
-// 调用网络组件
-Coconut.call('network.getState', {}, function(response) {
-    console.log(response.result);
+// 调用网络组件（原生 HTTP 请求 / 网络状态）
+coconut.call('network', 'getNetworkType', {}, (err, data) => {
+    if (err) { console.error(err.message); return; }
+    console.log(data.type, data.online);   // 如 'wifi' true
 });
 
 // 调用存储组件
-Coconut.call('storage.setItem', { key: 'myKey', value: 'myValue' }, function(response) {
-    console.log(response.result);
+coconut.call('storage', 'setItem', { key: 'myKey', value: 'myValue' }, (err, data) => {
+    if (err) { console.error(err.message); return; }
+    console.log(data);
 });
 ```
+
+组件/方法名以 `API_CONTRACT.md`（仓库根，唯一权威）为准；H5 侧可用 `coconut.supports(component, fn)` 同步探测当前宿主是否启用某方法。
 
 ## 构建命令
 
