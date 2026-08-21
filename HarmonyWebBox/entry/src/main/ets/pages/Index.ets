@@ -19,11 +19,12 @@ struct Index {
   private readonly testPageUrl: string = 'resource://rawfile/coconut_index.html';
   // ⚠️ dev server URL：Harmony 模拟器/真机不共享 Mac loopback，
   //    不能用 localhost/10.0.2.2，必须用 Mac 局域网 IP。IP 变了改这里。
-  private readonly devServerUrl: string = 'http://192.168.3.49:5174/';
+  private readonly devServerUrl: string = 'http://192.168.112.128:5174/';
   private readonly offlinePackageUrl: string = 'coconut://demo/index.html';
-  // 热更新 manifest URL：同 devServerUrl 的限制 —— 模拟器不共享 Mac loopback，
-  // 必须用 Mac 局域网 IP（scripts/serve-hot-update.sh 默认起在 8000 端口）
-  @State manifestUrl: string = 'http://192.168.3.49:8000/manifest.json';
+  // 热更新 manifest URL：127.0.0.1 需先建 hdc 反向转发（hdc rport tcp:8000 tcp:8000，
+  // 设备 localhost:8000 → Mac:8000，不依赖局域网 IP）；或改为 Mac 局域网 IP 直连
+  // （scripts/serve-hot-update.sh 默认起在 8000 端口）
+  @State manifestUrl: string = 'http://127.0.0.1:8000/manifest.json';
 
   private navPathStack: NavPathStack = new NavPathStack();
 
