@@ -303,10 +303,11 @@ coconut.dialog.hideLoading((err, data) => {});
 
 **目标**：H5 请求走 native HTTP 栈（绕 WebView CORS、统一出站拦截点），外加网络状态查询与 native → H5 推送。
 
-**架构**：HTTP 引擎是**独立库**，可脱离 CoconutSDK 单独给纯 native 项目用。**引擎 native-first**：主要消费者是 native（Harmony 热更新 `CoconutUpdateManager` 经引擎下载 manifest / 离线包文件），`NetworkComponent`（app 层）只是 H5 需要时的薄透传胶水。引擎 OkHttp 式分层（两平台 1:1 同语义）：
+**架构**：HTTP 引擎是**独立库**，可脱离 CoconutSDK 单独给纯 native 项目用。**引擎 native-first**：主要消费者是 native（Harmony 热更新 `CoconutUpdateManager` / Android 热更新 `OfflineResourceManager` 经引擎下载 manifest / 离线包文件），`NetworkComponent`（app 层）只是 H5 需要时的薄透传胶水。引擎 OkHttp 式分层（两平台 1:1 同语义）：
 
-- Harmony：独立 HAR `@coconut/network`（`HarmonyWebBox/CoconutNetwork/`，v1.1.0——一发式 API `client.get/post/put/delete` + bytes 响应模式（`responseType:'bytes'` → `rawData` 原始字节直通，无 envelope 嗅探）；CoconutSDK v3.3.0+ 依赖它跑热更新，一发式 API 形态是 Android/iOS 引擎后续对齐模板）
-- Android：纯 Kotlin JVM 库 `coconut-network`（`AndroidWebBox/coconut-network/`，v1.0.0，零 Android 依赖——任何 Kotlin/JVM 项目可复用）
+- Harmony：独立 HAR `@coconut/network`（`HarmonyWebBox/CoconutNetwork/`，v1.1.0——一发式 API `client.get/post/put/delete` + bytes 响应模式（`responseType:'bytes'` → `rawData` 原始字节直通，无 envelope 嗅探）；CoconutSDK v3.3.0+ 依赖它跑热更新）
+- Android：纯 Kotlin JVM 库 `coconut-network`（`AndroidWebBox/coconut-network/`，v1.1.0，零 Android 依赖——任何 Kotlin/JVM 项目可复用；同样的一发式 API + bytes 模式（`RequestOptions(responseType = HttpResponseType.BYTES)` → `HttpResponse.rawData: ByteArray?`）；`coconut-core` 依赖它跑热更新（`OfflineResourceManager`））
+- 两平台引擎 API 已对齐；iOS 引擎后续按此模板落地
 
 - `HttpClient`（Call 工厂 + HttpConfig）/ `Call`（拦截器链 + 重试 + header 合并 + URL 构建）
 - **adapter 可插拔传输**：Harmony 默认 `HarmonyHttpAdapter`（`@kit.NetworkKit`）；Android 默认 `HttpURLConnectionAdapter`，另附 `OkHttpAdapter`（okhttp 为 `compileOnly`，宿主想用自己加依赖）。测试用 `FakeAdapter`，第三方栈实现 `IHttpAdapter` 即可接入
