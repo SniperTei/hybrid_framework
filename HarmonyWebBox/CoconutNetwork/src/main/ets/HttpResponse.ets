@@ -29,6 +29,8 @@ export class HttpResponse<T extends Object = Object> extends ApiResponse<T> {
   headers: Record<string, string> = {}
   /** 请求耗时（毫秒） */
   costTime: number = 0
+  /** bytes 模式（responseType=BYTES）下的原始响应体；JSON 模式恒为 null */
+  rawData: ArrayBuffer | null = null
 
   /** 是否业务成功 */
   isSuccess(): boolean {

@@ -4,7 +4,7 @@
  */
 
 import { http } from '@kit.NetworkKit'
-import { IHttpAdapter, AdapterRequest, AdapterResponse, FormDataItem } from './IHttpAdapter'
+import { IHttpAdapter, AdapterRequest, AdapterResponse, FormDataItem, HttpResponseType } from './IHttpAdapter'
 
 export class HarmonyHttpAdapter implements IHttpAdapter {
   async sendRequest(request: AdapterRequest): Promise<AdapterResponse> {
@@ -25,7 +25,8 @@ export class HarmonyHttpAdapter implements IHttpAdapter {
       header: request.headers,
       connectTimeout: request.connectTimeout,
       readTimeout: request.readTimeout,
-      expectDataType: http.HttpDataType.OBJECT,
+      expectDataType: request.responseType === HttpResponseType.BYTES ?
+        http.HttpDataType.ARRAY_BUFFER : http.HttpDataType.OBJECT,
     }
 
     if (request.multiFormDataList.length > 0) {
@@ -66,6 +67,17 @@ export class HarmonyHttpAdapter implements IHttpAdapter {
       for (const key of Object.keys(headerObj)) {
         headers[key] = String(headerObj[key])
       }
+    }
+
+    // bytes 模式：result 为 ArrayBuffer，透传到 rawBody，body 置 null
+    if (response.result instanceof ArrayBuffer) {
+      const bytesResp: AdapterResponse = {
+        httpStatus: response.responseCode as number,
+        headers: headers,
+        body: null,
+        rawBody: response.result,
+      }
+      return bytesResp
     }
 
     const adapterResponse: AdapterResponse = {

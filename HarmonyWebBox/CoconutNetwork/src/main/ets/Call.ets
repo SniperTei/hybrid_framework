@@ -16,7 +16,7 @@ import { HttpConfig } from './HttpConfig'
 import { HttpRequest } from './HttpRequest'
 import { HttpResponse } from './HttpResponse'
 import { HttpErrorCode } from './HttpError'
-import { IHttpAdapter, AdapterRequest, AdapterResponse } from './adapter/IHttpAdapter'
+import { IHttpAdapter, AdapterRequest, AdapterResponse, HttpResponseType } from './adapter/IHttpAdapter'
 import { RequestInterceptor } from './interceptors/RequestInterceptor'
 import { MockResult } from './interceptors/MockInterceptor'
 import { UrlGuard } from './guard/UrlGuard'
@@ -91,6 +91,7 @@ export class Call {
       connectTimeout: connectTimeout,
       readTimeout: readTimeout,
       multiFormDataList: currentRequest.multiFormDataList,
+      responseType: currentRequest.responseType,
     }
 
     let response: HttpResponse<T> | null = null
@@ -107,7 +108,7 @@ export class Call {
       for (let attempt = 0; attempt <= retryCount; attempt++) {
         try {
           const adapterResp = await this.adapter.sendRequest(adapterRequest)
-          response = this.parseResponse<T>(adapterResp)
+          response = this.parseResponse<T>(adapterResp, currentRequest.responseType)
           break
         } catch (err) {
           lastError = err as Error
@@ -181,12 +182,21 @@ export class Call {
   }
 
   /** 解析 AdapterResponse → HttpResponse<T> */
-  private parseResponse<T extends Object>(adapterResp: AdapterResponse): HttpResponse<T> {
+  private parseResponse<T extends Object>(adapterResp: AdapterResponse,
+    responseType: HttpResponseType): HttpResponse<T> {
     const httpStatus = adapterResp.httpStatus
 
     // HTTP 错误
     if (httpStatus >= 400) {
       return HttpResponse.error(String(httpStatus), httpStatus, this.getHttpErrorMessage(httpStatus))
+    }
+
+    // bytes 模式：原始字节透传，不做 envelope 嗅探（内容恰为 JSON 也不进 envelope）
+    if (responseType === HttpResponseType.BYTES) {
+      const bytesResp = HttpResponse.success<T>(httpStatus, null)
+      bytesResp.headers = adapterResp.headers
+      bytesResp.rawData = adapterResp.rawBody ?? null
+      return bytesResp
     }
 
     // 解析业务响应：有 "code" 字段才视为 envelope { code, statusCode, msg, data, timestamp }，

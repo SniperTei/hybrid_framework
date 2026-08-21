@@ -10,7 +10,7 @@ export { HttpError, HttpErrorCode } from './src/main/ets/HttpError'
 export { UrlGuard, UrlGuardResult } from './src/main/ets/guard/UrlGuard'
 
 // Adapter Layer (pluggable transport: system stack / 3rd-party / fake)
-export { IHttpAdapter, AdapterRequest, AdapterResponse, FormDataItem } from './src/main/ets/adapter/IHttpAdapter'
+export { IHttpAdapter, AdapterRequest, AdapterResponse, FormDataItem, HttpResponseType } from './src/main/ets/adapter/IHttpAdapter'
 export { HarmonyHttpAdapter } from './src/main/ets/adapter/HarmonyHttpAdapter'
 
 // Interceptors

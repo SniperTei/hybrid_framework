@@ -1,5 +1,5 @@
 import { HttpConfig } from './HttpConfig'
-import { HttpRequest, RequestOptions, HttpClientContext } from './HttpRequest'
+import { HttpRequest, RequestOptions, HttpClientContext, HttpMethod } from './HttpRequest'
 import { HttpResponse } from './HttpResponse'
 import { Call } from './Call'
 import { RequestInterceptor } from './interceptors/RequestInterceptor'
@@ -61,5 +61,84 @@ export class HttpClient implements HttpClientContext {
     // 如果 request 没有 context，临时绑定
     const call = new Call(request, this.config, this.adapter, this.interceptors)
     return call.execute<T>()
+  }
+
+  // ============ 一发式便利 API（native 消费者主入口）============
+  // 内部统一走 newRequest().buildCall().execute()，拦截器/UrlGuard/重试/header 合并全链路生效
+
+  /** 一发式请求（method 由 options 指定，缺省 GET） */
+  async request<T extends Object = Object>(url: string, options?: RequestOptions): Promise<HttpResponse<T>> {
+    const method = options?.method ?? HttpMethod.GET
+    const merged = this.mergeOptions(options ?? null, method, null)
+    return this.newRequest(url, merged).buildCall().execute<T>()
+  }
+
+  /** 一发式 GET */
+  async get<T extends Object = Object>(url: string, options?: RequestOptions): Promise<HttpResponse<T>> {
+    const merged = this.mergeOptions(options ?? null, HttpMethod.GET, null)
+    return this.newRequest(url, merged).buildCall().execute<T>()
+  }
+
+  /** 一发式 POST（显式 body 参数优先于 options.body） */
+  async post<T extends Object = Object>(url: string, body?: Object,
+    options?: RequestOptions): Promise<HttpResponse<T>> {
+    const merged = this.mergeOptions(options ?? null, HttpMethod.POST, body ?? null)
+    return this.newRequest(url, merged).buildCall().execute<T>()
+  }
+
+  /** 一发式 PUT（显式 body 参数优先于 options.body） */
+  async put<T extends Object = Object>(url: string, body?: Object,
+    options?: RequestOptions): Promise<HttpResponse<T>> {
+    const merged = this.mergeOptions(options ?? null, HttpMethod.PUT, body ?? null)
+    return this.newRequest(url, merged).buildCall().execute<T>()
+  }
+
+  /** 一发式 DELETE */
+  async delete<T extends Object = Object>(url: string, options?: RequestOptions): Promise<HttpResponse<T>> {
+    const merged = this.mergeOptions(options ?? null, HttpMethod.DELETE, null)
+    return this.newRequest(url, merged).buildCall().execute<T>()
+  }
+
+  /**
+   * 合并 options 并覆写 method/body（ArkTS 禁 object spread，逐字段拷贝）
+   * 5 个一发式 helper 共用，防漏字段
+   */
+  private mergeOptions(options: RequestOptions | null, method: HttpMethod,
+    body: Object | null): RequestOptions {
+    const merged: RequestOptions = {}
+    if (options !== null) {
+      if (options.method !== undefined) {
+        merged.method = options.method
+      }
+      if (options.headers !== undefined) {
+        merged.headers = options.headers
+      }
+      if (options.params !== undefined) {
+        merged.params = options.params
+      }
+      if (options.body !== undefined) {
+        merged.body = options.body
+      }
+      if (options.tag !== undefined) {
+        merged.tag = options.tag
+      }
+      if (options.connectTimeout !== undefined) {
+        merged.connectTimeout = options.connectTimeout
+      }
+      if (options.readTimeout !== undefined) {
+        merged.readTimeout = options.readTimeout
+      }
+      if (options.multiFormDataList !== undefined) {
+        merged.multiFormDataList = options.multiFormDataList
+      }
+      if (options.responseType !== undefined) {
+        merged.responseType = options.responseType
+      }
+    }
+    merged.method = method
+    if (body !== null) {
+      merged.body = body
+    }
+    return merged
   }
 }

@@ -46,4 +46,15 @@ export class FakeAdapter implements IHttpAdapter {
     }
     this.response = resp
   }
+
+  /** 设置 bytes 模式响应（rawBody 携带原始字节，body 为 null） */
+  bytesResponse(httpStatus: number, data: ArrayBuffer): void {
+    const resp: AdapterResponse = {
+      httpStatus: httpStatus,
+      headers: {},
+      body: null,
+      rawBody: data,
+    }
+    this.response = resp
+  }
 }

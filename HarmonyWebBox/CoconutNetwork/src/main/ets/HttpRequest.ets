@@ -1,4 +1,4 @@
-import { FormDataItem } from './adapter/IHttpAdapter'
+import { FormDataItem, HttpResponseType } from './adapter/IHttpAdapter'
 import { Call } from './Call'
 import { HttpConfig } from './HttpConfig'
 import { IHttpAdapter } from './adapter/IHttpAdapter'
@@ -26,6 +26,7 @@ export interface RequestOptions {
   connectTimeout?: number
   readTimeout?: number
   multiFormDataList?: FormDataItem[]
+  responseType?: HttpResponseType
 }
 
 /**
@@ -68,6 +69,8 @@ export class HttpRequest {
   enableMock: boolean = false
   /** Mock 响应（MockResult 实例，或直接给业务数据对象） */
   mockResponse: Object | null = null
+  /** 响应类型：JSON 解析（默认）或原始字节透传 */
+  responseType: HttpResponseType = HttpResponseType.JSON
 
   /** 持有创建者 HttpClient 上下文 */
   private context: HttpClientContext | null = null
@@ -106,6 +109,9 @@ export class HttpRequest {
       if (options.multiFormDataList) {
         this.multiFormDataList = options.multiFormDataList
       }
+      if (options.responseType !== undefined) {
+        this.responseType = options.responseType
+      }
     }
   }
 
@@ -137,6 +143,12 @@ export class HttpRequest {
   setTimeout(connectTimeout: number, readTimeout: number): HttpRequest {
     this.connectTimeout = connectTimeout
     this.readTimeout = readTimeout
+    return this
+  }
+
+  /** 设置响应类型（BYTES 时响应不经 envelope 解析，rawData 携带原始字节） */
+  setResponseType(responseType: HttpResponseType): HttpRequest {
+    this.responseType = responseType
     return this
   }
 

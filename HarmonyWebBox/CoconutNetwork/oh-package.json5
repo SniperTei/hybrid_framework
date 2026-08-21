@@ -1,6 +1,6 @@
 {
   "name": "@coconut/network",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Coconut standalone HTTP module for HarmonyOS (adapter-based, mockable, SSRF-guarded)",
   "main": "Index.ets",
   "author": "",

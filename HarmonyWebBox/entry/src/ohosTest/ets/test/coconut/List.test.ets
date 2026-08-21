@@ -20,6 +20,7 @@ import httpErrorTest from './network/HttpError.test';
 import httpRequestTest from './network/HttpRequest.test';
 import callTest from './network/Call.test';
 import mockInterceptorTest from './network/MockInterceptor.test';
+import httpClientTest from './network/HttpClient.test';
 
 export default function testsuite() {
   errorCodeTest();
@@ -44,4 +45,5 @@ export default function testsuite() {
   httpRequestTest();
   callTest();
   mockInterceptorTest();
+  httpClientTest();
 }
