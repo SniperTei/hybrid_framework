@@ -1,4 +1,5 @@
 import XCTest
+import CoconutNetwork
 @testable import CoconutSDK
 
 final class CoconutUpdateManagerTests: XCTestCase {
@@ -139,8 +140,100 @@ final class CoconutUpdateManagerTests: XCTestCase {
 
     func testCheckUpdateUnreachableReportsError() async {
         // Port 1 → connection refused, deterministic without a server
+        //（引擎重试 2 次/1s → 本用例耗时 ~2s）
         let result = await manager.checkUpdate(moduleId: "demo", manifestUrl: "http://127.0.0.1:1/manifest.json")
         XCTAssertFalse(result.available)
         XCTAssertNotNil(result.error)
+    }
+
+    // MARK: - engine wiring (useClient + scripted adapter)
+
+    /// 可脚本化 adapter：按请求 URL 返回预置 bytes/状态码
+    private final class ScriptedAdapter: IHttpAdapter, @unchecked Sendable {
+        var status = 200
+        var bytes = Data()
+
+        func send(_ request: AdapterRequest) async throws -> AdapterResponse {
+            AdapterResponse(httpStatus: status, headers: [:], body: nil, rawBody: bytes)
+        }
+    }
+
+    private func manifestJson(moduleId: String, version: String, files: [String],
+                              hashes: [String: String]) -> Data {
+        let obj: [String: Any] = [
+            "moduleId": moduleId, "version": version, "entry": "index.html",
+            "files": files, "md5": "pkg", "fileHashes": hashes,
+        ]
+        return try! JSONSerialization.data(withJSONObject: obj)
+    }
+
+    func testCheckUpdate_viaEngine_manifestAvailable() async {
+        let fake = ScriptedAdapter()
+        fake.bytes = manifestJson(moduleId: "demo", version: "999.0.0", files: ["index.html"],
+                                  hashes: ["index.html": "aa"])
+        CoconutUpdateManager.useClient(HttpClient(HttpConfig(), adapter: fake))
+        defer { CoconutUpdateManager.useClient(nil) }
+
+        let result = await manager.checkUpdate(moduleId: "demo", manifestUrl: "http://host/manifest.json")
+        XCTAssertTrue(result.available)
+        XCTAssertEqual("999.0.0", result.remoteVersion)
+        XCTAssertEqual("index.html", result.manifest?.files.first)
+    }
+
+    func testCheckUpdate_viaEngine_404Unavailable() async {
+        let fake = ScriptedAdapter()
+        fake.status = 404
+        CoconutUpdateManager.useClient(HttpClient(HttpConfig(), adapter: fake))
+        defer { CoconutUpdateManager.useClient(nil) }
+
+        let result = await manager.checkUpdate(moduleId: "demo", manifestUrl: "http://host/manifest.json")
+        XCTAssertFalse(result.available)
+        // 行为差异（vs 裸 URLSession）：≥400 直接失败而非把错误页当数据收
+        XCTAssertTrue(result.error?.contains("资源不存在") ?? false)
+    }
+
+    func testPerformUpdate_viaEngine_success() async {
+        let content = "new index \(UUID().uuidString)"
+        let moduleId = "wiring-test"
+
+        let fake = ScriptedAdapter()
+        fake.bytes = Data(content.utf8)
+        CoconutUpdateManager.useClient(HttpClient(HttpConfig(), adapter: fake))
+        defer { CoconutUpdateManager.useClient(nil) }
+
+        let manifest = CoconutUpdateManager.RemoteManifest(
+            moduleId: moduleId, version: "2.0.0", files: ["index.html"],
+            fileHashes: ["index.html": CoconutUpdateManager.md5Hex(Data(content.utf8))])
+        let result = await manager.performUpdate(manifest: manifest, baseUrl: "http://host")
+        XCTAssertTrue(result.success)
+        XCTAssertEqual("2.0.0", manager.sandboxVersions()[moduleId])
+
+        let installed = manager.sandboxRoot().appendingPathComponent("\(moduleId)/index.html")
+        XCTAssertEqual(content, try? String(contentsOf: installed, encoding: .utf8))
+
+        // 清理真实沙箱（defer 不支持 async）
+        _ = await manager.rollback(moduleId: moduleId)
+    }
+
+    func testPerformUpdate_viaEngine_md5MismatchRollsBack() async {
+        let moduleId = "wiring-test-mismatch"
+
+        let fake = ScriptedAdapter()
+        fake.bytes = Data("corrupted".utf8)
+        CoconutUpdateManager.useClient(HttpClient(HttpConfig(), adapter: fake))
+        defer { CoconutUpdateManager.useClient(nil) }
+
+        let manifest = CoconutUpdateManager.RemoteManifest(
+            moduleId: moduleId, version: "2.0.0", files: ["index.html"],
+            fileHashes: ["index.html": "00000000000000000000000000000000"])
+        let result = await manager.performUpdate(manifest: manifest, baseUrl: "http://host")
+        XCTAssertFalse(result.success)
+        XCTAssertTrue(result.error?.contains("MD5 mismatch") ?? false)
+        // 旧包完好：模块目录与版本记录均未落盘
+        XCTAssertNil(manager.sandboxVersions()[moduleId])
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: manager.sandboxRoot().appendingPathComponent(moduleId).path))
+
+        _ = await manager.rollback(moduleId: moduleId)
     }
 }

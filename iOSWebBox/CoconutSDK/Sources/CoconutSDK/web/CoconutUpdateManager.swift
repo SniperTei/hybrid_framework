@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import CoconutNetwork
 
 /// Hot update manager for the offline H5 package — iOS counterpart of
 /// Android's `OfflineResourceManager` update API.
@@ -19,6 +20,11 @@ import CryptoKit
 ///   <AppSupport>/CoconutResources/.staging_<moduleId>/  staging (cleared on entry/failure)
 /// All state lives on disk (sandbox + version.json); stored properties are
 /// immutable, so the type is freely Sendable.
+///
+/// Downloads go through the CoconutNetwork engine (native-first): the engine's
+/// URL guard, retry (2 attempts / 1s) and BYTES passthrough apply automatically.
+/// Hosts may share a configured client (or tests inject a scripted adapter)
+/// via `useClient(_:)`.
 public final class CoconutUpdateManager: Sendable {
 
     public static let shared = CoconutUpdateManager()
@@ -28,10 +34,25 @@ public final class CoconutUpdateManager: Sendable {
     private let sandboxRootName = "CoconutResources"
     private let versionFileName = "version.json"
     private let manifestFileName = "manifest.json"
-    private let session: URLSession
 
-    private init(session: URLSession = .shared) {
-        self.session = session
+    private init() {}
+
+    private static let clientLock = NSLock()
+    private nonisolated(unsafe) static var injectedClient: HttpClient?
+
+    /// Inject a custom client (host sharing a configured client / tests with a
+    /// scripted adapter). `nil` restores the default per-call engine client.
+    public static func useClient(_ client: HttpClient?) {
+        clientLock.lock()
+        injectedClient = client
+        clientLock.unlock()
+    }
+
+    /// Engine client currently in effect (injected, or a default one).
+    private var client: HttpClient {
+        Self.clientLock.lock()
+        defer { Self.clientLock.unlock() }
+        return Self.injectedClient ?? HttpClient(HttpConfig())
     }
 
     // MARK: - Models
@@ -93,7 +114,12 @@ public final class CoconutUpdateManager: Sendable {
         }
         let manifest: RemoteManifest
         do {
-            let (data, _) = try await session.data(from: url)
+            // bytes 模式：manifest 是非 envelope JSON，rawData 直通无嗅探
+            let resp = await client.get(url.absoluteString, options: RequestOptions(responseType: .bytes))
+            guard resp.isSuccess(), let data = resp.rawData else {
+                Logger.shared.e(tag, "Failed to fetch manifest: \(resp.msg)")
+                return .unavailable(current: current, error: "Failed to fetch or parse manifest: \(resp.msg)")
+            }
             manifest = try JSONDecoder().decode(RemoteManifest.self, from: data)
         } catch {
             Logger.shared.e(tag, "Failed to fetch/parse manifest: \(error.localizedDescription)")
@@ -127,10 +153,15 @@ public final class CoconutUpdateManager: Sendable {
             try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
 
             for file in manifest.files {
-                guard let fileUrl = URL(string: Self.joinUrl(baseUrl, file)) else {
+                guard URL(string: Self.joinUrl(baseUrl, file)) != nil else {
                     throw UpdateError.badUrl(file)
                 }
-                let (data, _) = try await session.data(from: fileUrl)
+                // bytes 模式：逐文件字节直通；引擎重试（2 次/1s）自动生效
+                let resp = await client.get(Self.joinUrl(baseUrl, file),
+                                            options: RequestOptions(responseType: .bytes))
+                guard resp.isSuccess(), let data = resp.rawData else {
+                    throw UpdateError.downloadFailed(file: file, message: resp.msg)
+                }
                 let expected = (manifest.fileHashes[file] ?? "").lowercased()
                 let actual = Self.md5Hex(data)
                 guard actual == expected else {
@@ -177,11 +208,13 @@ public final class CoconutUpdateManager: Sendable {
 
     enum UpdateError: Error, CustomStringConvertible {
         case badUrl(String)
+        case downloadFailed(file: String, message: String)
         case md5Mismatch(file: String, expected: String, actual: String)
 
         var description: String {
             switch self {
             case .badUrl(let file): return "Invalid URL for \(file)"
+            case .downloadFailed(let file, let message): return "Download failed for \(file): \(message)"
             case .md5Mismatch(let file, let expected, let actual):
                 return "MD5 mismatch for \(file): expected=\(expected) actual=\(actual)"
             }
