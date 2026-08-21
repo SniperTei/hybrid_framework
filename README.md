@@ -84,11 +84,11 @@ cd AndroidWebBox
 ./gradlew installDebug   # 装到连着的设备
 ```
 
-模块依赖：`app` → `coconut-sdk` → `coconut-core`，`app` → `coconut-network`（HTTP 引擎）。组件在 `app/src/main/java/com/sniper/androidwebbox/components/`，注册在 `WebBoxApplication.kt`。
+模块依赖：`app` → `coconut-sdk` → `coconut-core` → `coconut-network`（HTTP 引擎，热更新经它下载），`app` → `coconut-network`（NetworkComponent 直用）。组件在 `app/src/main/java/com/sniper/androidwebbox/components/`，注册在 `WebBoxApplication.kt`。
 
 集成到自己的 Android 项目见 [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md)。
 
-离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network`（纯 Kotlin JVM 库，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
+离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 `coconut-network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network` v1.1.0（纯 Kotlin JVM 库，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
 
 ### 4. HarmonyOS NEXT（DevEco Studio）
 
@@ -101,7 +101,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 或用 DevEco Studio 打开 `HarmonyWebBox/` 直接 Run。组件在 `entry/src/main/ets/components/`，注册在 `pages/Index.ets`。
 
-离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 须用 Mac 局域网 IP）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network`（`CoconutNetwork/`，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
+离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 用 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后 127.0.0.1；下载走 `@coconut/network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network` v1.1.0（`CoconutNetwork/`，**native-first**：一发式 API + bytes 模式，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
 
 ---
 
@@ -110,8 +110,8 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
 | iOS | XCTest | 102 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
-| Android | JUnit (JVM) | 178 | `./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest` |
-| Harmony | Hypium (on-device) | 225 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
+| Android | JUnit (JVM) | 191 | `./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest` |
+| Harmony | Hypium (on-device) | 237 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
 

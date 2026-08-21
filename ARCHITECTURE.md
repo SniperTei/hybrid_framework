@@ -382,6 +382,8 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 三端管理器语义一致：Android `OfflineResourceManager`（coconut-core）、iOS `CoconutUpdateManager.swift`、Harmony `CoconutUpdateManager.ets`。触发方式为 native demo 按钮（检查更新 / 回滚），暂无 H5 bridge 组件、无进度回调。
 
+**下载通道**：Harmony / Android 的 manifest 与文件下载走 CoconutNetwork 引擎（bytes 模式，`useClient()` 可注入），自动获得重试（默认 2 次 / 1s 间隔）/ UrlGuard / 统一超时；iOS 仍用 URLSession（引擎未落地）。
+
 **版本持久化**：`<沙箱根>/version.json` = `{"<moduleId>": "<version>"}`。当前版本 = max(沙箱 version.json, 内置包 manifest version)，缺失视为 0.0.0。
 
 **checkUpdate(moduleId, manifestUrl)**：GET manifest → 解析 → `available = compareVersions(remote, current) > 0`。manifest 解析宽容（未知字段忽略、pretty-print 容忍）；网络/解析失败返回 `error`，不抛异常。
@@ -393,7 +395,7 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 **rollback(moduleId)**：递归删沙箱模块目录 + 删 version.json 条目 → 回落内置包。
 
-**e2e fixture**：`scripts/serve-hot-update.sh` 拷内置 demo 包 → bump 1.0.1 + 注入 `<div>HOT UPDATE v1.0.1</div>` marker + 重算哈希，`python3 -m http.server 8000`。flags：`--corrupt`（篡改 index.html 哈希供失败路径验证）/ `--quiet`。注意模拟器网络：Android 用 `10.0.2.2`、iOS sim 用 `localhost`、Harmony 必须用 Mac 局域网 IP。
+**e2e fixture**：`scripts/serve-hot-update.sh` 拷内置 demo 包 → bump 1.0.1 + 注入 `<div>HOT UPDATE v1.0.1</div>` marker + 重算哈希，`python3 -m http.server 8000`。flags：`--corrupt`（篡改 index.html 哈希供失败路径验证）/ `--quiet`。注意模拟器网络：Android 用 `10.0.2.2`、iOS sim 用 `localhost`、Harmony 用 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后 127.0.0.1（不依赖模拟器网络栈，e2e 首选）。
 
 **平台注记**：
 - Harmony `fileIo.mkdirSync` 在目标已存在时抛 "File exists"（recursive=true 也一样）——所有建目录走守卫过的 `ensureDir`
