@@ -116,7 +116,7 @@ HarmonyWebBox/
 
 > 三端统一：CoconutSDK 只放框架（Bridge / ComponentManager / 安全管线），**不含任何具体组件**。每个集成 CoconutSDK 的工程根据自己业务写组件，App 工程同时持有"通用参考组件"和"业务组件"，通过显式注册决定启用哪些。
 >
-> 独立引擎库（先例：CoconutNetwork）不依赖 CoconutSDK，纯 native 项目可直接集成；组件层（如 NetworkComponent）负责把它桥接到 H5 bridge。
+> 独立引擎库（先例：CoconutNetwork）不依赖 CoconutSDK，纯 native 项目可直接集成；组件层（如 NetworkComponent）负责把它桥接到 H5 bridge。引擎 native-first：主要消费者是 native——Harmony 热更新 `CoconutUpdateManager`（CoconutSDK HAR → CoconutNetwork HAR 依赖）经引擎下载 manifest / 离线包文件（bytes 模式），自动获得重试 / UrlGuard / 超时管线；`NetworkComponent` 只是 H5 需要时的薄透传。
 
 ---
 

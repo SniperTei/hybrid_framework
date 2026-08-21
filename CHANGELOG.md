@@ -17,12 +17,18 @@ Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTT
 - **Android NetworkComponent**（`997b4df`）：第 5 个组件注册进 WebBoxApplication。`request` / `getNetworkType` / `network.change`（`registerDefaultNetworkCallback`，type|online 去重）；allowedDomains 与 CoconutSDK 配置 per-request 同步（Kotlin List 不可别名）。模拟器 e2e：coconut_index.html 四组按钮全过 + Demo Run All 19/19（network 3 行 skip → pass）。
 - **Android**（`a2a57af`/`8bcb417`）：`OfflineResourceManager` 新增更新 API + 22 个 JVM 测试（compareVersions / 路径守卫 / md5 向量 / staging swap / rollback 真值表）。
 - **iOS**（`b1dbba5`/`82f75b1`）：`CoconutUpdateManager.swift`（CryptoKit MD5）+ 15 个 XCTest；HomeViewController 检查更新 / 回滚按钮。
-- **Harmony**（`7d7152c`/`9d90203`）：`CoconutUpdateManager.ets` + 19 个 Hypium 测试；Index.ets 按钮 + manifest URL 输入框（须 Mac 局域网 IP）。
+- **Harmony**（`7d7152c`/`9d90203`）：`CoconutUpdateManager.ets` + 19 个 Hypium 测试；Index.ets 按钮 + manifest URL 输入框（须 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后用 127.0.0.1）。
+- **HttpClient 一发式 + bytes 模式测试**：`HttpClient.test.ets` 10 个（method/body/params/timeout 透传、rawData 字节级直通、404 错误码、无 envelope 嗅探、AdapterRequest.responseType、mock-bytes 限制钉死）+ 热更新引擎接线 2 个（`useClient(FakeAdapter)`：manifest 404 → unavailable / 正常 manifest → 解析成功且 available）。
 - **e2e fixture**：`scripts/serve-hot-update.sh`（bump 1.0.1 + 注 marker + 重算哈希；`--corrupt` 篡改哈希供失败路径）。
 - 三端 demo 按钮入口（检查更新可用即自动下载应用 / 回滚到内置版本）。
 
 ### Changed
 
+- **@coconut/network v1.0.0 → v1.1.0（Harmony，native-first 升级）**：
+  - 新增一发式便利 API（`client.request/get/post/put/delete(url, ...)`），内部统一走 `newRequest().buildCall().execute()` 完整管线（拦截器 / UrlGuard / 重试 / header 合并 / mock 短路），native 消费者不再需要两步 builder；此 API 形态为 Android / iOS 引擎后续对齐模板。
+  - 新增 bytes 响应模式（`RequestOptions.responseType: HttpResponseType.BYTES`）：传输层 `ARRAY_BUFFER`，`HttpResponse.rawData` 携带原始字节，不做 envelope 嗅探（内容恰为 envelope 形状也直通）；HTTP ≥400 走原错误路径。已知限制：mock 短路不感知 responseType（bytes 请求命中 mock 返回 object data、rawData=null）。
+  - 定位明确：引擎 native-first——主要消费者是 native（热更新），`NetworkComponent` 只是 H5 需要时的薄透传。
+- **CoconutSDK（Harmony）热更新迁移到引擎**：`CoconutUpdateManager` 删除裸 `http.createHttp()` 下载，改走 `@coconut/network`（新增 `file:../CoconutNetwork` HAR→HAR 依赖）——自动获得重试（2 次 / 1s 间隔）/ UrlGuard / 统一超时（默认值与原 15s/30s 一致）；新增 `useClient()` 注入钩子（测试接线 FakeAdapter / 宿主共享 client）。行为差异：旧实现严拒非 200，迁移后接受任意 2xx 且有 body 的响应（204 → rawData null → 判失败）；fixture（python http.server）无影响。
 - 删除 Android 休眠的 zip 热更新路径（`dd30092`）—— 单一机制（逐文件），git 可找回。
 
 ### Fixed
