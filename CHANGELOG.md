@@ -33,6 +33,7 @@ Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTT
 
 ### Fixed
 
+- **离线包 demo Vue app 从未渲染（三端，自 `7fa83d9` 起）**：vite iife bundle 结尾立即 `.mount('#app')`，而入口 script 被 `build-offline-package.sh` 剥成 classic script 后位于 `<head>`，执行时 `<body>`（含 `#app`）尚未解析 → 挂载失败、页面空白（纯 HTML 的热更新 marker 能显示，故此前 e2e 未暴露；2026-08-20 Harmony 热更新 e2e 复查渲染时抓到）。修复：`coconutWebBox/src/main.js` 等 `DOMContentLoaded` 再挂载（`readyState` 已就绪则立即挂，dev server 场景不受影响），H5 版本 1.0.0 → 1.0.1，三端产物重建分发（`--check` 三端一致），Harmony 模拟器验证离线包页面完整渲染（env / capabilities 面板）。
 - **Harmony NetworkComponent 真机全废**（2026-08-20 真机验证抓到，模拟器未暴露）：`hasDefaultNet`/`getDefaultNet`/`getNetCapabilities` 是 ACL 权限 API，debug profile 的 `allowed-acls` 不背书时恒抛 201（被静默 catch 吞掉 → `getNetworkType` 恒报 `none`）——之前记录的"模拟器怪癖"实为同一 bug。修复：改为 `NetConnection` 事件流驱动（register/netAvailable/netLost/netCapabilitiesChange 不受 ACL 限制，宿主无需申 ACL），拉取式 API 仅作冷启动兜底（保留 error 日志可诊断）；`netAvailable` 延迟 150ms 合并推送防双发；补 `netLost` 监听（部分版本断网不触发 `netUnavailable`）；`module.json5` 补声明 `GET_NETWORK_INFO`。真机（MatePad Pro / HarmonyOS 6.1）验证：getNetworkType 报真实 bearer + 断网/重连双向推送；Hypium 225/225。
 - Harmony manifest 解析不容忍 pretty-print JSON（`"key": "value"` 带空格）→ 空白容忍正则 + 回归测试（e2e 抓到，单测漏网）。
 - Harmony `fileIo.mkdirSync` 目标已存在时抛 "File exists"（recursive=true 也抛）→ 全部建目录走守卫 `ensureDir`，否则 performUpdate 首个根级文件即失败、version.json 永不落盘（e2e 抓到）。
