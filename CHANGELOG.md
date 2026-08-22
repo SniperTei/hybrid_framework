@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTTP 栈 + 网络状态。引擎为独立库且 **native-first**（主要消费者是热更新等 native 代码）——Harmony HAR `@coconut/network` v1.1.0 / Android 纯 Kotlin JVM `coconut-network` v1.1.0（均零依赖，可单独用于纯 native 项目；两平台 API 已对齐：一发式 `client.get/post/put/delete` + bytes 模式），`NetworkComponent` 桥接到 H5 bridge。契约详见 `API_CONTRACT.md` §4.5。
+Network 组件（三端齐活）：H5 请求走 native HTTP 栈 + 网络状态。引擎为独立库且 **native-first**（主要消费者是热更新等 native 代码）——Harmony HAR `@coconut/network` v1.1.0 / Android 纯 Kotlin JVM `coconut-network` v1.1.0 / iOS Swift Package `CoconutNetwork` v1.1.0（均零依赖，可单独用于纯 native 项目；三平台 API 已对齐：一发式 `client.get/post/put/delete` + bytes 模式），`NetworkComponent` 桥接到 H5 bridge。契约详见 `API_CONTRACT.md` §4.5。
 
 热更新（离线包续集）：逐文件下载 + 版本比对 + 原子切换 + 回滚，三端对齐。`checkUpdate / performUpdate / rollback` 三 API，native demo 按钮触发，无 H5 bridge 组件、无进度回调。架构详见 `ARCHITECTURE.md` §7。
 
@@ -20,6 +20,8 @@ Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTT
 - **Harmony**（`7d7152c`/`9d90203`）：`CoconutUpdateManager.ets` + 19 个 Hypium 测试；Index.ets 按钮 + manifest URL 输入框（须 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后用 127.0.0.1）。
 - **HttpClient 一发式 + bytes 模式测试**：`HttpClient.test.ets` 10 个（method/body/params/timeout 透传、rawData 字节级直通、404 错误码、无 envelope 嗅探、AdapterRequest.responseType、mock-bytes 限制钉死）+ 热更新引擎接线 2 个（`useClient(FakeAdapter)`：manifest 404 → unavailable / 正常 manifest → 解析成功且 available）。
 - **Android 引擎同款测试**（`1257c3d`）：`HttpClientTest` 10 个（对标 Harmony `HttpClient.test.ets`）+ `HttpURLConnectionAdapterIntegrationTest` bytes 真网络路径（256 字节二进制经 JDK HttpServer 直通）+ `OfflineResourceManagerTest` 引擎接线 2 个（内联 ScriptedAdapter：manifest 404 → unavailable / manifest 200 → 解析成功且走 BYTES 模式）。测试数：coconut-network 54→65、coconut-core 113→115。
+- **iOS CoconutNetwork SPM 引擎**（`cd90142`）：两平台引擎对齐移植为独立 Swift 包（纯 Foundation 零依赖；声明 `.macOS(.v13)` 后 `swift test` 宿主机直跑，秒级）。`JSONValue` indirect enum 替代 JsonElement；`HttpConfig` 引用语义 class 供白名单 per-request 同步；adapter 默认 `URLSessionAdapter`（错误按 `URLError.code` 分类）；`MockURLProtocol` stub 替代 JDK HttpServer 集成测试。64 个 XCTest 全绿。
+- **iOS NetworkComponent**（`8f28a7b`）：第 5 个组件三端齐活，注册进 SceneDelegate。`request` / `getNetworkType` / `network.change`（`NWPathMonitor` 单流天然合并，type|online 去重）；`NetworkStatusProviding` 测试缝（生产 `NWPathStatusProvider` / 测试 `ManualStatusProvider`）；构造双轨（默认 init 同步 CoconutSDK 白名单 / 测试注入 client+provider）。12 个组件测试。模拟器 e2e：Run All 19/19（network 3 行 skip → pass）+ 热更新五路径（checkUpdate available / performUpdate 应用 v1.0.2 + marker 渲染 / rollback / `--corrupt` MD5 mismatch / 断服重试实测 ~3.1s = 3 次尝试 + 2×1s）。
 - **e2e fixture**：`scripts/serve-hot-update.sh`（bump 1.0.1 + 注 marker + 重算哈希；`--corrupt` 篡改哈希供失败路径）。
 - 三端 demo 按钮入口（检查更新可用即自动下载应用 / 回滚到内置版本）。
 
@@ -32,6 +34,7 @@ Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTT
 - **CoconutSDK（Harmony）热更新迁移到引擎**：`CoconutUpdateManager` 删除裸 `http.createHttp()` 下载，改走 `@coconut/network`（新增 `file:../CoconutNetwork` HAR→HAR 依赖）——自动获得重试（2 次 / 1s 间隔）/ UrlGuard / 统一超时（默认值与原 15s/30s 一致）；新增 `useClient()` 注入钩子（测试接线 FakeAdapter / 宿主共享 client）。行为差异：旧实现严拒非 200，迁移后接受任意 2xx 且有 body 的响应（204 → rawData null → 判失败）；fixture（python http.server）无影响。
 - **coconut-network v1.0.0 → v1.1.0（Android，对齐 Harmony）**（`1257c3d`）：同款一发式便利 API + bytes 响应模式（`RequestOptions(responseType = HttpResponseType.BYTES)` → `HttpResponse.rawData: ByteArray?` 字节直通，无 envelope 嗅探；双 adapter 均支持）；Kotlin 侧用 data class `copy()` 合并 options（无 ArkTS 手写 mergeOptions 之痛）。两平台引擎 API 至此对齐，iOS 后续按此模板。
 - **Android 热更新迁移到引擎**（`c71efab`）：`OfflineResourceManager` 删除裸 `HttpURLConnection` 下载（`downloadToFile` 流拷贝 → `downloadBytes` bytes 模式一次拿全量），`coconut-core` 新增 `api(project(":coconut-network"))` 依赖——自动获得重试 / UrlGuard / 统一超时；同款 `useClient()` 注入钩子。行为差异同 Harmony（严拒非 200 → 接受任意 2xx 且非空 body）。模拟器 e2e 五路径全过：checkUpdate available / performUpdate 应用 v1.0.2 + marker 渲染 / rollback 回内置包 / `--corrupt` MD5 mismatch（staging 清理、旧包完好）/ 断服失败路径（引擎重试实测：连接拒绝场景 ~2s = 3 次尝试 + 2×1s 间隔）。
+- **iOS 热更新迁移到引擎**（`ea53c1f`）：`CoconutUpdateManager` 删除裸 `URLSession.data` ×2，改走 CoconutNetwork bytes 模式，CoconutSDK 新增包依赖——自动获得重试 / UrlGuard / 错误分类；同款 `useClient()` 注入钩子。行为差异（更严）：旧实现不查 HTTP 状态码（404 错误页也当数据收），迁移后 ≥400 直接失败（404 manifest → "资源不存在"）。CoconutSDKTests +4 wiring 用例（注入 ScriptedAdapter），102→106。
 - 删除 Android 休眠的 zip 热更新路径（`dd30092`）—— 单一机制（逐文件），git 可找回。
 
 ### Fixed
@@ -41,6 +44,7 @@ Network 组件（Harmony 先行，Android 已落地）：H5 请求走 native HTT
 - Harmony manifest 解析不容忍 pretty-print JSON（`"key": "value"` 带空格）→ 空白容忍正则 + 回归测试（e2e 抓到，单测漏网）。
 - Harmony `fileIo.mkdirSync` 目标已存在时抛 "File exists"（recursive=true 也抛）→ 全部建目录走守卫 `ensureDir`，否则 performUpdate 首个根级文件即失败、version.json 永不落盘（e2e 抓到）。
 - Harmony `cryptoFramework` MD5 在部分模拟器镜像 HUKS 层失败 → 纯 JS RFC 1321 实现（已知向量钉死）。
+- **iOS SceneDelegate e2e 钩子拼 baseUrl 用 `NSString.deletingLastPathComponent`**：该 API 是路径语义，会把 `http://` 折叠成 `http:/`——旧裸 URLSession 容忍，引擎 UrlGuard 正确拒绝（`missing or invalid scheme`），热更新 e2e 抓到。改为手动截最后一个 `/` 之后的段。
 
 ## [3.3.0] - 2026-08-18
 

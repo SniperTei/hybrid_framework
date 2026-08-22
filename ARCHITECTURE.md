@@ -66,19 +66,26 @@ AndroidWebBox/
 
 ```
 iOSWebBox/
-├── CoconutSDK/                          # SPM 包（纯框架）
+├── CoconutSDK/                          # SPM 包（纯框架，依赖 CoconutNetwork 跑热更新）
 │   └── Sources/CoconutSDK/
 │       ├── Bridge/     # CoconutBridge, BridgeSecurityValidator, ...
 │       ├── Core/       # ComponentManager, BaseComponent, CoconutPlugin
 │       ├── Config/     # CoconutConfig, Environment
-│       └── CoconutWebViewController.swift
+│       └── web/        # CoconutWebViewController, CoconutUpdateManager（热更新）
+├── CoconutNetwork/                      # 独立网络引擎 SPM 包（纯 Foundation，零依赖）
+│   └── Sources/CoconutNetwork/
+│       ├── HttpClient / Call / HttpRequest / HttpResponse / JSONValue
+│       ├── adapter/    # URLSessionAdapter（默认），可插拔
+│       ├── guard/      # UrlGuard（SSRF 防护）
+│       └── interceptors/ # Log / Mock
 └── iOSWebBox/                           # 宿主 App
     ├── SceneDelegate.swift              # 在此显式注册组件
-    └── Components/                      # 4 个组件（不属于 SPM；network 未落地）
+    └── Components/                      # 5 个组件（不属于 SPM）
         ├── DeviceComponent.swift
         ├── StorageComponent.swift
         ├── EventComponent.swift
-        └── DialogComponent.swift
+        ├── DialogComponent.swift
+        └── NetworkComponent.swift
 ```
 
 ### HarmonyOS
@@ -111,12 +118,12 @@ HarmonyWebBox/
 |----|------|---------|-----|---------|
 | **框架** | Bridge / 安全 / ComponentManager | coconut-core | CoconutSDK SPM | CoconutSDK HAR |
 | **SDK 入口** | 初始化 + WebView 封装 | coconut-sdk | CoconutSDK SPM | CoconutSDK HAR |
-| **独立引擎库** | 可脱离 SDK 复用的领域能力（如网络） | coconut-network（Kotlin JVM） | ❌ 未落地 | CoconutNetwork HAR |
+| **独立引擎库** | 可脱离 SDK 复用的领域能力（如网络） | coconut-network（Kotlin JVM） | CoconutNetwork SPM | CoconutNetwork HAR |
 | **全部组件** | 框架组件 + 业务组件 | app/ | iOSWebBox/ | entry/ |
 
 > 三端统一：CoconutSDK 只放框架（Bridge / ComponentManager / 安全管线），**不含任何具体组件**。每个集成 CoconutSDK 的工程根据自己业务写组件，App 工程同时持有"通用参考组件"和"业务组件"，通过显式注册决定启用哪些。
 >
-> 独立引擎库（先例：CoconutNetwork）不依赖 CoconutSDK，纯 native 项目可直接集成；组件层（如 NetworkComponent）负责把它桥接到 H5 bridge。引擎 native-first：主要消费者是 native——热更新经引擎下载 manifest / 离线包文件（bytes 模式），自动获得重试 / UrlGuard / 超时管线；`NetworkComponent` 只是 H5 需要时的薄透传。Harmony：`CoconutUpdateManager`（CoconutSDK HAR → CoconutNetwork HAR 依赖）；Android：`OfflineResourceManager`（coconut-core → coconut-network Gradle 依赖）。
+> 独立引擎库（先例：CoconutNetwork）不依赖 CoconutSDK，纯 native 项目可直接集成；组件层（如 NetworkComponent）负责把它桥接到 H5 bridge。引擎 native-first：主要消费者是 native——热更新经引擎下载 manifest / 离线包文件（bytes 模式），自动获得重试 / UrlGuard / 超时管线；`NetworkComponent` 只是 H5 需要时的薄透传。Harmony：`CoconutUpdateManager`（CoconutSDK HAR → CoconutNetwork HAR 依赖）；Android：`OfflineResourceManager`（coconut-core → coconut-network Gradle 依赖）；iOS：`CoconutUpdateManager`（CoconutSDK SPM → CoconutNetwork SPM 包依赖）。三平台引擎 API 已对齐（v1.1.0 一发式 + bytes 模式；Swift 侧 JSONValue 替 JsonElement、HttpConfig 引用语义）。
 
 ---
 
@@ -163,7 +170,7 @@ await CoconutSDK.registerComponents([
     StorageComponent(),
     EventComponent(),
     DialogComponent(),
-    // NetworkComponent 未落地（组件矩阵见 API_CONTRACT.md §1）
+    NetworkComponent(),
 ])
 ```
 
@@ -382,7 +389,7 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 三端管理器语义一致：Android `OfflineResourceManager`（coconut-core）、iOS `CoconutUpdateManager.swift`、Harmony `CoconutUpdateManager.ets`。触发方式为 native demo 按钮（检查更新 / 回滚），暂无 H5 bridge 组件、无进度回调。
 
-**下载通道**：Harmony / Android 的 manifest 与文件下载走 CoconutNetwork 引擎（bytes 模式，`useClient()` 可注入），自动获得重试（默认 2 次 / 1s 间隔）/ UrlGuard / 统一超时；iOS 仍用 URLSession（引擎未落地）。
+**下载通道**：三端的 manifest 与文件下载均走 CoconutNetwork 引擎（bytes 模式，`useClient()` 可注入），自动获得重试（默认 2 次 / 1s 间隔）/ UrlGuard / 统一超时。
 
 **版本持久化**：`<沙箱根>/version.json` = `{"<moduleId>": "<version>"}`。当前版本 = max(沙箱 version.json, 内置包 manifest version)，缺失视为 0.0.0。
 

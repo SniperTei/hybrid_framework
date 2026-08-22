@@ -93,7 +93,7 @@
     </section>
 
     <section>
-      <h2>🌐 Network 组件（Harmony 先行，走 native HTTP）</h2>
+      <h2>🌐 Network 组件（三端齐活，走 native HTTP）</h2>
       <input v-model="netUrl" class="net-input" placeholder="http://<Mac-IP>:8000/manifest.json" />
       <div class="btns">
         <button class="btn-a" @click="netRequestGet" :disabled="loading">GET</button>
@@ -439,7 +439,7 @@ async function runAll() {
     finishCheck(c, !r.err && ['wifi', 'cellular', 'ethernet', 'none', 'unknown'].includes(netType),
       r.err ? `err ${r.err.code}` : `type=${netType}, online=${r.data && r.data.online}`)
   } else {
-    c = startCheck('Network 组件（skip）', 'skip on iOS/Android this round')
+    c = startCheck('Network 组件（skip）', 'network capability not registered')
     c.status = 'skip'
     c.actual = 'coconut.supports("network") = false'
   }

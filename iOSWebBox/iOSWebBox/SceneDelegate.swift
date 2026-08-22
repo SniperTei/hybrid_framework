@@ -68,7 +68,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                         let check = await CoconutUpdateManager.shared.checkUpdate(moduleId: "demo", manifestUrl: updateUrl)
                         print("[E2E] checkUpdate: available=\(check.available) current=\(check.currentVersion) remote=\(check.remoteVersion) error=\(check.error ?? "nil")")
                         guard check.available, let manifest = check.manifest else { return }
-                        let baseUrl = (updateUrl as NSString).deletingLastPathComponent
+                        // NSString.deletingLastPathComponent collapses "//" → "/"
+                        // (path semantics), breaking http:// URLs — strip the last
+                        // path segment manually instead.
+                        let baseUrl = String(updateUrl[..<(updateUrl.lastIndex(of: "/") ?? updateUrl.startIndex)])
                         let result = await CoconutUpdateManager.shared.performUpdate(manifest: manifest, baseUrl: baseUrl)
                         print("[E2E] performUpdate: success=\(result.success) version=\(result.version) error=\(result.error ?? "nil")")
                     }

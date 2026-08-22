@@ -28,7 +28,8 @@ hybrid_framework/
 ├── coconutWebBox/         # H5 SDK：coconut.js（JS Bridge 客户端）
 ├── iOSWebBox/             # iOS 宿主 App + CoconutSDK SPM 包
 │   ├── CoconutSDK/        # SPM 包（框架）
-│   └── iOSWebBox/         # 宿主 App（持有 4 个组件：device / storage / event / dialog）
+│   ├── CoconutNetwork/    # 独立 HTTP 引擎 SPM 包（纯 Foundation，零依赖，可单独使用）
+│   └── iOSWebBox/         # 宿主 App（持有 5 个组件：device / storage / event / dialog / network）
 ├── AndroidWebBox/         # Android 宿主 App + CoconutSDK Gradle 模块
 │   ├── coconut-core/      # 核心库（Bridge / Component / Security）
 │   ├── coconut-sdk/       # SDK 入口 + WebView 封装
@@ -73,9 +74,9 @@ open iOSWebBox.xcodeproj
 # Cmd+R 运行 iOSWebBox scheme 到 iPhone 模拟器
 ```
 
-CoconutSDK 是内嵌的 SPM 包（`iOSWebBox/CoconutSDK/`），无需额外配置。组件在 `iOSWebBox/iOSWebBox/Components/` 下，注册在 `SceneDelegate.swift`。
+CoconutSDK 是内嵌的 SPM 包（`iOSWebBox/CoconutSDK/`），依赖 CoconutNetwork 引擎包，无需额外配置。组件在 `iOSWebBox/iOSWebBox/Components/` 下，注册在 `SceneDelegate.swift`。
 
-离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`）。
+离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 CoconutNetwork 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `CoconutNetwork` v1.1.0（纯 Foundation 零依赖，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + URLSessionAdapter + mock + SSRF 守卫，可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
 
 ### 3. Android（Android Studio + Gradle）
 
@@ -109,7 +110,9 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
-| iOS | XCTest | 102 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
+| iOS（SDK） | XCTest | 106 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
+| iOS（引擎） | XCTest (swift test) | 64 | `cd iOSWebBox/CoconutNetwork && swift test`（纯 Foundation，宿主机直跑） |
+| iOS（App 组件） | XCTest | 12 | `xcodebuild test -scheme iOSWebBox -only-testing:iOSWebBoxTests -destination 'id=<UDID>'` |
 | Android | JUnit (JVM) | 191 | `./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest` |
 | Harmony | Hypium (on-device) | 237 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 

@@ -121,7 +121,7 @@ coconut.js 在 `init()` 里监听 `document.visibilitychange`，自动派发到�
 
 > 当前活跃组件有 5 个。device + storage 来自 commit `3b3b6de` / `8a1437f` / `95b632a`（2026-07-26 三端 trim）；
 > event 为 2026-08-09 新增（native → H5 push 能力）；dialog 为 2026-08-15 从 git 历史恢复（§4.4）；
-> network 为 2026-08-19 新增（§4.5，Harmony 先行），2026-08-20 Android 落地（同契约）。
+> network 为 2026-08-19 新增（§4.5，Harmony 先行），2026-08-20 Android 落地、2026-08-22 iOS 落地（同契约，三端齐活）。
 > 其余 11 个已删除组件契约保留在文末「附录 A」供 git 历史参考。
 
 | 组件 | iOS | Android | Harmony | 状态 |
@@ -130,7 +130,7 @@ coconut.js 在 `init()` 里监听 `document.visibilitychange`，自动派发到�
 | storage | ✅ | ✅ | ✅ | 活跃 |
 | event | ✅ | ✅ | ✅ | 活跃（v2.4.0 on/off/emit API） |
 | dialog | ✅ | ✅ | ✅ | 活跃（v3.3.0 恢复，见 §4.4；`prompt` 不恢复——旧实现 Harmony input 恒空） |
-| network | ❌ | ✅ | ✅ | 活跃（见 §4.5；引擎 = 独立库 Harmony HAR `@coconut/network` / Android JVM `coconut-network`，iOS 后续轮次） |
+| network | ✅ | ✅ | ✅ | 活跃（见 §4.5；引擎 = 独立库：Harmony HAR `@coconut/network` / Android JVM `coconut-network` / iOS SPM `CoconutNetwork`） |
 
 ---
 
@@ -299,18 +299,19 @@ coconut.dialog.hideLoading((err, data) => {});
 - Android：`AlertDialog.Builder`（`suspendCancellableCoroutine` 挂起等结果）、`Toast.makeText`；loading 用 AlertDialog + ProgressBar 自定义 view（`ProgressDialog` 已 deprecated）。
 - Harmony：`promptAction.showDialog/showToast`；loading 用 `window.getLastWindow(context)` → `getUIContext()` → `openCustomDialog(ComponentContent)`（注意 `UIAbility.windowStage` 非 public，编译会报错）。
 
-### 4.5 network ✅ Harmony + Android
+### 4.5 network ✅ 三端
 
 **目标**：H5 请求走 native HTTP 栈（绕 WebView CORS、统一出站拦截点），外加网络状态查询与 native → H5 推送。
 
-**架构**：HTTP 引擎是**独立库**，可脱离 CoconutSDK 单独给纯 native 项目用。**引擎 native-first**：主要消费者是 native（Harmony 热更新 `CoconutUpdateManager` / Android 热更新 `OfflineResourceManager` 经引擎下载 manifest / 离线包文件），`NetworkComponent`（app 层）只是 H5 需要时的薄透传胶水。引擎 OkHttp 式分层（两平台 1:1 同语义）：
+**架构**：HTTP 引擎是**独立库**，可脱离 CoconutSDK 单独给纯 native 项目用。**引擎 native-first**：主要消费者是 native（三端热更新——Harmony `CoconutUpdateManager` / Android `OfflineResourceManager` / iOS `CoconutUpdateManager`——经引擎下载 manifest / 离线包文件），`NetworkComponent`（app 层）只是 H5 需要时的薄透传胶水。引擎 OkHttp 式分层（三平台 1:1 同语义）：
 
 - Harmony：独立 HAR `@coconut/network`（`HarmonyWebBox/CoconutNetwork/`，v1.1.0——一发式 API `client.get/post/put/delete` + bytes 响应模式（`responseType:'bytes'` → `rawData` 原始字节直通，无 envelope 嗅探）；CoconutSDK v3.3.0+ 依赖它跑热更新）
 - Android：纯 Kotlin JVM 库 `coconut-network`（`AndroidWebBox/coconut-network/`，v1.1.0，零 Android 依赖——任何 Kotlin/JVM 项目可复用；同样的一发式 API + bytes 模式（`RequestOptions(responseType = HttpResponseType.BYTES)` → `HttpResponse.rawData: ByteArray?`）；`coconut-core` 依赖它跑热更新（`OfflineResourceManager`））
-- 两平台引擎 API 已对齐；iOS 引擎后续按此模板落地
+- iOS：Swift Package `CoconutNetwork`（`iOSWebBox/CoconutNetwork/`，v1.1.0，纯 Foundation 零依赖——声明 macOS 13 后 `swift test` 宿主机直跑；同样的一发式 API + bytes 模式（`RequestOptions(responseType: .bytes)` → `HttpResponse.rawData: Data?`）；CoconutSDK 依赖它跑热更新（`CoconutUpdateManager`））
+- 三平台引擎 API 已对齐（Swift 侧 JSONValue 替代 JsonElement，HttpConfig 为引用语义 class 供白名单同步）
 
 - `HttpClient`（Call 工厂 + HttpConfig）/ `Call`（拦截器链 + 重试 + header 合并 + URL 构建）
-- **adapter 可插拔传输**：Harmony 默认 `HarmonyHttpAdapter`（`@kit.NetworkKit`）；Android 默认 `HttpURLConnectionAdapter`，另附 `OkHttpAdapter`（okhttp 为 `compileOnly`，宿主想用自己加依赖）。测试用 `FakeAdapter`，第三方栈实现 `IHttpAdapter` 即可接入
+- **adapter 可插拔传输**：Harmony 默认 `HarmonyHttpAdapter`（`@kit.NetworkKit`）；Android 默认 `HttpURLConnectionAdapter`，另附 `OkHttpAdapter`（okhttp 为 `compileOnly`，宿主想用自己加依赖）；iOS 默认 `URLSessionAdapter`（错误按 `URLError.code` 分类，URLRequest 仅有整包超时——connect/read 无独立概念，`timeoutMs` 同时设两者）。测试用 `FakeAdapter`，第三方栈实现 `IHttpAdapter` 即可接入
 - interceptor：`LogInterceptor` / `MockInterceptor`（规则命中即短路，不落 adapter——native 单测与无网演示用）
 
 **标准签名**
@@ -318,19 +319,19 @@ coconut.dialog.hideLoading((err, data) => {});
 | 方法 | params | returns | 说明 |
 |---|---|---|---|
 | `request` | `url*`, `method`('GET' 默认 / 'POST' / 'PUT' / 'DELETE'), `headers`{string:string}, `params`(query), `body`(对象，raw JSON string 直通), `timeoutMs`(connect+read 共用) | `{success, httpStatus, code, msg, data, headers, costTime, message}` | 缺 url / 未知 method / 守卫拦截 → `200007` |
-| `getNetworkType` | — | `{type:'wifi'|'cellular'|'ethernet'|'none'|'unknown', online, success}` | Harmony 读 NetConnection 事件流缓存（`netCapabilitiesChange` bearer 映射；拉取式 `hasDefaultNet`/`getNetCapabilities` 是 ACL 权限 API，仅冷启动兜底）；Android `ConnectivityManager.activeNetwork` + `NetworkCapabilities` bearer 映射 |
+| `getNetworkType` | — | `{type:'wifi'|'cellular'|'ethernet'|'none'|'unknown', online, success}` | Harmony 读 NetConnection 事件流缓存（`netCapabilitiesChange` bearer 映射；拉取式 `hasDefaultNet`/`getNetCapabilities` 是 ACL 权限 API，仅冷启动兜底）；Android `ConnectivityManager.activeNetwork` + `NetworkCapabilities` bearer 映射；iOS `NWPathMonitor.currentPath` bearer 映射（wifi/wiredEthernet→ethernet/cellular） |
 
 **envelope 语义**：body 是 JSON object 且含 `code` 字段 → 按业务 envelope 解析（`000000` = 成功）；非 envelope 的 2xx JSON（如静态 manifest.json）→ `data` 直通 + 补 `code:'000000'`。HTTP ≥400 / 业务 code 非 000000 → bridge `000000` + result `success:false`（业务层失败约定，**不走** bridge error code）。
 
 **SSRF 出站守卫**（引擎级 `UrlGuard`，所有请求必经；mock 短路在守卫之前）：
 - scheme 白名单 http/https；`coconut://` `file://` `resource://` `javascript:` 及无 scheme 一律拒
 - `HttpConfig.allowedDomains` 非空时 host 需命中 `host === d \|\| host.endsWith('.' + d)`（后缀匹配防 `api.foo.com.evil.com` 绕过）；空列表 = 放行所有
-- `NetworkComponent` 默认 client 与 `CoconutSDK.config.allowedDomains` 同步：Harmony 引用同步；Android 每次 request 前重新拷贝（Kotlin List 不可别名，per-request 拷贝保证 configure 后改动同样生效）
+- `NetworkComponent` 默认 client 与 `CoconutSDK.config.allowedDomains` 同步：Harmony 引用同步；Android 每次 request 前重新拷贝（Kotlin List 不可别名，per-request 拷贝保证 configure 后改动同样生效）；iOS 每次 request 前赋值（`HttpConfig` 为引用语义 class，per-request 同步保证 configure 后改动同样生效）
 - 命中守卫 → bridge error `200007`
 
 **method 白名单刻意只有 4 个**（GET/POST/PUT/DELETE）；PATCH/HEAD 等后续轮次再加。
 
-**network.change 事件**：Harmony `NetConnection`（netAvailable / netUnavailable / **netLost** / netCapabilitiesChange，netAvailable 延迟 150ms 合并推送防双发）；Android `ConnectivityManager.registerDefaultNetworkCallback`（onAvailable / onLost / onCapabilitiesChanged）→ `eventEmitter.emit('network.change', {type, online})`，按 `type|online` 组合键去重防刷屏；`onCleanup` unregister。H5 用 `coconut.on('network.change', cb)` 订阅（复用 §4.3 event 通道，coconut.js 零改动）。✅ 2026-08-20 真机（MatePad Pro / HarmonyOS 6.1）验证通过：断网推 `none|false`、重连推 `wifi|true`。Android 模拟器常报 `ethernet`（虚拟 NAT，正常）。
+**network.change 事件**：Harmony `NetConnection`（netAvailable / netUnavailable / **netLost** / netCapabilitiesChange，netAvailable 延迟 150ms 合并推送防双发）；Android `ConnectivityManager.registerDefaultNetworkCallback`（onAvailable / onLost / onCapabilitiesChanged）；iOS `NWPathMonitor`（单流天然合并事件，无需防抖）→ `eventEmitter.emit('network.change', {type, online})`，按 `type|online` 组合键去重防刷屏；`onCleanup` unregister/stop。H5 用 `coconut.on('network.change', cb)` 订阅（复用 §4.3 event 通道，coconut.js 零改动）。✅ 2026-08-20 真机（MatePad Pro / HarmonyOS 6.1）验证通过：断网推 `none|false`、重连推 `wifi|true`。Android 模拟器常报 `ethernet`（虚拟 NAT，正常）。
 
 **Harmony 权限注意**（真机验证踩坑，2026-08-20）：
 - `module.json5` 需声明 `ohos.permission.GET_NETWORK_INFO`（`hasDefaultNet`/`getDefaultNet`/`getNetCapabilities`/`NetConnection.register` 均要求）
@@ -339,7 +340,7 @@ coconut.dialog.hideLoading((err, data) => {});
 
 **限制**：响应按 JSON 解析（Harmony `expectDataType OBJECT` / Android adapter 统一 JsonElement），非 JSON body 在 http 层抛错 → surface 为 NETWORK_ERROR 业务失败；upload/download/流式进度下轮。
 
-**平台**：Harmony + Android（2026-08-20 起三端 e2e 全过：Android 模拟器 Run All 19/19；Harmony 真机 getNetworkType + network.change 双向推送）。iOS 落地前 H5 用 `coconut.supports('network','request')` gating（Demo Run All 显示 skip 行）。
+**平台**：三端齐活（e2e 全过：Android 模拟器 Run All 19/19；Harmony 真机 getNetworkType + network.change 双向推送；iOS 模拟器 Run All 19/19 + 热更新五路径，network.change 首推/在线状态验证，离线翻转受模拟器共享宿主网络栈限制为 best-effort）。未注册 network 组件的宿主 H5 用 `coconut.supports('network','request')` gating（Demo Run All 显示 skip 行）。
 
 ---
 
