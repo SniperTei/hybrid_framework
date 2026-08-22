@@ -61,6 +61,11 @@ public indirect enum JSONValue: Equatable, Sendable {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Bridge-layer `[String: Any]` representation (JSONSerialization objects:
+    /// NSNumber / String / NSArray / NSDictionary). App consumers use this to
+    /// hand engine data to the `[String: Any]` bridge payload.
+    public func anyValue() -> Any? { nsObject }
+
     var nsObject: Any? {
         switch self {
         case .null:
