@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-08-23
+
 Network 组件（三端齐活）：H5 请求走 native HTTP 栈 + 网络状态。引擎为独立库且 **native-first**（主要消费者是热更新等 native 代码）——Harmony HAR `@coconut/network` v1.1.0 / Android 纯 Kotlin JVM `coconut-network` v1.1.0 / iOS Swift Package `CoconutNetwork` v1.1.0（均零依赖，可单独用于纯 native 项目；三平台 API 已对齐：一发式 `client.get/post/put/delete` + bytes 模式），`NetworkComponent` 桥接到 H5 bridge。契约详见 `API_CONTRACT.md` §4.5。
 
 热更新（离线包续集）：逐文件下载 + 版本比对 + 原子切换 + 回滚，三端对齐。`checkUpdate / performUpdate / rollback` 三 API，native demo 按钮触发，无 H5 bridge 组件、无进度回调。架构详见 `ARCHITECTURE.md` §7。

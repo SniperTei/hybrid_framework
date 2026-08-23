@@ -30,7 +30,7 @@ export class CoconutConfig {
   enableBridgeToken: boolean = true;
 
   // SDK version
-  sdkVersion: string = '3.3.0';
+  sdkVersion: string = '3.4.0';
 
   get effectiveH5Domain(): string {
     return this.h5Domain || EnvironmentConfig.getH5Domain(this.environment);

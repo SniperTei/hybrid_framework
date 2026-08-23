@@ -8,7 +8,7 @@ public class CoconutConfig {
 
     public var debugMode = false
     public var defaultTimeout = 15000
-    public var sdkVersion = "3.3.0"
+    public var sdkVersion = "3.4.0"
     public var environment: Environment = .dev
     public var enableBridgeToken = true
     public var allowedDomains: [String] = []
