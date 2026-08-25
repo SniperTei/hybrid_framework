@@ -18,6 +18,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -39,8 +40,8 @@ import kotlinx.coroutines.SupervisorJob
  * CoconutWebActivity - Coconut SDK WebView Activity
  *
  * Provides a ready-to-use WebView Activity with:
- * - Native error page fallback (no white screen)
- * - Title bar customization (show/hide/custom text)
+ * - Native error dialog fallback on main-frame load failure (no white screen lockout)
+ * - Navigation bar via NavConfig (back / title / close, customizable)
  * - Secure WebView settings
  * - Bridge security validation
  * - Loading progress indicator
@@ -73,6 +74,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         private const val EXTRA_TITLE_TEXT = "extra_title_text"
         /** Per-open NavConfig override JSON (forward header / native callers) */
         private const val EXTRA_NAV_JSON = "extra_nav_json"
+        /** Override CoconutConfig.enableErrorDialog for this instance (e2e off-switch) */
+        private const val EXTRA_ENABLE_ERROR_DIALOG = "extra_enable_error_dialog"
 
         @JvmStatic
         fun start(context: Context, url: String) {
@@ -143,7 +146,6 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         private set
     private var toolbar: Toolbar? = null
     private var progressBar: ProgressBar? = null
-    private var errorPageView: View? = null
     private var rootLayout: FrameLayout? = null
     private var rightActionButton: TextView? = null
     private var closeButton: TextView? = null
@@ -160,7 +162,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     private var customUserAgent: String? = null
     private var titleBarVisible = true
     private var titleText: String? = null
-    private var isLoadingError = false
+    private var enableErrorDialog = true
+    private var errorDialog: AlertDialog? = null
 
     // ---- Navigation bar config (resolved in onCreate before setupUI) ----
     private var navConfig: NavConfig = NavConfig.default()
@@ -185,6 +188,11 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         customUserAgent = intent.getStringExtra(EXTRA_USER_AGENT)
         titleBarVisible = intent.getBooleanExtra(EXTRA_TITLE_BAR_VISIBLE, true)
         titleText = intent.getStringExtra(EXTRA_TITLE_TEXT)
+        enableErrorDialog = if (intent.hasExtra(EXTRA_ENABLE_ERROR_DIALOG)) {
+            intent.getBooleanExtra(EXTRA_ENABLE_ERROR_DIALOG, true)
+        } else {
+            (if (CoconutSDK.isInitialized()) CoconutSDK.getConfig() else null)?.enableErrorDialog ?: true
+        }
 
         if (url.isNullOrEmpty()) {
             Logger.e(TAG, "URL is empty")
@@ -369,9 +377,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                isLoadingError = false
                 url?.let { cachedPageUrl = it }  // Cache URL on main thread
-                hideErrorPage()
+                dismissErrorDialog()
                 // Clear stale H5 event subscriptions so reload doesn't deliver
                 // events registered by the previous page context.
                 ComponentManager.getInstance().eventEmitter.clearAll()
@@ -402,29 +409,16 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                 super.onReceivedError(view, request, error)
                 val errorUrl = request?.url?.toString() ?: "unknown"
 
-                // Only handle main frame errors (not subresources)
+                // Only handle main frame errors (not subresources).
+                // Network-level failure only — HTTP 4xx/5xx responses render
+                // the server error body and are NOT treated as white screens
+                // (onReceivedHttpError deliberately not hooked).
                 if (request?.isForMainFrame == true) {
-                    isLoadingError = true
-                    showErrorPage()
+                    showErrorDialog(error)
                     Logger.e(TAG, "Main frame error: $errorUrl, error: ${error?.description}")
                 }
 
                 onPageErrorCallback(errorUrl, error)
-            }
-
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?
-            ) {
-                super.onReceivedHttpError(view, request, errorResponse)
-                val errorUrl = request?.url?.toString() ?: "unknown"
-
-                if (request?.isForMainFrame == true) {
-                    isLoadingError = true
-                    showErrorPage()
-                    Logger.e(TAG, "HTTP error: $errorUrl, status: ${errorResponse?.statusCode}")
-                }
             }
         }
     }
@@ -558,38 +552,40 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         }
     }
 
-    // ---- Error Page ----
+    // ---- Error Dialog (white-screen rescue) ----
 
     /**
-     * Show native error page
+     * Native error dialog on main-frame network-level load failure.
+     * 重试 = reload the original URL; 退出 = close the container.
+     * Independent of nav-bar visibility (a hidden bar still gets rescue);
+     * no stacking within one load attempt (onPageStarted dismisses).
      */
-    protected open fun showErrorPage() {
-        if (errorPageView != null) {
-            errorPageView?.visibility = View.VISIBLE
-            return
+    protected open fun showErrorDialog(error: WebResourceError?) {
+        if (!enableErrorDialog || errorDialog != null || isFinishing) return
+        runOnUiThread {
+            if (errorDialog != null || isFinishing) return@runOnUiThread
+            errorDialog = AlertDialog.Builder(this)
+                .setTitle("加载失败")
+                .setMessage(error?.description ?: "网络异常，请稍后重试")
+                .setCancelable(false)
+                .setPositiveButton("重试") { d, _ ->
+                    d.dismiss()
+                    errorDialog = null
+                    currentUrl?.let { loadUrl(it) }
+                }
+                .setNegativeButton("退出") { d, _ ->
+                    d.dismiss()
+                    errorDialog = null
+                    finish()
+                }
+                .show()
+            Logger.d(TAG, "Error dialog shown")
         }
-
-        errorPageView = ErrorPageHelper.createErrorPage(this) {
-            hideErrorPage()
-            currentUrl?.let { loadUrl(it) }
-        }
-
-        rootLayout?.addView(errorPageView, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        ))
-
-        webView.visibility = View.GONE
-        Logger.d(TAG, "Error page shown")
     }
 
-    /**
-     * Hide native error page
-     */
-    protected open fun hideErrorPage() {
-        errorPageView?.visibility = View.GONE
-        webView.visibility = View.VISIBLE
-        Logger.d(TAG, "Error page hidden")
+    protected open fun dismissErrorDialog() {
+        errorDialog?.dismiss()
+        errorDialog = null
     }
 
     // ---- Bridge JS Injection ----
@@ -671,7 +667,6 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
     protected open fun reload() {
         currentUrl?.let {
-            hideErrorPage()
             webView.reload()
         }
     }
@@ -744,6 +739,7 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
     override fun onDestroy() {
         super.onDestroy()
+        dismissErrorDialog()
         ComponentManager.getInstance().setHost(null)  // Clear host reference
         BridgeTokenManager.reset()
         Logger.d(TAG, "onDestroy")

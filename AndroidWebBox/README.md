@@ -58,8 +58,7 @@ AndroidWebBox/
 │       └── web/
 │           ├── CoconutWebActivity.kt            # 现成 Activity：WKWebView 装配 + 全套 bridge
 │           ├── CoconutWebViewHelper.kt          # WebView 配置（缓存 / UserAgent / 等）
-│           ├── WebViewSecurityConfig.kt         # HTTPS / file access 安全配置
-│           └── ErrorPageHelper.kt               # 自定义错误页
+│           └── WebViewSecurityConfig.kt         # HTTPS / file access 安全配置
 │
 └── app/                                         # 宿主 App（持有 14 个组件）
     └── src/main/java/com/sniper/androidwebbox/
