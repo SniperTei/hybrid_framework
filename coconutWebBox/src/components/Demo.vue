@@ -1,7 +1,7 @@
 <template>
   <div class="demo-container">
     <h1>🥥 Coconut SDK Demo</h1>
-    <p class="hint">v3.2.0 端到端验证页。Android / iOS / Harmony 三端通用，点击下方按钮测试 coconut SDK 与原生的通信。</p>
+    <p class="hint">v3.5.0 端到端验证页。Android / iOS / Harmony 三端通用，点击下方按钮测试 coconut SDK 与原生的通信。</p>
 
     <div :class="['platform', { web: environment === 'web' }]">
       <span class="dot"></span>
@@ -89,6 +89,26 @@
         <button class="btn-d" @click="eventOn" :disabled="loading">订阅 test.echo</button>
         <button class="btn-d" @click="eventEcho" :disabled="loading">触发 echo</button>
         <button class="btn-c" @click="eventOff" :disabled="loading">取消订阅</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>🧭 Navigator 组件（容器导航，v3.5.0）</h2>
+      <div class="btns">
+        <button class="btn-a" @click="navForward" :disabled="loading">forward 新容器（params+header）</button>
+        <button class="btn-b" @click="navForwardTemplate" :disabled="loading">forward 模板容器</button>
+        <button class="btn-d" @click="navForwardDead" :disabled="loading">forward 死链（错误弹窗）</button>
+        <button class="btn-r" @click="navBack" :disabled="loading">back</button>
+        <button class="btn-r" @click="navBackToTop" :disabled="loading">backToTop</button>
+        <button class="btn-c" @click="navCloseResult" :disabled="loading">close({result})</button>
+        <button class="btn-g" @click="navSubscribeResult">订阅 nav.result</button>
+        <button class="btn-g" @click="navSubscribeButton">订阅 nav.button</button>
+        <button class="btn-c" @click="navUnsubscribe">取消订阅</button>
+      </div>
+      <div v-if="navLogs.length === 0" class="hint" style="margin-top:8px">订阅 nav.result 后从新容器 close({result}) 返回可看到回传；新容器里订阅 nav.button 后点导航栏自定义按钮可收到 {side}（无订阅时左键兜底返回、右键 no-op）。</div>
+      <div v-for="(log, idx) in navLogs" :key="idx" class="event-item">
+        <div class="event-time">{{ log.time }}</div>
+        <pre class="ok">{{ log.payload }}</pre>
       </div>
     </section>
 
@@ -231,6 +251,8 @@ const capabilityChecks = computed(() => {
     { label: 'dialog.showLoading', value: c.supports('dialog', 'showLoading') },
     { label: 'network.request',    value: c.supports('network', 'request') },
     { label: 'network.getNetworkType', value: c.supports('network', 'getNetworkType') },
+    { label: 'navigator.forward',  value: c.supports('navigator', 'forward') },
+    { label: 'navigator.close',    value: c.supports('navigator', 'close') },
     { label: 'foo.bar (missing)',  value: c.supports('foo', 'bar') }
   ]
 })
@@ -444,6 +466,35 @@ async function runAll() {
     c.actual = 'coconut.supports("network") = false'
   }
 
+  // ---------- Navigator (v3.5.0; capability-gated — iOS/Harmony skip) ----------
+  if (window.coconut.supports && window.coconut.supports('navigator', 'forward')) {
+    c = startCheck('Navigator.forward 守卫拦截（javascript:）', 'err.code=200007')
+    t0 = performance.now()
+    r = await pcall('navigator', 'forward', { url: 'javascript:alert(1)' })
+    c.duration = Math.round(performance.now() - t0)
+    finishCheck(c, !!r.err && r.err.code === '200007',
+      r.err ? `err ${r.err.code}: ${r.err.message}` : `unexpected data=${JSON.stringify(r.data)}`)
+
+    c = startCheck('Navigator.forward template 未注册 → 业务层失败', 'success=false')
+    t0 = performance.now()
+    r = await pcall('navigator', 'forward',
+      { url: window.location.pathname, template: 'no_such_template' })
+    c.duration = Math.round(performance.now() - t0)
+    finishCheck(c, !r.err && r.data && r.data.success === false,
+      r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}, msg=${r.data && r.data.message}`)
+
+    c = startCheck('Navigator.backToTop ack', 'err=null, success=true')
+    t0 = performance.now()
+    r = await pcall('navigator', 'backToTop', {})
+    c.duration = Math.round(performance.now() - t0)
+    finishCheck(c, !r.err && r.data && r.data.success === true,
+      r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}`)
+  } else {
+    c = startCheck('Navigator 组件（skip）', 'navigator capability not registered')
+    c.status = 'skip'
+    c.actual = 'coconut.supports("navigator") = false'
+  }
+
   running.value = false
 }
 
@@ -623,6 +674,74 @@ function eventOff() {
   setRequest('event', 'off', { topic: 'test.echo' })
   window.coconut.off('test.echo')
   setResponse(null, { topic: 'test.echo', subscribed: false })
+}
+
+// ---- Navigator (v3.5.0 容器导航) ----
+const navLogs = ref([])
+
+function logNav(payload) {
+  const time = new Date().toLocaleTimeString()
+  navLogs.value.unshift({ time, payload: JSON.stringify(payload, null, 2) })
+  if (navLogs.value.length > 5) navLogs.value.pop()
+}
+
+function navForward() {
+  const opts = {
+    url: window.location.pathname,  // 相对当前页面（coconut.js 发送前解析为绝对）
+    params: { from: 'forward', ts: String(Date.now()) },
+    header: { title: '容器 B', rightButtonText: '分享' }
+  }
+  setRequest('navigator', 'forward', opts)
+  window.coconut.navigator.forward(opts, (err, data) => setResponse(err, data))
+}
+
+function navForwardTemplate() {
+  const opts = {
+    template: 'demo',
+    url: window.location.pathname,
+    params: { from: 'template', ts: String(Date.now()) },
+    header: { title: '模板容器覆盖' }
+  }
+  setRequest('navigator', 'forward', opts)
+  window.coconut.navigator.forward(opts, (err, data) => setResponse(err, data))
+}
+
+function navForwardDead() {
+  const opts = { url: 'https://dead.invalid.example.com/' }
+  setRequest('navigator', 'forward', opts)
+  window.coconut.navigator.forward(opts, (err, data) => setResponse(err, data))
+}
+
+function navBack() {
+  setRequest('navigator', 'back', {})
+  window.coconut.navigator.back((err, data) => setResponse(err, data))
+}
+
+function navBackToTop() {
+  setRequest('navigator', 'backToTop', {})
+  window.coconut.navigator.backToTop((err, data) => setResponse(err, data))
+}
+
+function navCloseResult() {
+  const result = { from: 'demo-close', ts: Date.now() }
+  setRequest('navigator', 'close', { result })
+  window.coconut.navigator.close(result, (err, data) => setResponse(err, data))
+}
+
+function navSubscribeResult() {
+  window.coconut.on('nav.result', (data) => logNav(data))
+  setResponse(null, { topic: 'nav.result', subscribed: true, note: '新容器 close({result}) 后回传' })
+}
+
+function navSubscribeButton() {
+  window.coconut.on('nav.button', (data) => logNav(data))
+  setResponse(null, { topic: 'nav.button', subscribed: true, note: '点导航栏自定义按钮触发 {side}' })
+}
+
+function navUnsubscribe() {
+  window.coconut.off('nav.result')
+  window.coconut.off('nav.button')
+  setResponse(null, { unsubscribed: ['nav.result', 'nav.button'] })
 }
 
 // ---- Network ----

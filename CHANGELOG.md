@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+容器导航（v3.5.0，**Android 先行**，iOS/Harmony 待跟进）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
+
+### Added
+
+- **NavConfig 三级合并链**（coconut-core）：`CoconutConfig.nav ← defaultNavConfig（模板子类钩子）← per-open header`，逐字段 null=继承；`visible / title(auto|fixed) / closePolicy(auto|always) / leftButtonText / rightButtonText`。14 个真值表 JVM 测试。
+- **导航栏 + 返回语义**：扩展现有 Toolbar——左键文本按钮（有则替换返回 icon）、右键自定义 action（有则替换 × 键）、× 显隐随 `doUpdateVisitedHistory` 重算；返回统一 `onNavBack()` = `canGoBack ? goBack : finish`（物理返回 / 导航栏 / navigator.back 同一条路）；`onReceivedTitle` → AUTO 模式标题同步。
+- **错误弹窗（白屏救援）**：`onReceivedError`（仅 main frame）→ AlertDialog「重试」/「退出」，`onPageStarted` dismiss 防叠弹；`CoconutConfig.enableErrorDialog` 全局开关 + `EXTRA_ENABLE_ERROR_DIALOG` per-open。**`onReceivedHttpError` 整块移除**（HTTP 4xx/5xx 渲染 server body，不算白屏）。
+- **NavigatorComponent**（第 6 个组件，app 层）：`forward / back / backToTop / close`。forward：url 必填（缺/守卫拦截 → `200007`）、`coconut://` scheme 直通、相对 URL js 侧解析、params 扁平 kv → query、header → NavConfig per-open；栈深上限 10（`success:false` 业务失败）；close 的 result → `NavResultBus` 单槽 → 前一容器 resume 时 emit `nav.result`。测试缝：stackDepth 供应商 / activity starter / 模板解析器可注入 lambda。14 个 JVM 测试。
+- **模板容器**：`TemplateRegistry`（coconut-core，kotlinx.serialization 解析 `assets/coconut_templates.json` + `Class.forName` 反射 + `isAssignableFrom` 校验）；`DemoTemplateActivity` 示范（FIXED 标题 + 自定义右键，注册名 "demo"）；`consumer-rules.pro` R8 keep。8 个 JVM 测试。
+- **多容器 resume-claim 模型**（重构）：host 认领 + token 生成 + jsExecutor 接线从 onCreate 挪到 onResume；onDestroy 身份守卫（`host === this` 才清 host/reset token）；resume 时 config 重注入刷新页内 token。修复两个多容器隐性 bug（见 Fixed）。
+- **coconut.js v3.5.0**：`coconut.navigator` 命名空间（forward 相对 URL 解析 / back / backToTop / close(result|cb)）+ `coconut.d.ts` Navigator 类型；Demo.vue Navigator 区（8 按钮）+ Run All 增至 22 项（守卫 200007 / 未注册模板 / backToTop ack）；coconut_index.html 三端同步第六组按钮。
+- **nav.button 事件**：自定义按钮 tap → 有订阅 emit `{side}`；无订阅左键兜底返回、右键 no-op + Logger.w。
+
+### Fixed
+
+- **forward 假成功（静默丢 intent）**：`FLAG_ACTIVITY_NEW_TASK` + 同类 Activity 已在栈顶 → 系统 dedupe 到既有实例且不触发 onNewIntent，forward 返回 success 但无新容器。修法：Activity context 启动不带 NEW_TASK（plain `startActivity` LIFO 压栈；非 Activity context 保留 NEW_TASK）。e2e 场景 A→B→C 抓出。
+- **容器恢复后 300004（旧 token）**：注入脚本 `__coconutInitialized` 早退守卫挡掉 resume 时 config 重注入 → 页面持有旧 bridge token，恢复后所有调用失败。修法：`__coconutConfig` 赋值 + `_loadSecurityConfig()` 每次注入必跑，init 标志只 gate 日志。e2e 场景 B 恢复后 back 抓出。
+
+### Removed
+
+- **ErrorPageHelper 整套删除**（用户拍板；git history 可找回）：showErrorPage / hideErrorPage / errorPageView，职责由错误弹窗接管。
+
+### Android e2e（11 场景全过，emulator-5556）
+
+dead URL 弹窗重试/退出、HTTP 500 不弹、A→B→C 多级返回链、根页 back 退化关闭、backToTop、守卫拦截 200007、11 层超限、自定义按钮有/无订阅两分支、close({result}) → nav.result 回传、模板命中/未注册、Run All 22/22 回归。
+
 ## [3.4.0] - 2026-08-23
 
 Network 组件（三端齐活）：H5 请求走 native HTTP 栈 + 网络状态。引擎为独立库且 **native-first**（主要消费者是热更新等 native 代码）——Harmony HAR `@coconut/network` v1.1.0 / Android 纯 Kotlin JVM `coconut-network` v1.1.0 / iOS Swift Package `CoconutNetwork` v1.1.0（均零依赖，可单独用于纯 native 项目；三平台 API 已对齐：一发式 `client.get/post/put/delete` + bytes 模式），`NetworkComponent` 桥接到 H5 bridge。契约详见 `API_CONTRACT.md` §4.5。

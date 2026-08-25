@@ -9,6 +9,8 @@ import com.sniper.androidwebbox.components.network.NetworkComponent
 import com.sniper.androidwebbox.components.navigator.NavigatorComponent
 import com.sniper.androidwebbox.components.storage.StorageComponent
 import com.sniper.coconut.config.Environment
+import com.sniper.coconut.nav.TemplateRegistry
+import com.sniper.coconut.web.CoconutWebActivity
 import com.sniper.coconut.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,25 @@ class WebBoxApplication : Application() {
     }
 
     /**
+     * 启动期校验 assets/coconut_templates.json：类可解析 + 是 CoconutWebActivity 子类。
+     * 注意：这里查不出 manifest 漏声明（反射能解析类，启动才崩）——模板 Activity 必须
+     * 在 AndroidManifest.xml 声明，见 API_CONTRACT.md §4.6。
+     */
+    private fun validateTemplateRegistry() {
+        try {
+            val text = assets.open("coconut_templates.json").bufferedReader().use { it.readText() }
+            val templates = TemplateRegistry.validate(
+                TemplateRegistry.parse(text),
+                classLoader,
+                CoconutWebActivity::class.java,
+            )
+            Logger.i("WebBoxApplication", "✅ Template registry validated: ${templates.keys}")
+        } catch (e: Exception) {
+            Logger.e("WebBoxApplication", "❌ Template registry invalid: ${e.message}")
+        }
+    }
+
+    /**
      * 初始化 Coconut SDK
      * 在这里注册所有需要的组件
      */
@@ -52,7 +73,10 @@ class WebBoxApplication : Application() {
             setEnvironment(Environment.DEV)  // 设置环境
         }
 
-        // 3. 注册组件（在协程中进行）
+        // 3. 启动期严格校验模板注册表（fail-fast：类可解析 + 是容器子类；坏条目明确日志）
+        validateTemplateRegistry()
+
+        // 4. 注册组件（在协程中进行）
         applicationScope.launch {
             try {
                 CoconutSDK.registerComponents(

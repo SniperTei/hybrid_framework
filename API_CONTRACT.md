@@ -344,9 +344,54 @@ coconut.dialog.hideLoading((err, data) => {});
 
 ---
 
+### 4.6 navigator ✅ Android 先行（v3.5.0，iOS/Harmony 待跟进）
+
+**目标**：H5 能开新容器（forward）、返回（back / backToTop）、带结果关闭（close），并自定义容器导航栏。容器 = 独立的原生 WebView Activity，back stack 天然 LIFO。
+
+**NavConfig 三级合并链**（onCreate 单点合并，逐字段 null=继承）：
+
+```
+CoconutConfig.nav（全局） ← defaultNavConfig（模板子类 protected open 钩子） ← per-open（forward header / EXTRA_NAV_JSON）
+```
+
+| 字段 | 取值 | 语义 |
+|---|---|---|
+| `visible` | bool | 导航栏显隐 |
+| `title` | `"auto"` 或固定文本 | auto = 跟随 document.title（`onReceivedTitle` 同步）；文本 = FIXED 定死 |
+| `closePolicy` | `"auto"` / `"always"` | × 关闭键显隐：auto = 仅 WebView 历史耗尽时（根页必有出口）；always = 恒显 |
+| `leftButtonText` | 文本 | 左侧文本按钮（有则替换返回 icon） |
+| `rightButtonText` | 文本 | 右侧自定义 action 按钮（有则替换 × 键） |
+
+**标准签名**（`coconut.navigator.*`，v3.5.0 命名空间）：
+
+| 方法 | params | returns | 说明 |
+|---|---|---|---|
+| `forward` | `url*`, `template`(注册名), `params`{扁平 kv → query string}, `header`(NavConfig per-open 覆盖) | `{success, message?}` | js 侧相对 url 先按 `location.href` 解析为绝对；`coconut://` 虚拟 host 直通（scheme 白名单豁免），其余过 `UrlGuard`（同 §4.5 SSRF 守卫）→ 拦截 = bridge `200007` |
+| `back` | — | `{success}` | `canGoBack ? webView.goBack : finish`（与物理返回/导航栏同一条路；根页退化关闭） |
+| `backToTop` | — | `{success}` | native `scrollTo(0,0)`，不注 JS |
+| `close` | `result`(任意 JSON，透传) | `{success}` | result → `NavResultBus` 单槽 → 前一容器 `onResume` 认领时 drain → emit `nav.result` |
+
+**失败模式**（业务层失败约定：bridge `000000` + `success:false`，**不走** bridge error code；唯守卫拦截走 `200007`）：
+- `template` 未注册 → `success:false` + message「template 未注册」，**不静默回退**标准容器
+- 栈深超限：`forward` 前活容器数 ≥ **10** → `success:false` + "container stack limit reached (10)"
+
+**nav.button 事件**：自定义左/右按钮 tap → native 查 `eventEmitter.has("nav.button")`：有订阅 → emit `{side:'left'|'right'}`；无订阅 → 左键兜底默认返回（goBack/finish），右键 no-op + Logger.w。
+
+**模板容器**：`assets/coconut_templates.json` `[{templateName, templatePage(FQCN)}]` → `TemplateRegistry` 反射解析 + `isAssignableFrom(CoconutWebActivity)` 校验（重复名/空名拒收）。**模板 Activity 必须在 AndroidManifest.xml 声明**——反射能解析未声明的类，启动即崩，启动期校验查不出（WebBoxApplication 的 eager validate 只到类解析层）。
+
+**错误弹窗（白屏救援，v3.5.0）**：`onReceivedError`（仅 main frame）→ 原生 AlertDialog「加载失败」+「重试」(reload) /「退出」(finish)，`onPageStarted` 自动 dismiss + 复位防叠弹。**HTTP 4xx/5xx 不算白屏**（`onReceivedHttpError` 整块移除——server body 照常渲染）。全局开关 `CoconutConfig.enableErrorDialog`，per-open `EXTRA_ENABLE_ERROR_DIALOG`。旧 `ErrorPageHelper` 已删除（git 可找回）。
+
+**多容器生命周期（resume-claim 模型）**：host 认领 + token 生成 + jsExecutor 接线在 `onResume`（非 onCreate）；`onDestroy` 身份守卫（`host === this` 才清）。Android back stack LIFO → 栈顶容器始终持有 host，事件路由零新管道。**两个 e2e 抓出的隐性 bug（已修，iOS/Harmony 跟进时注意）**：
+1. `FLAG_ACTIVITY_NEW_TASK` + 同类 Activity 已在栈顶 → 系统 dedupe 到既有实例（intent 静默丢弃，无 onNewIntent）→ forward 假成功。修法：Activity context 启动**不带** NEW_TASK（plain `startActivity` LIFO 压栈）
+2. 注入脚本的 `__coconutInitialized` 早退守卫会挡掉 resume 时的 config 重注入 → 页面持有旧 bridge token → 恢复后所有调用 `300004`。修法：config + `_loadSecurityConfig()` 每次注入必跑，init 标志只 gate 日志
+
+**平台**：Android e2e 11 场景全过（dead URL 弹窗重试/退出、HTTP 500 不弹、A→B→C 返回链、根页 back 退化关闭、backToTop、守卫 200007、11 层超限、自定义按钮有/无订阅、close result 回传、模板命中/未注册、Run All 22/22 回归）。iOS/Harmony 未实施——H5 用 `coconut.supports('navigator','forward')` gating。
+
+---
+
 ## 5. 验收方式
 
-用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + dialog + event + network 五组）：
+用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + dialog + event + network + navigator 六组，navigator 仅 Android 生效）：
 - 返回 `code:'000000'` 且 result 字段符合本契约 → 合规 ✅
 - 字段缺失/命名不符 → 不合规 ❌
 

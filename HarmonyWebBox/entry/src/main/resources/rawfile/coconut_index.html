@@ -118,6 +118,20 @@
     </div>
   </section>
 
+  <section>
+    <h2>Navigator 组件（容器导航，v3.5.0）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onNavForward()">forward 新容器</button>
+      <button class="btn-b" onclick="onNavForwardTemplate()">forward 模板容器</button>
+      <button class="btn-d" onclick="onNavForwardDead()">forward 死链</button>
+      <button class="btn-r" onclick="onNavBack()">back</button>
+      <button class="btn-r" onclick="onNavBackToTop()">backToTop</button>
+      <button class="btn-c" onclick="onNavClose()">close({result})</button>
+      <button class="btn-g" onclick="onNavSubscribeResult()">订阅 nav.result</button>
+      <button class="btn-g" onclick="onNavSubscribeButton()">订阅 nav.button</button>
+    </div>
+  </section>
+
   <div class="panel">
     <h3>最近一次请求（H5 → 原生）</h3>
     <pre id="reqView" class="muted">—</pre>
@@ -296,6 +310,71 @@
         setEventView({ stage: 'event received', topic: 'network.change', data: data });
       });
       setEventView({ stage: 'on sent', topic: 'network.change' });
+    }
+
+    // ---------- Navigator（v3.5.0 容器导航） ----------
+    function onNavForward() {
+      var opts = {
+        url: window.location.pathname,
+        params: { from: 'forward', ts: String(Date.now()) },
+        header: { title: '容器 B', rightButtonText: '分享' }
+      };
+      setRequestView('navigator', 'forward', opts);
+      coconut.navigator.forward(opts, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavForwardTemplate() {
+      var opts = {
+        template: 'demo',
+        url: window.location.pathname,
+        params: { from: 'template' },
+        header: { title: '模板容器覆盖' }
+      };
+      setRequestView('navigator', 'forward', opts);
+      coconut.navigator.forward(opts, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavForwardDead() {
+      var opts = { url: 'https://dead.invalid.example.com/' };
+      setRequestView('navigator', 'forward', opts);
+      coconut.navigator.forward(opts, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavBack() {
+      setRequestView('navigator', 'back', {});
+      coconut.navigator.back(function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavBackToTop() {
+      setRequestView('navigator', 'backToTop', {});
+      coconut.navigator.backToTop(function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavClose() {
+      var result = { from: 'index-close', ts: Date.now() };
+      setRequestView('navigator', 'close', { result: result });
+      coconut.navigator.close(result, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavSubscribeResult() {
+      setRequestView('event', 'on', { topic: 'nav.result' });
+      coconut.on('nav.result', function (data) {
+        setEventView({ stage: 'event received', topic: 'nav.result', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'nav.result' });
+    }
+    function onNavSubscribeButton() {
+      setRequestView('event', 'on', { topic: 'nav.button' });
+      coconut.on('nav.button', function (data) {
+        setEventView({ stage: 'event received', topic: 'nav.button', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'nav.button' });
     }
   </script>
 </body>

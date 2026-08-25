@@ -34,6 +34,12 @@
             android:name="com.sniper.coconut.web.CoconutWebActivity"
             android:exported="false"
             android:label="Coconut WebView" />
+
+        <!-- 模板容器示范（coconut_templates.json "demo" 条目；反射启动必须在 manifest 声明） -->
+        <activity
+            android:name=".DemoTemplateActivity"
+            android:exported="false"
+            android:label="模板容器" />
     </application>
 
 </manifest>
