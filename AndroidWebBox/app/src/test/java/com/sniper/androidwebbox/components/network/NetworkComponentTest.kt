@@ -58,8 +58,9 @@ class NetworkComponentTest {
 
     companion object {
         // 共享 mock context：ComponentManager.sharedContext 是 lazy 单例（JUnit 每个测试方法
-        // 新建测试类实例），必须所有测试共用同一个 mock 才能命中 stub
-        private val mockContext: Context = mockk(relaxed = true)
+        // 新建测试类实例），必须所有测试共用同一个 mock 才能命中 stub。
+        // 跨测试类也必须共享（navigator 测试同 JVM 先跑时会把各自 mock 灌进单例）
+        private val mockContext: Context = com.sniper.androidwebbox.components.TestSharedContext.mockContext
     }
 
     @Before
