@@ -93,13 +93,21 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         /**
          * Start a container with a per-open NavConfig override JSON and an
          * optional template Activity class (NavigatorComponent forward path).
+         *
+         * NOTE: no FLAG_ACTIVITY_NEW_TASK when called from an Activity — with
+         * that flag the system dedupes same-class launches onto the top
+         * instance (intent silently dropped, no onNewIntent), which breaks
+         * multi-container forward. Plain startActivity from an Activity
+         * context stacks the new container LIFO on the same task, which is
+         * exactly the container-stack semantics. NEW_TASK stays for
+         * non-Activity contexts (application / shell).
          */
         @JvmStatic
         fun start(context: Context, url: String, navJson: String?, targetClass: Class<*> = CoconutWebActivity::class.java) {
             val intent = Intent(context, targetClass)
             intent.putExtra(EXTRA_URL, url)
             navJson?.let { intent.putExtra(EXTRA_NAV_JSON, it) }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         }
 
@@ -713,14 +721,16 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
         val javascript = """
             (function() {
-                if (window.__coconutInitialized) return;
-
+                // Config must refresh on EVERY injection: the resume-claim model
+                // regenerates the bridge token when this container regains host,
+                // and a page keeping the stale token fails every call with 300004.
                 window.__coconutConfig = $config;
 
                 if (window.coconut && window.coconut._loadSecurityConfig) {
                     window.coconut._loadSecurityConfig();
                 }
 
+                if (window.__coconutInitialized) return;
                 window.__coconutInitialized = true;
                 console.log('Coconut SDK config injected');
             })();
