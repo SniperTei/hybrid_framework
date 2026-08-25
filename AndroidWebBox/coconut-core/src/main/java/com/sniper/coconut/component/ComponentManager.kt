@@ -45,6 +45,12 @@ class ComponentManager private constructor() {
     }
 
     /**
+     * Current ComponentHost (identity-checked teardown in multi-container
+     * scenarios: only the holder clears shared bridge state).
+     */
+    fun getHost(): ComponentHost? = sharedContext.host
+
+    /**
      * Register a component
      *
      * @param component Component instance

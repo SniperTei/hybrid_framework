@@ -71,13 +71,33 @@ class EventEmitter {
             Logger.w(TAG, "emit rejected: empty topic")
             return
         }
+        if (!topics.contains(topic)) {
+            Logger.d(TAG, "emit no subscriber: $topic")
+            return
+        }
+        dispatch(topic, data)
+    }
+
+    /**
+     * Dispatch [topic] to the page regardless of native subscription state.
+     *
+     * Used by nav.result draining: a backgrounded container's native
+     * subscription may have been wiped by clearAll() when another container
+     * loaded a page, but its JS handler table is intact (the page itself
+     * never reloaded), so the wire dispatch still delivers.
+     */
+    fun emitBypassingSubscription(topic: String, data: JsonElement? = null) {
+        if (topic.isEmpty()) {
+            Logger.w(TAG, "emit rejected: empty topic")
+            return
+        }
+        dispatch(topic, data)
+    }
+
+    private fun dispatch(topic: String, data: JsonElement?) {
         val executor = jsExecutor
         if (executor == null) {
             Logger.w(TAG, "emit dropped (no jsExecutor): $topic")
-            return
-        }
-        if (!topics.contains(topic)) {
-            Logger.d(TAG, "emit no subscriber: $topic")
             return
         }
 

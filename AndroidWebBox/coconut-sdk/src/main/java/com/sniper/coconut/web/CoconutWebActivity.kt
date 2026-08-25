@@ -32,6 +32,12 @@ import com.sniper.coconut.nav.NavConfig
 import com.sniper.coconut.resource.OfflineResourceManager
 import com.sniper.coconut.resource.CoconutResourceHolder
 import com.sniper.coconut.utils.Logger
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,6 +82,26 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         private const val EXTRA_NAV_JSON = "extra_nav_json"
         /** Override CoconutConfig.enableErrorDialog for this instance (e2e off-switch) */
         private const val EXTRA_ENABLE_ERROR_DIALOG = "extra_enable_error_dialog"
+
+        /** Live container count (creations - destructions). forward() caps the stack at 10. */
+        private val containerCount = AtomicInteger(0)
+
+        /** Current container-stack depth (test seam + NavigatorComponent limit check). */
+        @JvmStatic
+        fun stackDepth(): Int = containerCount.get()
+
+        /**
+         * Start a container with a per-open NavConfig override JSON and an
+         * optional template Activity class (NavigatorComponent forward path).
+         */
+        @JvmStatic
+        fun start(context: Context, url: String, navJson: String?, targetClass: Class<*> = CoconutWebActivity::class.java) {
+            val intent = Intent(context, targetClass)
+            intent.putExtra(EXTRA_URL, url)
+            navJson?.let { intent.putExtra(EXTRA_NAV_JSON, it) }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
 
         @JvmStatic
         fun start(context: Context, url: String) {
@@ -165,6 +191,9 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     private var enableErrorDialog = true
     private var errorDialog: AlertDialog? = null
 
+    /** True between onPageFinished and the next onPageStarted (token-refresh gate in onResume). */
+    private var pageLoaded = false
+
     // ---- Navigation bar config (resolved in onCreate before setupUI) ----
     private var navConfig: NavConfig = NavConfig.default()
 
@@ -180,7 +209,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Logger.i(TAG, "onCreate")
+        containerCount.incrementAndGet()
+        Logger.i(TAG, "onCreate (stackDepth=${stackDepth()})")
 
         // Read configuration from intent
         val url = intent.getStringExtra(EXTRA_URL)
@@ -215,10 +245,69 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
         // Setup UI and WebView
         setupUI()
-        ComponentManager.getInstance().setHost(this)  // Set this Activity as component host
         setupWebView()
         setupBridge()
         loadUrl(url)
+        // Host claim + token + event wiring happen in onResume (resume-claim
+        // model): onCreate-time claiming lets a stacked container B steal the
+        // singleton host from A and tear it down on B's destroy.
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Resume-claim: the top-of-stack container owns the singleton host,
+        // bridge token and event jsExecutor. Claiming on resume means the
+        // back-stack LIFO order keeps routing to the visible container with
+        // zero extra plumbing.
+        val cm = ComponentManager.getInstance()
+        cm.setHost(this)
+        if (BridgeTokenManager.enabled) {
+            BridgeTokenManager.generateToken()
+        }
+        wireEventExecutor()
+
+        // A re-resumed page still holds its old token in JS; re-inject to
+        // refresh (injectBridgeJavaScript is idempotent per page load).
+        if (pageLoaded) {
+            injectBridgeJavaScript()
+        }
+
+        drainNavResult()
+        Logger.d(TAG, "onResume — host claimed (stackDepth=${stackDepth()})")
+    }
+
+    /**
+     * Point the shared EventEmitter at this container's WebView. Re-wired on
+     * every claim; the resumed container is always the dispatch target.
+     */
+    private fun wireEventExecutor() {
+        ComponentManager.getInstance().eventEmitter.jsExecutor = { script ->
+            runOnMainThread {
+                if (::webView.isInitialized) {
+                    webView.evaluateJavascript(script, null)
+                }
+            }
+        }
+    }
+
+    /**
+     * Deliver a close({result}) payload posted by a finishing child container
+     * as the `nav.result` H5 event. Dispatched bypassing the native
+     * subscription gate: the child's page load may have clearAll()'d our
+     * registration, but this page's JS handler table is intact.
+     */
+    private fun drainNavResult() {
+        val raw = NavResultBus.consume() ?: return
+        val result: JsonElement = try {
+            Json.parseToJsonElement(raw)
+        } catch (e: Exception) {
+            JsonPrimitive(raw)
+        }
+        ComponentManager.getInstance().eventEmitter.emitBypassingSubscription(
+            "nav.result",
+            buildJsonObject { put("result", result) }
+        )
+        Logger.d(TAG, "nav.result drained")
     }
 
     /**
@@ -377,6 +466,7 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                pageLoaded = false
                 url?.let { cachedPageUrl = it }  // Cache URL on main thread
                 dismissErrorDialog()
                 // Clear stale H5 event subscriptions so reload doesn't deliver
@@ -390,6 +480,7 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                 super.onPageFinished(view, url)
                 Logger.d(TAG, "Page loaded: $url")
                 url?.let {
+                    pageLoaded = true
                     injectBridgeJavaScript()
                     onPageFinishedCallback(it)
                 }
@@ -442,10 +533,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
             BridgeTokenManager.enabled = cfg.enableBridgeToken
         }
 
-        // Generate bridge token for this session
-        if (BridgeTokenManager.enabled) {
-            BridgeTokenManager.generateToken()
-        }
+        // Bridge token generation and EventEmitter jsExecutor wiring moved to
+        // onResume (resume-claim): see onResume for rationale.
 
         webView.addJavascriptInterface(
             object {
@@ -457,17 +546,6 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
             },
             "CoconutBridge"
         )
-
-        // Wire EventEmitter → WebView. Native emit() may come from background
-        // threads (e.g. ConnectivityManager), so hop to UI thread before
-        // evaluateJavascript.
-        ComponentManager.getInstance().eventEmitter.jsExecutor = { script ->
-            runOnMainThread {
-                if (::webView.isInitialized) {
-                    webView.evaluateJavascript(script, null)
-                }
-            }
-        }
 
         Logger.d(TAG, "Bridge setup complete")
     }
@@ -488,19 +566,32 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     }
 
     /**
-     * Left custom text button tap. Default = standard back semantics;
-     * overridden in v3.5.0 to check for a "nav.button" H5 subscription first.
+     * Left custom text button tap. H5 subscribed to "nav.button" → push the
+     * event only (page decides whether to call back); no subscription →
+     * default back semantics (prevents "custom text but forgot to subscribe"
+     * dead-button trap).
      */
     protected open fun onLeftNavButtonTap() {
-        onNavBack()
+        val emitter = ComponentManager.getInstance().eventEmitter
+        if (emitter.has("nav.button")) {
+            emitter.emit("nav.button", buildJsonObject { put("side", JsonPrimitive("left")) })
+        } else {
+            onNavBack()
+        }
     }
 
     /**
-     * Right custom action button tap. No default action (the × close button
-     * is a separate control); v3.5.0 emits "nav.button" to subscribed H5.
+     * Right custom action button tap. H5 subscribed → push the event; no
+     * subscription → no-op + warn (close capability is yielded to the custom
+     * action, but the back button still exits).
      */
     protected open fun onRightNavButtonTap() {
-        Logger.w(TAG, "Right nav button tapped with no subscription — no-op")
+        val emitter = ComponentManager.getInstance().eventEmitter
+        if (emitter.has("nav.button")) {
+            emitter.emit("nav.button", buildJsonObject { put("side", JsonPrimitive("right")) })
+        } else {
+            Logger.w(TAG, "nav.button right tap with no subscriber — no-op")
+        }
     }
 
     private fun makeNavTextButton(text: String): TextView {
@@ -740,8 +831,16 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     override fun onDestroy() {
         super.onDestroy()
         dismissErrorDialog()
-        ComponentManager.getInstance().setHost(null)  // Clear host reference
-        BridgeTokenManager.reset()
-        Logger.d(TAG, "onDestroy")
+        containerCount.decrementAndGet()
+        // Identity guard: only the current host holder tears down shared
+        // bridge state. Without this, a finishing backgrounded container B
+        // would null the host / reset the token that resumed container A
+        // just claimed (dialog/navigator calls going silent, 300004 errors).
+        val cm = ComponentManager.getInstance()
+        if (cm.getHost() === this) {
+            cm.setHost(null)
+            BridgeTokenManager.reset()
+        }
+        Logger.d(TAG, "onDestroy (stackDepth=${stackDepth()})")
     }
 }
