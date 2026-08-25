@@ -1,5 +1,6 @@
 package com.sniper.coconut.config
 
+import com.sniper.coconut.nav.NavConfig
 import com.sniper.coconut.utils.Logger
 
 /**
@@ -96,6 +97,24 @@ class CoconutConfig {
     var enableBridgeToken: Boolean = true
         private set
 
+    // ---- Container Navigation Settings (v3.5.0) ----
+
+    /**
+     * Global default navigation-bar config for CoconutWebActivity.
+     * Per-open overrides (template subclass default / forward header) merge
+     * on top of this field-by-field (null = inherit).
+     */
+    var nav: NavConfig = NavConfig.default()
+        private set
+
+    /**
+     * Show a native error dialog on main-frame network-level load failure
+     * (white-screen rescue). Independent of nav visibility; not per-open
+     * overridable.
+     */
+    var enableErrorDialog: Boolean = true
+        private set
+
     // ---- Convenience Getters ----
 
     /**
@@ -162,6 +181,18 @@ class CoconutConfig {
 
     fun setEnableBridgeToken(enable: Boolean) = apply {
         enableBridgeToken = enable
+    }
+
+    fun setNav(config: NavConfig) = apply {
+        nav = config
+    }
+
+    fun setNav(block: NavConfig.() -> Unit) = apply {
+        nav.apply(block)
+    }
+
+    fun setEnableErrorDialog(enable: Boolean) = apply {
+        enableErrorDialog = enable
     }
 
     /**

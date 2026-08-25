@@ -27,6 +27,7 @@ import com.sniper.coconut.bridge.CoconutBridgeImpl
 import com.sniper.coconut.bridge.BridgeTokenManager
 import com.sniper.coconut.component.ComponentHost
 import com.sniper.coconut.component.ComponentManager
+import com.sniper.coconut.nav.NavConfig
 import com.sniper.coconut.resource.OfflineResourceManager
 import com.sniper.coconut.resource.CoconutResourceHolder
 import com.sniper.coconut.utils.Logger
@@ -70,6 +71,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         private const val EXTRA_USER_AGENT = "extra_user_agent"
         private const val EXTRA_TITLE_BAR_VISIBLE = "extra_title_bar_visible"
         private const val EXTRA_TITLE_TEXT = "extra_title_text"
+        /** Per-open NavConfig override JSON (forward header / native callers) */
+        private const val EXTRA_NAV_JSON = "extra_nav_json"
 
         @JvmStatic
         fun start(context: Context, url: String) {
@@ -142,6 +145,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     private var progressBar: ProgressBar? = null
     private var errorPageView: View? = null
     private var rootLayout: FrameLayout? = null
+    private var rightActionButton: TextView? = null
+    private var closeButton: TextView? = null
 
     // ---- Bridge ----
     protected lateinit var bridge: CoconutBridgeImpl
@@ -156,6 +161,17 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     private var titleBarVisible = true
     private var titleText: String? = null
     private var isLoadingError = false
+
+    // ---- Navigation bar config (resolved in onCreate before setupUI) ----
+    private var navConfig: NavConfig = NavConfig.default()
+
+    /**
+     * Template-subclass code-level NavConfig default (second tier of the
+     * three-tier chain: CoconutConfig.nav < this < per-open extras/header).
+     * All-null by default → pure inherit. Override in subclasses:
+     * `override val defaultNavConfig = NavConfig(titleMode = NavConfig.TitleMode.FIXED, titleText = "模板页")`
+     */
+    protected open val defaultNavConfig: NavConfig = NavConfig()
 
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -186,12 +202,40 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
             }
         }
 
+        // Resolve navigation-bar config (must precede setupUI)
+        resolveNavConfig()
+
         // Setup UI and WebView
         setupUI()
         ComponentManager.getInstance().setHost(this)  // Set this Activity as component host
         setupWebView()
         setupBridge()
         loadUrl(url)
+    }
+
+    /**
+     * Resolve the effective NavConfig for this container instance:
+     * CoconutConfig.nav (global) ← defaultNavConfig (template subclass)
+     * ← legacy title-bar extras ← EXTRA_NAV_JSON (forward header / native caller).
+     * Field-by-field, null = inherit.
+     */
+    private fun resolveNavConfig() {
+        var cfg = if (CoconutSDK.isInitialized()) CoconutSDK.getConfig().nav.copy() else NavConfig.default()
+        cfg = NavConfig.merge(cfg, defaultNavConfig)
+
+        // Legacy extras compatibility
+        val legacy = NavConfig(
+            visible = if (intent.hasExtra(EXTRA_TITLE_BAR_VISIBLE)) titleBarVisible else null,
+            titleMode = if (titleText != null) NavConfig.TitleMode.FIXED else null,
+            titleText = titleText,
+        )
+        cfg = NavConfig.merge(cfg, legacy)
+
+        intent.getStringExtra(EXTRA_NAV_JSON)?.let { json ->
+            NavConfig.parseOverride(json)?.let { cfg = NavConfig.merge(cfg, it) }
+        }
+        navConfig = cfg
+        Logger.d(TAG, "NavConfig resolved: visible=${navConfig.visible}, titleMode=${navConfig.titleMode}, closePolicy=${navConfig.closePolicy}")
     }
 
     /**
@@ -203,13 +247,28 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         }
 
         // Title bar
-        if (titleBarVisible) {
+        if (navConfig.visible == true) {
             toolbar = Toolbar(this).apply {
                 setBackgroundColor(Color.parseColor("#FFFFFF"))
                 setTitleTextColor(Color.parseColor("#333333"))
-                titleText?.let { title = it }
-                setNavigationOnClickListener { finish() }
+                if (navConfig.titleMode == NavConfig.TitleMode.FIXED) {
+                    title = navConfig.titleText ?: ""
+                }
+                setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+                setNavigationOnClickListener { onNavBack() }
             }
+
+            // Left custom text button replaces the back icon
+            navConfig.leftButtonText?.let { text ->
+                toolbar?.navigationIcon = null
+                val btn = makeNavTextButton(text)
+                btn.setOnClickListener { onLeftNavButtonTap() }
+                toolbar?.addView(btn, Toolbar.LayoutParams(
+                    Toolbar.LayoutParams.WRAP_CONTENT,
+                    Toolbar.LayoutParams.WRAP_CONTENT
+                ).apply { gravity = Gravity.START })
+            }
+            updateRightNavButtons()
         }
 
         // Progress bar
@@ -254,6 +313,18 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
 
         // WebViewClient with error handling
         webView.webViewClient = createWebViewClient()
+
+        // Chrome client: title sync for AUTO nav mode
+        webView.webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onReceivedTitle(view: WebView?, title: String?) {
+                super.onReceivedTitle(view, title)
+                // AUTO mode syncs document.title into the toolbar;
+                // FIXED keeps whatever the config resolved.
+                if (navConfig.titleMode != NavConfig.TitleMode.FIXED) {
+                    toolbar?.title = title ?: ""
+                }
+            }
+        }
 
         // Add WebView to root layout
         rootLayout?.addView(webView, FrameLayout.LayoutParams(
@@ -315,6 +386,12 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
                     injectBridgeJavaScript()
                     onPageFinishedCallback(it)
                 }
+            }
+
+            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+                // Close-button visibility depends on canGoBack state
+                updateRightNavButtons()
             }
 
             override fun onReceivedError(
@@ -399,6 +476,86 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
         }
 
         Logger.d(TAG, "Bridge setup complete")
+    }
+
+    // ---- Navigation bar ----
+
+    /**
+     * Unified back semantics: H5 history first, degrade to closing the
+     * container. Navigation bar back button, physical back and
+     * coconut.navigator.back() all route through here.
+     */
+    protected open fun onNavBack() {
+        if (::webView.isInitialized && webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            finish()
+        }
+    }
+
+    /**
+     * Left custom text button tap. Default = standard back semantics;
+     * overridden in v3.5.0 to check for a "nav.button" H5 subscription first.
+     */
+    protected open fun onLeftNavButtonTap() {
+        onNavBack()
+    }
+
+    /**
+     * Right custom action button tap. No default action (the × close button
+     * is a separate control); v3.5.0 emits "nav.button" to subscribed H5.
+     */
+    protected open fun onRightNavButtonTap() {
+        Logger.w(TAG, "Right nav button tapped with no subscription — no-op")
+    }
+
+    private fun makeNavTextButton(text: String): TextView {
+        return TextView(this).apply {
+            this.text = text
+            setTextColor(Color.parseColor("#333333"))
+            textSize = 16f
+            gravity = Gravity.CENTER
+            val pad = (resources.displayMetrics.density * 12).toInt()
+            setPadding(pad, 0, pad, 0)
+        }
+    }
+
+    /**
+     * Recompute the toolbar right side: custom action button when configured,
+     * otherwise × close button when [NavConfig.shouldShowClose] says so.
+     * Called on history changes (doUpdateVisitedHistory).
+     */
+    protected open fun updateRightNavButtons() {
+        val tb = toolbar ?: return
+        rightActionButton?.let { tb.removeView(it) }
+        rightActionButton = null
+        closeButton?.let { tb.removeView(it) }
+        closeButton = null
+
+        val canGoBack = if (::webView.isInitialized && !webView.url.isNullOrEmpty()) {
+            webView.canGoBack()
+        } else {
+            false
+        }
+
+        val rightText = navConfig.rightButtonText
+        if (rightText != null) {
+            rightActionButton = makeNavTextButton(rightText).apply {
+                setOnClickListener { onRightNavButtonTap() }
+            }
+            tb.addView(rightActionButton, Toolbar.LayoutParams(
+                Toolbar.LayoutParams.WRAP_CONTENT,
+                Toolbar.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.END })
+        } else if (navConfig.shouldShowClose(canGoBack)) {
+            closeButton = makeNavTextButton("✕").apply {
+                setOnClickListener { finish() }
+            }
+            tb.addView(closeButton, Toolbar.LayoutParams(
+                Toolbar.LayoutParams.WRAP_CONTENT,
+                Toolbar.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.END })
+        }
     }
 
     // ---- Error Page ----
@@ -581,11 +738,8 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     }
 
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        // Same semantics as the navigation bar back button (single path)
+        onNavBack()
     }
 
     override fun onDestroy() {
