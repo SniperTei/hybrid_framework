@@ -1,7 +1,37 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
+import { UIAbility } from '@kit.AbilityKit';
 import { CoconutSDK, CoconutWebPage, CoconutWebDelegate, NavConfig, NavTitleMode,
-  NavResultBus, ComponentManager, WebViewHelper, JsonObject, JsExecutor } from '@coconut/sdk';
+  NavResultBus, ComponentManager, WebViewHelper, JsonObject, JsExecutor,
+  ComponentHost } from '@coconut/sdk';
+
+/**
+ * ComponentHost adapter: exposes this container's webController to
+ * components (NavigatorComponent back/backToTop/close) via the shared
+ * ComponentContext host slot, identity-guarded on release.
+ */
+export class ContainerHost implements ComponentHost {
+  private readonly wc: webview.WebviewController;
+
+  constructor(wc: webview.WebviewController) {
+    this.wc = wc;
+  }
+
+  getAbility(): UIAbility | null {
+    // Route pages have no direct UIAbility handle; no current consumer
+    // needs it (components reach the context via ComponentContext.context).
+    return null;
+  }
+
+  getWebController(): webview.WebviewController | null {
+    return this.wc;
+  }
+
+  runOnMainThread(action: () => void): void {
+    // UI callbacks already arrive on the main thread.
+    action();
+  }
+}
 
 /**
  * Delegate adapter: forwards CoconutWebPage hooks into this container's
@@ -60,6 +90,8 @@ struct WebContainer {
   private delegate: ContainerDelegate | null = null;
   // Executor this container installed (identity-tracked for release).
   private claimedExecutor: JsExecutor | null = null;
+  // Host adapter registered in the shared context (identity-tracked).
+  private hostAdapter: ContainerHost | null = null;
 
   aboutToAppear(): void {
     let url = '';
@@ -202,6 +234,10 @@ struct WebContainer {
   onPageShow(): void {
     this.claimBridge();
     this.drainNavResult();
+    // Register this container's webController as the active host for
+    // components (NavigatorComponent back/backToTop/close).
+    this.hostAdapter = new ContainerHost(this.webController);
+    ComponentManager.getInstance().setHost(this.hostAdapter);
   }
 
   aboutToDisappear(): void {
@@ -209,6 +245,13 @@ struct WebContainer {
       const ctx = ComponentManager.getInstance().getSharedContext();
       ctx?.eventEmitter.releaseJsExecutor(this.claimedExecutor);
       this.claimedExecutor = null;
+    }
+    if (this.hostAdapter !== null) {
+      const ctx = ComponentManager.getInstance().getSharedContext();
+      if (ctx !== null && ctx.host === this.hostAdapter) {
+        ComponentManager.getInstance().setHost(null);
+      }
+      this.hostAdapter = null;
     }
   }
 

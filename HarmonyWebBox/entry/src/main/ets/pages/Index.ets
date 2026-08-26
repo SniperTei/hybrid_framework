@@ -1,10 +1,13 @@
 import { CoconutSDK, CoconutUpdateManager } from '@coconut/sdk';
 import { promptAction, router } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { DeviceComponent } from '../components/DeviceComponent';
 import { DialogComponent } from '../components/DialogComponent';
 import { EventComponent } from '../components/EventComponent';
 import { NetworkComponent } from '../components/NetworkComponent';
+import { NavigatorComponent } from '../components/NavigatorComponent';
 import { StorageComponent } from '../components/StorageComponent';
+import { TemplateRegistry } from '../components/TemplateRegistry';
 import { VerifyDialog, VerifyDialogConfig } from '../components/VerifyDialog';
 import { SecondPage } from './SecondPage';
 import { ThirdPage } from './ThirdPage';
@@ -49,8 +52,15 @@ struct Index {
       new StorageComponent(),
       new EventComponent(),
       new DialogComponent(),
-      new NetworkComponent()
+      new NetworkComponent(),
+      new NavigatorComponent()
     ]);
+    // Eager template registry validation (JSON parse + path non-empty +
+    // duplicate names) — surface config errors at startup, not first
+    // forward. Shallow check only: main_pages registration of each page
+    // is a documented host contract (crashes at pushUrl if missing).
+    const templates = TemplateRegistry.load(getContext(this) as common.UIAbilityContext);
+    console.info(`[Index] coconut templates loaded: ${templates.size}`);
   }
 
   private async checkHotUpdate(): Promise<void> {
@@ -151,6 +161,19 @@ struct Index {
             .margin({ top: 16 })
             .onClick(() => {
               this.openContainer(this.offlinePackageUrl);
+            })
+
+          // 模板容器（coconut.navigator.forward({template:'demo'}) 的原生入口，
+          // 页面本身注册在 coconut_templates.json）
+          Button('打开模板容器 (demo)')
+            .fontSize(18)
+            .width(200)
+            .height(50)
+            .backgroundColor('#FF7D00')
+            .margin({ top: 16 })
+            .onClick(() => {
+              const params: Record<string, string> = { 'url': this.offlinePackageUrl };
+              router.pushUrl({ url: 'pages/DemoTemplatePage', params: params });
             })
 
             // 热更新（对标 iOS/Android demo）：检查更新（可用则自动下载+应用）/ 回滚
