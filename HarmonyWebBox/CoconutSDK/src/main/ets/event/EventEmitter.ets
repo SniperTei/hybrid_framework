@@ -31,6 +31,19 @@ export class EventEmitter {
   }
 
   /**
+   * Release the jsExecutor, but only if [executor] is still the installed
+   * one (identity guard). Without this, a finishing backgrounded container
+   * would null the executor the resumed container just claimed (events to
+   * the visible page going silent).
+   */
+  releaseJsExecutor(executor: JsExecutor): void {
+    if (this.executor === executor) {
+      this.executor = null;
+      Logger.d(this.TAG, 'JsExecutor released (identity match)');
+    }
+  }
+
+  /**
    * Register a handler for `topic`. If already subscribed, the previous
    * registration is replaced (no-op in terms of count).
    */
@@ -68,15 +81,32 @@ export class EventEmitter {
       Logger.w(this.TAG, 'emit rejected: empty topic');
       return;
     }
-    if (this.executor === null) {
-      Logger.w(this.TAG, `emit dropped (no jsExecutor): ${topic}`);
-      return;
-    }
     if (!this.topics.has(topic)) {
       Logger.d(this.TAG, `emit no subscriber: ${topic}`);
       return;
     }
+    this.dispatch(topic, dataJson);
+  }
 
+  /**
+   * Dispatch bypassing the native subscription gate. For nav.result: a
+   * child container's page load may have clearAll()'d this page's native
+   * registration, but the H5-side handler table is intact — dispatch
+   * routes through the page's own JS subscriber table either way.
+   */
+  emitBypassingSubscription(topic: string, dataJson: string = ''): void {
+    if (topic.length === 0) {
+      Logger.w(this.TAG, 'emit rejected: empty topic');
+      return;
+    }
+    this.dispatch(topic, dataJson);
+  }
+
+  private dispatch(topic: string, dataJson: string): void {
+    if (this.executor === null) {
+      Logger.w(this.TAG, `emit dropped (no jsExecutor): ${topic}`);
+      return;
+    }
     const dataField = dataJson.length > 0 ? dataJson : 'null';
     const builder = new JsonObject();
     builder.put('topic', topic);

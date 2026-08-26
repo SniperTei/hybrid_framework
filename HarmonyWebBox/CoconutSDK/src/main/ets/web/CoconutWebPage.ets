@@ -5,6 +5,7 @@ import { Logger } from '../utils/Logger';
 import { WebViewHelper } from './WebViewHelper';
 import { CoconutOfflineResources } from './CoconutOfflineResources';
 import { CoconutWebDelegate } from './CoconutWebDelegate';
+import { JsExecutor } from '../event/EventEmitter';
 
 /**
  * Bridge proxy class for javaScriptProxy registration.
@@ -43,6 +44,8 @@ export struct CoconutWebPage {
   // intercept). Plain field: host route pages pass their delegate at
   // construction — CoconutWebPage({ url, delegate, webController }).
   delegate: CoconutWebDelegate | null = null;
+  // Executor this page installed (identity-tracked for release).
+  private claimedExecutor: JsExecutor | null = null;
 
   aboutToAppear(): void {
     // ArkWeb cannot load a custom scheme directly: translate coconut://
@@ -54,17 +57,30 @@ export struct CoconutWebPage {
     CoconutSDK.bridge?.securityValidator;
     // Bind proxy to this page
     this.bridgeProxy.bind(this);
-    // Wire EventEmitter → WebView. EventEmitter owns no WebView reference,
-    // so the host owns the dispatch hop.
+    // Fallback claim of the shared EventEmitter jsExecutor (standalone
+    // embedding without a container host). A container host (WebContainer)
+    // re-claims on onPageShow — the top-of-stack container always owns
+    // the dispatch hop; release is identity-guarded so a finishing
+    // backgrounded page cannot tear down the active claim.
     const ctx = ComponentManager.getInstance().getSharedContext();
     if (ctx !== null) {
-      ctx.eventEmitter.setJsExecutor((script: string) => {
+      const executor: JsExecutor = (script: string) => {
         try {
           this.webController.runJavaScript(script);
         } catch (e) {
           Logger.e('CoconutWebPage', `EventEmitter dispatch failed: ${e}`);
         }
-      });
+      };
+      ctx.eventEmitter.setJsExecutor(executor);
+      this.claimedExecutor = executor;
+    }
+  }
+
+  aboutToDisappear(): void {
+    if (this.claimedExecutor !== null) {
+      const ctx = ComponentManager.getInstance().getSharedContext();
+      ctx?.eventEmitter.releaseJsExecutor(this.claimedExecutor);
+      this.claimedExecutor = null;
     }
   }
 

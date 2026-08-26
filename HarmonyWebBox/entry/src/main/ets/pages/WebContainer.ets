@@ -1,6 +1,7 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
-import { CoconutSDK, CoconutWebPage, CoconutWebDelegate, NavConfig, NavTitleMode } from '@coconut/sdk';
+import { CoconutSDK, CoconutWebPage, CoconutWebDelegate, NavConfig, NavTitleMode,
+  NavResultBus, ComponentManager, WebViewHelper, JsonObject, JsExecutor } from '@coconut/sdk';
 
 /**
  * Delegate adapter: forwards CoconutWebPage hooks into this container's
@@ -57,6 +58,8 @@ struct WebContainer {
   private errorDialogShowing: boolean = false;
   webController: webview.WebviewController = new webview.WebviewController();
   private delegate: ContainerDelegate | null = null;
+  // Executor this container installed (identity-tracked for release).
+  private claimedExecutor: JsExecutor | null = null;
 
   aboutToAppear(): void {
     let url = '';
@@ -188,6 +191,110 @@ struct WebContainer {
     return this.handleBack();
   }
 
+  /**
+   * Resume-claim (top-of-stack container owns the shared EventEmitter
+   * jsExecutor) + drain NavResultBus: a child container's close({result})
+   * payload is delivered to this page's H5 as the `nav.result` event.
+   * Dispatch bypasses the native subscription gate — the child's page
+   * load may have clearAll()'d our registration, but this page's JS
+   * handler table is intact.
+   */
+  onPageShow(): void {
+    this.claimBridge();
+    this.drainNavResult();
+  }
+
+  aboutToDisappear(): void {
+    if (this.claimedExecutor !== null) {
+      const ctx = ComponentManager.getInstance().getSharedContext();
+      ctx?.eventEmitter.releaseJsExecutor(this.claimedExecutor);
+      this.claimedExecutor = null;
+    }
+  }
+
+  private claimBridge(): void {
+    const ctx = ComponentManager.getInstance().getSharedContext();
+    if (ctx === null) {
+      return;
+    }
+    const executor: JsExecutor = (script: string) => {
+      try {
+        this.webController.runJavaScript(script);
+      } catch (e) {
+        console.error(`[WebContainer] event dispatch failed: ${e}`);
+      }
+    };
+    ctx.eventEmitter.setJsExecutor(executor);
+    this.claimedExecutor = executor;
+    // Re-inject config on resume: idempotent on Harmony (session token is
+    // constant, script has no __coconutInitialized guard); capabilities
+    // may have changed while this container was backgrounded.
+    if (CoconutSDK.isInitialized) {
+      try {
+        const script = WebViewHelper.buildConfigScript(CoconutSDK.getSecurityConfig());
+        this.webController.runJavaScript(script);
+      } catch (e) {
+        // controller not attached yet — config injection also happens on
+        // every onPageEnd inside CoconutWebPage
+      }
+    }
+  }
+
+  private drainNavResult(): void {
+    const raw = NavResultBus.consume();
+    if (raw === null) {
+      return;
+    }
+    const ctx = ComponentManager.getInstance().getSharedContext();
+    if (ctx === null) {
+      return;
+    }
+    // raw is the JSON serialization of the result value; a non-JSON string
+    // is wrapped as a JSON string literal (mirrors Android's primitive fallback).
+    let jsonValue = raw;
+    try {
+      JSON.parse(raw);
+    } catch (e) {
+      jsonValue = JSON.stringify(raw);
+    }
+    const payload = new JsonObject();
+    payload.putJson('result', jsonValue);
+    ctx.eventEmitter.emitBypassingSubscription('nav.result', payload.build());
+  }
+
+  /**
+   * Left custom text button tap: H5 subscribed to nav.button → push the
+   * event only (page decides whether to call back); no subscription →
+   * default back semantics (prevents "custom text but forgot to
+   * subscribe" dead-button trap). Design #12.
+   */
+  private onLeftNavButtonTap(): void {
+    const ctx = ComponentManager.getInstance().getSharedContext();
+    if (ctx !== null && ctx.eventEmitter.has('nav.button')) {
+      const payload = new JsonObject();
+      payload.put('side', 'left');
+      ctx.eventEmitter.emit('nav.button', payload.build());
+      return;
+    }
+    this.handleBack();
+  }
+
+  /**
+   * Right custom action button tap: H5 subscribed → push the event; no
+   * subscription → no-op + log (close capability is yielded to the custom
+   * action, but the back button still exits). Design #13.
+   */
+  private onRightNavButtonTap(): void {
+    const ctx = ComponentManager.getInstance().getSharedContext();
+    if (ctx !== null && ctx.eventEmitter.has('nav.button')) {
+      const payload = new JsonObject();
+      payload.put('side', 'right');
+      ctx.eventEmitter.emit('nav.button', payload.build());
+      return;
+    }
+    console.warn('[WebContainer] nav.button right tap with no subscriber — no-op');
+  }
+
   build() {
     Column() {
       if (this.navVisible) {
@@ -201,7 +308,7 @@ struct WebContainer {
                 .fontColor('#333333')
                 .maxLines(1)
                 .onClick(() => {
-                  this.handleBack();
+                  this.onLeftNavButtonTap();
                 })
             } else {
               Text('‹')
@@ -236,9 +343,7 @@ struct WebContainer {
                 .fontColor('#333333')
                 .maxLines(1)
                 .onClick(() => {
-                  // Custom right-button tap: nav.button dispatch lands in
-                  // Phase 3b; until then a configured right text is a no-op
-                  // (close capability is yielded to the custom action).
+                  this.onRightNavButtonTap();
                 })
             } else if (this.navConfig.shouldShowClose(this.canGoBack)) {
               Text('✕')

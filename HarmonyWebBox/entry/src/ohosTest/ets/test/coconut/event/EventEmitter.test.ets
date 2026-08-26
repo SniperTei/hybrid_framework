@@ -141,5 +141,60 @@ export default function eventEmitterTest() {
       expect(escaped.indexOf("\\\\backslash") >= 0).assertTrue();
       expect(escaped.indexOf("\\n") >= 0).assertTrue();
     });
+
+    // ---- Multi-container claim/release (container-nav) ----
+
+    it('releaseJsExecutor_identityMatch_clearsExecutor', 0, () => {
+      resetScripts();
+      const e2 = new EventEmitter();
+      e2.setJsExecutor(captureExecutor);
+      e2.on('nav.button');
+      e2.releaseJsExecutor(captureExecutor);
+      e2.emit('nav.button', '{}');
+      expect(scripts.length).assertEqual(0);  // dropped: no executor
+    });
+
+    it('releaseJsExecutor_identityMismatch_keepsExecutor', 0, () => {
+      resetScripts();
+      const e2 = new EventEmitter();
+      e2.setJsExecutor(captureExecutor);
+      e2.on('nav.button');
+      // A stale (backgrounded) container releases its own stale executor —
+      // the active claim must survive.
+      const staleExecutor = (script: string): void => {
+      };
+      e2.releaseJsExecutor(staleExecutor);
+      e2.emit('nav.button', '{}');
+      expect(scripts.length).assertEqual(1);
+    });
+
+    it('reclaim_stealsExecutorFromPreviousContainer', 0, () => {
+      resetScripts();
+      const containerA: string[] = [];
+      const containerB: string[] = [];
+      const e2 = new EventEmitter();
+      e2.setJsExecutor((script: string): void => {
+        containerA.push(script);
+      });
+      e2.on('nav.result');
+      e2.setJsExecutor((script: string): void => {
+        containerB.push(script);
+      });
+      e2.emit('nav.result', '{}');
+      expect(containerA.length).assertEqual(0);  // stolen: A gets nothing
+      expect(containerB.length).assertEqual(1);
+    });
+
+    it('emitBypassingSubscription_dispatchesWithoutRegistration', 0, () => {
+      resetScripts();
+      // Child container's page load clearAll()'d our topic registration;
+      // the resumed page's JS handler table is still intact — dispatch
+      // must go through.
+      emitter.clearAll();
+      emitter.emitBypassingSubscription('nav.result', '{"result":{"ok":1}}');
+      expect(scripts.length).assertEqual(1);
+      expect(scripts[0].indexOf('"topic":"nav.result"') >= 0).assertTrue();
+      expect(scripts[0].indexOf('"result":{"ok":1}') >= 0).assertTrue();
+    });
   });
 }
