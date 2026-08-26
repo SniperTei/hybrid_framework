@@ -1,13 +1,25 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
 }
 
+// local.properties (gitignored) may define sniperApiBase for the native smoke activity
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.sniper.androidwebbox"
     compileSdk {
         version = release(36)
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     defaultConfig {
@@ -18,6 +30,13 @@ android {
         versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Real base URL lives in local.properties (sniperApiBase=...), never committed
+        buildConfigField(
+            "String",
+            "SNIPER_API_BASE",
+            "\"${localProps.getProperty("sniperApiBase", "http://10.0.2.2:8041/api/v1")}\"",
+        )
     }
 
     buildTypes {

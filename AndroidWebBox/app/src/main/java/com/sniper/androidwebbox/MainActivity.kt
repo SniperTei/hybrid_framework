@@ -40,6 +40,11 @@ class MainActivity : AppCompatActivity() {
             openOfflinePackage()
         }
 
+        findViewById<MaterialButton>(R.id.btnSniperSmoke).setOnClickListener {
+            Logger.d("MainActivity", "Opening Sniper YOLO API native smoke")
+            startActivity(android.content.Intent(this, SniperYoloAPIActivity::class.java))
+        }
+
         findViewById<MaterialButton>(R.id.btnCheckUpdate).setOnClickListener {
             checkHotUpdate()
         }

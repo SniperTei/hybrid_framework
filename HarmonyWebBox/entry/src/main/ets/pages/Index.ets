@@ -14,7 +14,6 @@ import { Routes } from './MyConstants';
 @Component
 struct Index {
   @State showWebView: boolean = false;
-  // private targetUrl: string = 'http://115.191.30.167:8032/dashboard';
   @State targetUrl: string = 'https://test-b-fat.pingan.com.cn/fb-offline/platform-workbench/green/workbench/business/menu/index.html#/';
   private readonly testPageUrl: string = 'resource://rawfile/coconut_index.html';
   // ⚠️ dev server URL：Harmony 模拟器/真机不共享 Mac loopback，

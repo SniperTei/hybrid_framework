@@ -40,6 +40,12 @@
             android:name=".DemoTemplateActivity"
             android:exported="false"
             android:label="模板容器" />
+
+        <!-- Sniper YOLO API 原生冒烟（coconut-network 引擎 Kotlin 直调） -->
+        <activity
+            android:name=".SniperYoloAPIActivity"
+            android:exported="false"
+            android:label="Sniper API 冒烟" />
     </application>
 
 </manifest>
