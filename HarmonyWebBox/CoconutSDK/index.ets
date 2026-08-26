@@ -31,6 +31,8 @@ export { EventEmitter, JsExecutor } from './src/main/ets/event/EventEmitter'
 
 // Web Container
 export { CoconutWebPage } from './src/main/ets/web/CoconutWebPage'
+export { CoconutWebDelegate } from './src/main/ets/web/CoconutWebDelegate'
+export { NavConfig, NavTitleMode, NavClosePolicy } from './src/main/ets/web/NavConfig'
 export { WebViewHelper } from './src/main/ets/web/WebViewHelper'
 export { CoconutOfflineResources } from './src/main/ets/web/CoconutOfflineResources'
 export { CoconutUpdateManager, RemoteManifest, UpdateCheckResult, UpdateResult } from './src/main/ets/web/CoconutUpdateManager'

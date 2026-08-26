@@ -1,5 +1,6 @@
 import { Environment, EnvironmentConfig } from './Environment';
 import { Logger } from '../utils/Logger';
+import { NavConfig } from '../web/NavConfig';
 
 /**
  * Coconut SDK Configuration
@@ -28,6 +29,10 @@ export class CoconutConfig {
 
   // Security enhancement
   enableBridgeToken: boolean = true;
+
+  // Container navigation (v3.5.0): global tier of the three-tier NavConfig
+  // chain (CoconutConfig.nav < template default < per-open forward header).
+  nav: NavConfig = NavConfig.default();
 
   // SDK version
   sdkVersion: string = '3.4.0';

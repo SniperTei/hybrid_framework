@@ -15,6 +15,7 @@ import environmentTest from './config/Environment.test';
 import eventEmitterTest from './event/EventEmitter.test';
 import coconutOfflineResourcesTest from './web/CoconutOfflineResources.test';
 import coconutUpdateManagerTest from './web/CoconutUpdateManager.test';
+import navConfigTest from './web/NavConfig.test';
 import urlGuardTest from './network/UrlGuard.test';
 import httpErrorTest from './network/HttpError.test';
 import httpRequestTest from './network/HttpRequest.test';
@@ -40,6 +41,7 @@ export default function testsuite() {
   eventEmitterTest();
   coconutOfflineResourcesTest();
   coconutUpdateManagerTest();
+  navConfigTest();
   urlGuardTest();
   httpErrorTest();
   httpRequestTest();

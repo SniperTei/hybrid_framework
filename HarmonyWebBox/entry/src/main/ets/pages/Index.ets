@@ -1,5 +1,5 @@
-import { CoconutSDK, CoconutWebPage, CoconutUpdateManager } from '@coconut/sdk';
-import { promptAction } from '@kit.ArkUI';
+import { CoconutSDK, CoconutUpdateManager } from '@coconut/sdk';
+import { promptAction, router } from '@kit.ArkUI';
 import { DeviceComponent } from '../components/DeviceComponent';
 import { DialogComponent } from '../components/DialogComponent';
 import { EventComponent } from '../components/EventComponent';
@@ -13,8 +13,7 @@ import { Routes } from './MyConstants';
 @Entry
 @Component
 struct Index {
-  @State showWebView: boolean = false;
-  @State targetUrl: string = 'https://test-b-fat.pingan.com.cn/fb-offline/platform-workbench/green/workbench/business/menu/index.html#/';
+  private readonly targetUrl: string = 'https://test-b-fat.pingan.com.cn/fb-offline/platform-workbench/green/workbench/business/menu/index.html#/';
   private readonly testPageUrl: string = 'resource://rawfile/coconut_index.html';
   // ⚠️ dev server URL：Harmony 模拟器/真机不共享 Mac loopback，
   //    不能用 localhost/10.0.2.2，必须用 Mac 局域网 IP。IP 变了改这里。
@@ -92,61 +91,67 @@ struct Index {
     }
   }
 
+  /**
+   * Open the standard container route page (v3.5.0 container-nav).
+   * Optional header: NavConfig override JSON, e.g.
+   * '{"title":"订单详情","closePolicy":"always"}'.
+   */
+  private openContainer(url: string, header?: string): void {
+    const params: Record<string, string> = header !== undefined
+      ? { 'url': url, 'header': header }
+      : { 'url': url };
+    router.pushUrl({ url: 'pages/WebContainer', params: params });
+  }
+
   build() {
     Navigation(this.navPathStack) {
       Column() {
-        if (this.showWebView) {
-          CoconutWebPage({ url: this.targetUrl })
-        } else {
-          Column() {
-            Text('Coconut SDK Demo')
-              .fontSize(24)
-              .fontWeight(FontWeight.Bold)
-              .margin({ bottom: 32 })
+        Column() {
+          Text('Coconut SDK Demo')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .margin({ bottom: 32 })
 
-            Button('打开 webview')
-              .fontSize(18)
-              .width(200)
-              .height(50)
-              .onClick(() => {
-                this.showWebView = true;
-              })
+          Button('打开 webview')
+            .fontSize(18)
+            .width(200)
+            .height(50)
+            .onClick(() => {
+              this.openContainer(this.targetUrl);
+            })
 
-            Button('Bridge 测试页')
-              .fontSize(18)
-              .width(200)
-              .height(50)
-              .backgroundColor('#00B42C')
-              .margin({ top: 16 })
-              .onClick(() => {
-                this.targetUrl = this.testPageUrl;
-                this.showWebView = true;
-              })
+          Button('Bridge 测试页')
+            .fontSize(18)
+            .width(200)
+            .height(50)
+            .backgroundColor('#00B42C')
+            .margin({ top: 16 })
+            .onClick(() => {
+              this.openContainer(this.testPageUrl);
+            })
 
-            // 对标 iOS/Android 的「打开本地测试页面」入口 —— load Vite dev server
-            Button('打开本地测试页面 (dev)')
-              .fontSize(18)
-              .width(200)
-              .height(50)
-              .backgroundColor('#722ED1')
-              .margin({ top: 16 })
-              .onClick(() => {
-                this.targetUrl = this.devServerUrl;
-                this.showWebView = true;
-              })
+          // 对标 iOS/Android 的「打开本地测试页面」入口 —— load Vite dev server
+          Button('打开本地测试页面 (dev)')
+            .fontSize(18)
+            .width(200)
+            .height(50)
+            .backgroundColor('#722ED1')
+            .margin({ top: 16 })
+            .onClick(() => {
+              this.openContainer(this.devServerUrl);
+            })
 
-            // 离线包：coconut:// 统一入口（CoconutWebPage 内部翻译 + 拦截服务，
-            // 不依赖 dev server / 局域网 IP）
-            Button('打开离线包 (coconut://)')
-              .fontSize(18)
-              .width(200)
-              .height(50)
-              .backgroundColor('#F53F3F')
-              .margin({ top: 16 })
-              .onClick(() => {
-                this.targetUrl = this.offlinePackageUrl;
-                this.showWebView = true;
-              })
+          // 离线包：coconut:// 统一入口（CoconutWebPage 内部翻译 + 拦截服务，
+          // 不依赖 dev server / 局域网 IP）
+          Button('打开离线包 (coconut://)')
+            .fontSize(18)
+            .width(200)
+            .height(50)
+            .backgroundColor('#F53F3F')
+            .margin({ top: 16 })
+            .onClick(() => {
+              this.openContainer(this.offlinePackageUrl);
+            })
 
             // 热更新（对标 iOS/Android demo）：检查更新（可用则自动下载+应用）/ 回滚
             TextInput({ text: this.manifestUrl, placeholder: 'manifest URL' })
@@ -201,7 +206,6 @@ struct Index {
           .height('100%')
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
-        }
       }
       .width('100%')
       .height('100%')

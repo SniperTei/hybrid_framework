@@ -4,6 +4,7 @@ import { ComponentManager } from '../component/ComponentManager';
 import { Logger } from '../utils/Logger';
 import { WebViewHelper } from './WebViewHelper';
 import { CoconutOfflineResources } from './CoconutOfflineResources';
+import { CoconutWebDelegate } from './CoconutWebDelegate';
 
 /**
  * Bridge proxy class for javaScriptProxy registration.
@@ -40,6 +41,10 @@ export struct CoconutWebPage {
 
   webController: webview.WebviewController = new webview.WebviewController();
   @State private bridgeProxy: CoconutBridgeProxy = new CoconutBridgeProxy();
+  // Optional behavioral hooks (title sync / history / load fail / back
+  // intercept). Plain field: host route pages pass their delegate at
+  // construction — CoconutWebPage({ url, delegate, webController }).
+  delegate: CoconutWebDelegate | null = null;
 
   aboutToAppear(): void {
     // ArkWeb cannot load a custom scheme directly: translate coconut://
@@ -96,6 +101,7 @@ export struct CoconutWebPage {
             // context using subscriptionIds that no longer have callbacks.
             const ctx = ComponentManager.getInstance().getSharedContext();
             ctx?.eventEmitter.clearAll();
+            this.notifyHistory();
             Logger.d('CoconutWebPage', `Page begin: ${event.url}`);
           }
         })
@@ -105,6 +111,15 @@ export struct CoconutWebPage {
             Logger.d('CoconutWebPage', `Page end: ${event.url}`);
             // Inject security config
             this.injectConfig();
+            this.notifyHistory();
+            // Title fallback: if onTitleReceive never fired (ArkWeb doc
+            // deviation risk), getTitle() at page end still syncs AUTO bars.
+            this.pushTitle();
+          }
+        })
+        .onTitleReceive((event) => {
+          if (event) {
+            this.delegate?.onTitleChange(event.title);
           }
         })
         .onSslErrorEventReceive((event) => {
@@ -205,6 +220,36 @@ export struct CoconutWebPage {
     const config = CoconutSDK.getSecurityConfig();
     const script = WebViewHelper.buildConfigScript(config);
     this.webController.runJavaScript(script);
+  }
+
+  /**
+   * Recompute WebView history state and notify the host delegate
+   * (drives × close-button visibility under AUTO close policy).
+   */
+  private notifyHistory(): void {
+    let canGoBack = false;
+    try {
+      canGoBack = this.webController.accessBackward();
+    } catch (e) {
+      Logger.e('CoconutWebPage', `accessBackward failed: ${e}`);
+    }
+    this.delegate?.onHistoryChange(canGoBack);
+  }
+
+  /**
+   * Push the current document title to the delegate (page-end fallback
+   * for kernels that do not fire onTitleReceive).
+   */
+  private pushTitle(): void {
+    let title = '';
+    try {
+      title = this.webController.getTitle();
+    } catch (e) {
+      return;
+    }
+    if (title.length > 0) {
+      this.delegate?.onTitleChange(title);
+    }
   }
 
   /**
