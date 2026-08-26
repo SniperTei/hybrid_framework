@@ -36,8 +36,6 @@ class CoconutBridgeProxy {
 export struct CoconutWebPage {
   @Prop url: string = '';
   @State private isLoading: boolean = false;
-  @State private showError: boolean = false;
-  @State private errorMsg: string = '';
 
   webController: webview.WebviewController = new webview.WebviewController();
   @State private bridgeProxy: CoconutBridgeProxy = new CoconutBridgeProxy();
@@ -95,7 +93,6 @@ export struct CoconutWebPage {
         .onPageBegin((event) => {
           if (event) {
             this.isLoading = true;
-            this.showError = false;
             // Critical: clear stale H5 event subscriptions on reload / new
             // navigation. Otherwise emit() dispatches into the fresh page
             // context using subscriptionIds that no longer have callbacks.
@@ -131,13 +128,28 @@ export struct CoconutWebPage {
         .onErrorReceive((event) => {
           if (event) {
             this.isLoading = false;
-            this.showError = true;
-            this.errorMsg = event.error.getErrorInfo();
-            Logger.e('CoconutWebPage', `Error: ${event.error.getErrorInfo()}`);
+            // Main-frame heuristic: ArkWeb's WebResourceError carries no
+            // explicit isForMainFrame flag — treat a failing request whose
+            // URL equals the current page URL as the main frame (empty
+            // request URL fails toward rescue too). Subresource errors are
+            // logged only.
+            let errorUrl = '';
+            try {
+              errorUrl = event.request.getRequestUrl();
+            } catch (e) {
+              // request accessor unavailable — keep empty, assume main frame
+            }
+            const errorInfo = event.error.getErrorInfo();
+            Logger.e('CoconutWebPage', `Error: ${errorInfo} (${errorUrl})`);
+            if (errorUrl === this.url || errorUrl.length === 0) {
+              this.delegate?.onLoadFail(errorInfo);
+            }
           }
         })
         .onHttpErrorReceive((event) => {
           if (event) {
+            // HTTP 4xx/5xx responses render the server error body and are
+            // NOT white screens (container-nav design #5) — log only.
             Logger.e('CoconutWebPage', `HTTP error: ${event.response.getResponseCode()}`);
           }
         })
@@ -164,30 +176,6 @@ export struct CoconutWebPage {
           .width(48)
           .height(48)
           .color('#007DFF')
-      }
-
-      // Error page
-      if (this.showError) {
-        Column() {
-          Text('加载失败')
-            .fontSize(18)
-            .fontColor('#333333')
-            .margin({ bottom: 8 })
-          Text(this.errorMsg)
-            .fontSize(14)
-            .fontColor('#999999')
-            .maxLines(3)
-            .margin({ bottom: 16 })
-          Button('重试')
-            .onClick(() => {
-              this.showError = false;
-              this.webController.refresh();
-            })
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
-        .backgroundColor('#FFFFFF')
       }
     }
     .width('100%')

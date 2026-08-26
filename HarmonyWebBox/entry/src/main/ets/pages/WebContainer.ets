@@ -1,4 +1,4 @@
-import { router } from '@kit.ArkUI';
+import { router, promptAction } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import { CoconutSDK, CoconutWebPage, CoconutWebDelegate, NavConfig, NavTitleMode } from '@coconut/sdk';
 
@@ -20,6 +20,10 @@ class ContainerDelegate extends CoconutWebDelegate {
 
   onHistoryChange(canGoBack: boolean): void {
     this.container.onPageHistory(canGoBack);
+  }
+
+  onLoadFail(error: string): void {
+    this.container.showLoadFailDialog(error);
   }
 }
 
@@ -49,12 +53,15 @@ struct WebContainer {
 
   navConfig: NavConfig = NavConfig.default();
   pageUrl: string = '';
+  enableErrorDialog: boolean = true;
+  private errorDialogShowing: boolean = false;
   webController: webview.WebviewController = new webview.WebviewController();
   private delegate: ContainerDelegate | null = null;
 
   aboutToAppear(): void {
     let url = '';
     let header = '';
+    let errorDialogParam = '';
     const raw = router.getParams();
     if (raw !== undefined && raw !== null) {
       const params = raw as Record<string, Object>;
@@ -66,8 +73,21 @@ struct WebContainer {
       if (typeof h === 'string') {
         header = h;
       }
+      const d = params['errorDialog'];
+      if (typeof d === 'string') {
+        errorDialogParam = d;
+      }
     }
     this.pageUrl = url;
+
+    // White-screen rescue dialog: global config default, per-open override
+    // (e2e off-switch). Accepted values: 'false'/'0' off, 'true'/'1' on.
+    if (CoconutSDK.isInitialized) {
+      this.enableErrorDialog = CoconutSDK.config.enableErrorDialog;
+    }
+    if (errorDialogParam.length > 0) {
+      this.enableErrorDialog = errorDialogParam !== 'false' && errorDialogParam !== '0';
+    }
 
     // NavConfig resolution: global config ← per-open header (JSON override).
     let global = NavConfig.default();
@@ -106,6 +126,42 @@ struct WebContainer {
 
   onPageHistory(canGoBack: boolean): void {
     this.canGoBack = canGoBack;
+  }
+
+  /**
+   * White-screen rescue dialog on main-frame network-level load failure.
+   * 重试 = refresh; 退出 = router.back(). Independent of nav-bar visibility
+   * (a hidden bar still gets rescue). No stacking within one attempt: the
+   * dialog is modal and the flag resets when a button resolves it. NB:
+   * promptAction dialogs have no onDidDismiss callback on this SDK
+   * (memory pitfall #3) — button action is the only result path.
+   */
+  showLoadFailDialog(error: string): void {
+    if (!this.enableErrorDialog || this.errorDialogShowing) {
+      return;
+    }
+    this.errorDialogShowing = true;
+    promptAction.showDialog({
+      title: '加载失败',
+      message: error.length > 0 ? error : '网络异常，请稍后重试',
+      buttons: [
+        { text: '退出', color: '#666666' },
+        { text: '重试', color: '#007DFF' }
+      ]
+    }).then((result: promptAction.ShowDialogSuccessResponse) => {
+      this.errorDialogShowing = false;
+      if (result.index === 1) {
+        try {
+          this.webController.refresh();
+        } catch (e) {
+          // controller detached — container is closing anyway
+        }
+      } else {
+        router.back();
+      }
+    }).catch(() => {
+      this.errorDialogShowing = false;
+    });
   }
 
   /**

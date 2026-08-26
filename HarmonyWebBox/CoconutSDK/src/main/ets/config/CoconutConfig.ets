@@ -34,6 +34,10 @@ export class CoconutConfig {
   // chain (CoconutConfig.nav < template default < per-open forward header).
   nav: NavConfig = NavConfig.default();
 
+  // White-screen rescue: native error dialog on main-frame network-level
+  // load failure. Per-open override via WebContainer router param.
+  enableErrorDialog: boolean = true;
+
   // SDK version
   sdkVersion: string = '3.4.0';
 
