@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@ohos/hypium';
-import { ComponentException, JsonParser, CoconutSDK } from '@coconut/sdk';
+import { ComponentException, JsonParser, CoconutSDK, NavResultBus } from '@coconut/sdk';
 import { NavigatorComponent, NavSeams } from '../../../../../main/ets/components/NavigatorComponent';
 
 /**
@@ -165,6 +165,49 @@ export default function navigatorComponentTest() {
       expect(NavigatorComponent.rawValue('{"a":"x","b":1,"c":true}', 'c'))
         .assertEqual('true');
       expect(NavigatorComponent.rawValue('{"a":"x"}', 'missing')).assertEqual('');
+    });
+
+    // Regression (e2e scenario ⑨): close({result}) sends result as an
+    // OBJECT — the old primitive-only regex missed it and NavResultBus
+    // never received the payload.
+    it('rawValue_handlesObjectsAndArrays', 0, () => {
+      expect(NavigatorComponent.rawValue('{"result":{"from":"driver","d":"child"}}', 'result'))
+        .assertEqual('{"from":"driver","d":"child"}');
+      expect(NavigatorComponent.rawValue('{"result":{"a":{"b":1}},"x":1}', 'result'))
+        .assertEqual('{"a":{"b":1}}');
+      expect(NavigatorComponent.rawValue('{"result":{"a":{"b":1}},"x":1}', 'x'))
+        .assertEqual('1');
+      expect(NavigatorComponent.rawValue('{"list":[1,2],"tail":null}', 'list'))
+        .assertEqual('[1,2]');
+      expect(NavigatorComponent.rawValue('{"list":[1,2],"tail":null}', 'tail'))
+        .assertEqual('null');
+      // string value containing braces / colons / commas must not confuse depth
+      expect(NavigatorComponent.rawValue('{"msg":"a{b}c,d:e","n":2}', 'msg'))
+        .assertEqual('"a{b}c,d:e"');
+      expect(NavigatorComponent.rawValue('{"msg":"a{b}c,d:e","n":2}', 'n'))
+        .assertEqual('2');
+    });
+
+    it('close_objectResult_postsToNavResultBus', 0, async () => {
+      NavResultBus.post('stale'); // ensure consume clears pre-existing state
+      expect(NavResultBus.consume()).assertEqual('stale');
+      const comp = new NavigatorComponent(makeSeams());
+      const result = await comp.handle('close',
+        '{"result":{"from":"driver","d":"child"}}');
+      expect(JsonParser.getBool(result, 'success')).assertTrue();
+      const posted = NavResultBus.consume();
+      expect(posted !== null).assertTrue();
+      expect(posted).assertEqual('{"from":"driver","d":"child"}');
+      expect(NavResultBus.consume()).assertEqual(null); // single slot drained
+    });
+
+    it('close_noResult_doesNotPost', 0, async () => {
+      NavResultBus.post('stale');
+      const comp = new NavigatorComponent(makeSeams());
+      const result = await comp.handle('close', '{}');
+      expect(JsonParser.getBool(result, 'success')).assertTrue();
+      expect(NavResultBus.consume()).assertEqual('stale'); // untouched
+      NavResultBus.consume(); // cleanup
     });
   });
 }

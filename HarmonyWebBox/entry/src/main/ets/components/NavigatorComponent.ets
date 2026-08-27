@@ -51,6 +51,7 @@ export class NavigatorComponent extends BaseComponent {
   private readonly launcher: (routePage: string, params: Record<string, string>) => void;
   private readonly templateResolver: () => Map<string, string>;
   private readonly hostWebControllerSupplier: () => webview.WebviewController | null;
+  private readonly backer: () => void;
 
   constructor(seams?: NavSeams) {
     super();
@@ -59,6 +60,7 @@ export class NavigatorComponent extends BaseComponent {
       this.launcher = seams.launcher;
       this.templateResolver = seams.templateResolver;
       this.hostWebControllerSupplier = seams.hostWebController;
+      this.backer = seams.backer;
     } else {
       this.stackDepthSupplier = (): number => parseInt(router.getLength());
       this.launcher = (routePage: string, params: Record<string, string>): void => {
@@ -74,6 +76,9 @@ export class NavigatorComponent extends BaseComponent {
           return null;
         }
         return ctx.host.getWebController();
+      };
+      this.backer = (): void => {
+        router.back();
       };
     }
   }
@@ -193,7 +198,7 @@ export class NavigatorComponent extends BaseComponent {
         // fall through to router.back()
       }
     }
-    router.back();
+    this.backer();
     return this.ack();
   }
 
@@ -218,7 +223,7 @@ export class NavigatorComponent extends BaseComponent {
         NavResultBus.post(raw);
       }
     }
-    router.back();
+    this.backer();
     return this.ack();
   }
 
@@ -226,16 +231,70 @@ export class NavigatorComponent extends BaseComponent {
 
   /**
    * Raw JSON value extraction for a top-level key: keeps strings quoted,
-   * numbers/bools/null bare; used for query flattening and result
-   * passthrough (JsonParser.getString misses non-string values).
+   * numbers/bools/null bare, objects/arrays verbatim; used for query
+   * flattening and result passthrough (JsonParser.getString misses
+   * non-string values). Depth-aware scanner — close({result}) sends the
+   * result as an object, which no primitive-only regex can capture
+   * (e2e scenario ⑨: NavResultBus never received the payload).
    */
   static rawValue(json: string, key: string): string {
-    const m = json.match(
-      new RegExp(`"${key}"\\s*:\\s*("(?:[^"\\\\]|\\\\)*"|-?\\d+(?:\\.\\d+)?|true|false|null)`));
-    if (m === null || m.length < 2) {
+    const keyPat = `"${key}"`;
+    const keyIdx = json.indexOf(keyPat);
+    if (keyIdx < 0) {
       return '';
     }
-    return m[1];
+    let i = json.indexOf(':', keyIdx + keyPat.length);
+    if (i < 0) {
+      return '';
+    }
+    i++;
+    while (i < json.length && (json[i] === ' ' || json[i] === '\t' || json[i] === '\n' || json[i] === '\r')) {
+      i++;
+    }
+    const start = i;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    while (i < json.length) {
+      const c = json[i];
+      if (inStr) {
+        if (esc) {
+          esc = false;
+        } else if (c === '\\') {
+          esc = true;
+        } else if (c === '"') {
+          inStr = false;
+        }
+        i++;
+        continue;
+      }
+      if (c === '"') {
+        inStr = true;
+        i++;
+        continue;
+      }
+      if (c === '{' || c === '[') {
+        depth++;
+        i++;
+        continue;
+      }
+      if (c === '}' || c === ']') {
+        if (depth === 0) {
+          break; // primitive value terminated by enclosing object end
+        }
+        depth--;
+        i++;
+        if (depth === 0) {
+          break; // value's own closing brace/bracket consumed
+        }
+        continue;
+      }
+      if (depth === 0 && c === ',') {
+        break; // primitive value terminated by next pair
+      }
+      i++;
+    }
+    return json.substring(start, i).trim();
   }
 
   private businessFailure(message: string): string {
@@ -263,4 +322,7 @@ export class NavSeams {
     };
   templateResolver: () => Map<string, string> = (): Map<string, string> => new Map<string, string>();
   hostWebController: () => webview.WebviewController | null = (): webview.WebviewController | null => null;
+  backer: () => void = (): void => {
+    router.back();
+  };
 }
