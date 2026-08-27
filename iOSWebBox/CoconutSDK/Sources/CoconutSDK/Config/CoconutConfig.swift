@@ -16,6 +16,14 @@ public class CoconutConfig {
     public var rateLimitPerMethod = 100
     public var rateLimitWindowMs: Int64 = 60_000
 
+    /// Global (bottom-tier) container navigation-bar config; per-open header
+    /// and template subclass defaults merge on top of this (v3.5.0).
+    public var nav = NavConfig.default()
+
+    /// White-screen error dialog on network-level page load failure.
+    /// Set false to keep the legacy inline error overlay disabled too (no-op).
+    public var enableErrorDialog = true
+
     private init() {}
 }
 
