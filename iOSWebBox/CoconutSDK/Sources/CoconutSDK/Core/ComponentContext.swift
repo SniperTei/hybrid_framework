@@ -6,7 +6,7 @@ import WebKit
 public class ComponentContext {
 
     public let applicationContext: UIApplication
-    public var sdkVersion: String = "3.4.0"
+    public var sdkVersion: String = "3.5.0"
 
     /// Shared EventEmitter for native → H5 push.
     public var eventEmitter: EventEmitter!

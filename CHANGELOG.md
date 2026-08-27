@@ -4,7 +4,22 @@
 
 ## [Unreleased]
 
-容器导航（v3.5.0，**Android + Harmony 已落地**，iOS 待跟进）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
+容器导航（v3.5.0，**三端齐活**）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
+
+### Added（iOS 落地，2026-08-28）
+
+- **NavConfig 三级合并链**（SPM CoconutSDK）：`CoconutConfig.nav ← defaultNavConfig（模板子类 open 钩子）← navOverride（forward header / native caller）`，逐字段 nil=继承；`visible / title(auto|fixed) / closePolicy(auto|always) / leftButtonText / rightButtonText` + `shouldShowClose(canGoBack:)`。单测真值表。
+- **CoconutNavBarView 自绘导航栏**（不绑 UINavigationController——容器是 fullScreen modal 链）：返回 chevron/左文本 · AUTO（KVO `webView.title` + didCommit 补读）/FIXED 标题 · ×/右文本互斥；`nav.left`/`nav.right` accessibilityIdentifier。统一返回路径 `handleBack()` = `onBack()` 拦截 → `canGoBack ? goBack : dismiss`。
+- **白屏错误弹窗**：`didFail`/`didFailProvisionalNavigation`（**过滤 NSURLErrorCancelled**——程序化导航伴随错误码）→ UIAlertController「重试」(reload)/「退出」(dismiss)；同次加载不叠弹；HTTP 4xx/5xx 不算（WKWebView 不报为失败）。`enableErrorDialog` 全局 + per-instance 开关；内联错误覆盖层删除。
+- **NavigatorComponent**（第 6 个组件，app 层）：`forward / back / backToTop / close`。forward 缺 url/守卫拦截 → `200007`，`coconut://` 直通，栈深上限 10（静态活容器计数）→ 业务失败；backToTop = native `scrollView.setContentOffset`；close result → `NavResultBus` 单槽 → 前容器 `viewWillAppear` drain → `emitBypassingSubscription('nav.result')`。测试缝（stackDepth/launcher/templateResolver 可注入）。
+- **多容器 resume-claim**：claim 挪到 `viewWillAppear`（setHost + generateToken + jsExecutor + pageLoaded 时重注入 config——吸收 Android `__coconutInitialized` 坑）；`deinit` 身份守卫（`host === self` 才清）+ `didCountContainer` 计数守卫。对象 result drain 时 `JSONSerialization` 解析回真 JSON（Harmony rawValue 同型问题结构性免疫，e2e ⑨ 钉死）。
+- **模板容器（真继承）**：`CoconutWebViewController` 声明 `open`，模板 = 宿主子类（`defaultNavConfig` + `onBack/onLoadFail/onTitleChange` delegate 覆写）；`TemplateRegistry`（`NSClassFromString("Module.Class")` 强制模块前缀 + `isKind(of:)` 校验 + 重复名拒收 + eager 校验）+ `coconut_templates.json` + `DemoTemplateViewController` 示范（底部 native banner + FIXED 标题）。
+- **nav.button 事件**：自定义按钮 tap → 有订阅 emit `{side}`；无订阅左键兜底返回、右键 no-op + Logger.w（与两端同语义）。
+- **e2e：XCUITest 11 场景全过**（`ContainerNavE2ETests` 9 test：死链弹窗重试/退出、HTTP 500 不弹、A→B→C nav.result 逐级回传、根页 back 退化 dismiss、backToTop ack、11 层栈限、自定义按钮订阅语义、模板命中 + onBack 拦截、Run All 22/22 回归）。Autorun 结果写 `document.title`（iOS AUTO 导航栏原生镜像——backToTop 滚走结果面板后 WKWebView AX 树查不到面板文本的解法）。
+
+### Fixed（iOS e2e 抓出，三端同型隐患）
+
+- **Demo.vue Run All template 未注册检查错测**：检查发 `url: window.location.pathname`（=`/`）——UrlGuard 拦 scheme-less 相对路径（200007）在 template 查询之前，本想测「template 未注册 → success:false」实际测成守卫拦截（iOS 首跑 21/22 根因；Android/Harmony 同型隐患，只是尚未从根路径跑过 Run All）。修法：url 用绝对地址（`origin + pathname`）。
 
 ### Added（Harmony 落地，2026-08-26）
 
