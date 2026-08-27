@@ -4,9 +4,22 @@
 
 ## [Unreleased]
 
-容器导航（v3.5.0，**Android 先行**，iOS/Harmony 待跟进）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
+容器导航（v3.5.0，**Android + Harmony 已落地**，iOS 待跟进）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
 
-### Added
+### Added（Harmony 落地，2026-08-26）
+
+- **NavConfig + CoconutWebDelegate**（CoconutSDK HAR）：`NavConfig.ets`（三级合并链 `CoconutConfig.nav ← per-open header`，逐字段 null=继承，对齐 Android 语义）；`CoconutWebDelegate` 可继承钩子（onBack 拦截 / onLoadFail / onTitleChange）；`NavResultBus` 单槽。14 个真值表 Hypium 测试。
+- **WebContainer 标准容器路由页**（@Entry）：`router.pushUrl({url, params:{url, header, errorDialog}})` 打开；自绘导航栏（左文本/返回 chevron · AUTO|FIXED 标题 · ×/右文本，不依赖 NavTitleBar）；统一返回路径 `handleBack()` = delegate 拦截 → WebView 历史 → 退化 `router.back()`；AUTO 标题 `onTitleReceive` 同步；白屏错误弹窗 `promptAction.showDialog`（重试=refresh / 退出=router.back，主帧判定 request url == 当前 url 启发式，`enableErrorDialog` 全局 + per-open 开关）。
+- **NavigatorComponent**（第 6 个组件，app 层）：`forward / back / backToTop / close`，forward 过 UrlGuard + `coconut://` 直通 + 栈深上限 10（`router.getLength()`）；backToTop 用 `runJavaScript('window.scrollTo(0,0)')` fallback（webviewController 无 scrollTo）；close result → NavResultBus → 前容器 `onPageShow` drain → `emitBypassingSubscription('nav.result')`。测试缝五件套（stackDepth/launcher/templateResolver/hostWebController/backer 可注入 lambda）。
+- **多容器 claim/release**：`onPageShow` 认领 jsExecutor（身份追踪）+ config 重注入（token 恒定，幂等）；`aboutToDisappear` 身份守卫释放。CoconutWebPage 内联错误覆盖层删除（职责由弹窗接管）。
+- **模板容器**：`TemplateRegistry`（浅校验：JSON 解析 + 名称非空 + 重复名拒收；ArkTS 无反射，页面注册 main_pages 是文档化宿主契约）+ `coconut_templates.json` + `DemoTemplatePage` 示范（宿主原生底部 banner + FIXED 标题，注册名 "demo"）+ Index 启动期 eager 校验。
+- **nav.button 事件**：自定义按钮 tap → 有订阅 emit `{side}`；无订阅左键兜底返回、右键 no-op + console.warn（与 Android 同语义）。
+
+### Fixed（Harmony e2e 抓出）
+
+- **close({result}) 对象 result 丢失**：`NavigatorComponent.rawValue` 的原始类型正则匹配不到对象值 → NavResultBus 拿不到 payload → 前容器永远收不到 `nav.result`。修法：深度感知扫描器（字符串/转义/嵌套大括号状态机）+ `backer` 测试缝 + 3 个回归测试。e2e 场景 ⑨ 抓出。
+
+### Added（Android 先行，2026-08-25）
 
 - **NavConfig 三级合并链**（coconut-core）：`CoconutConfig.nav ← defaultNavConfig（模板子类钩子）← per-open header`，逐字段 null=继承；`visible / title(auto|fixed) / closePolicy(auto|always) / leftButtonText / rightButtonText`。14 个真值表 JVM 测试。
 - **导航栏 + 返回语义**：扩展现有 Toolbar——左键文本按钮（有则替换返回 icon）、右键自定义 action（有则替换 × 键）、× 显隐随 `doUpdateVisitedHistory` 重算；返回统一 `onNavBack()` = `canGoBack ? goBack : finish`（物理返回 / 导航栏 / navigator.back 同一条路）；`onReceivedTitle` → AUTO 模式标题同步。
@@ -29,6 +42,10 @@
 ### Android e2e（11 场景全过，emulator-5556）
 
 dead URL 弹窗重试/退出、HTTP 500 不弹、A→B→C 多级返回链、根页 back 退化关闭、backToTop、守卫拦截 200007、11 层超限、自定义按钮有/无订阅两分支、close({result}) → nav.result 回传、模板命中/未注册、Run All 22/22 回归。
+
+### Harmony e2e（11 场景全过，模拟器 127.0.0.1:5555，2026-08-26）
+
+同 11 场景清单全过（fixed overlay 断言通道 + `?op=` query driver 页 + hdc rport 反向转发打 vite dev server）。设备测试 280/280（237 → +43：NavConfig 真值表 14 / NavigatorComponent 15+3 / TemplateRegistry 8 / CoconutWebPage delegate 3 等）。
 
 ## [3.4.0] - 2026-08-23
 

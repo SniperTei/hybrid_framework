@@ -9,7 +9,7 @@ import { EventEmitter } from '../event/EventEmitter';
  */
 export class ComponentContext {
   readonly context: common.UIAbilityContext;
-  sdkVersion: string = '3.4.0';
+  sdkVersion: string = '3.5.0';
   host: ComponentHost | null = null;
   readonly eventEmitter: EventEmitter = new EventEmitter();
 

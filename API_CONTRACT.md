@@ -344,7 +344,7 @@ coconut.dialog.hideLoading((err, data) => {});
 
 ---
 
-### 4.6 navigator ✅ Android 先行（v3.5.0，iOS/Harmony 待跟进）
+### 4.6 navigator ✅ Android + Harmony（v3.5.0；iOS 待跟进）
 
 **目标**：H5 能开新容器（forward）、返回（back / backToTop）、带结果关闭（close），并自定义容器导航栏。容器 = 独立的原生 WebView Activity，back stack 天然 LIFO。
 
@@ -381,17 +381,25 @@ CoconutConfig.nav（全局） ← defaultNavConfig（模板子类 protected open
 
 **错误弹窗（白屏救援，v3.5.0）**：`onReceivedError`（仅 main frame）→ 原生 AlertDialog「加载失败」+「重试」(reload) /「退出」(finish)，`onPageStarted` 自动 dismiss + 复位防叠弹。**HTTP 4xx/5xx 不算白屏**（`onReceivedHttpError` 整块移除——server body 照常渲染）。全局开关 `CoconutConfig.enableErrorDialog`，per-open `EXTRA_ENABLE_ERROR_DIALOG`。旧 `ErrorPageHelper` 已删除（git 可找回）。
 
-**多容器生命周期（resume-claim 模型）**：host 认领 + token 生成 + jsExecutor 接线在 `onResume`（非 onCreate）；`onDestroy` 身份守卫（`host === this` 才清）。Android back stack LIFO → 栈顶容器始终持有 host，事件路由零新管道。**两个 e2e 抓出的隐性 bug（已修，iOS/Harmony 跟进时注意）**：
+**多容器生命周期（resume-claim 模型）**：host 认领 + token 生成 + jsExecutor 接线在 `onResume`（非 onCreate）；`onDestroy` 身份守卫（`host === this` 才清）。Android back stack LIFO → 栈顶容器始终持有 host，事件路由零新管道。**两个 e2e 抓出的隐性 bug（已修，iOS 跟进时注意）**：
 1. `FLAG_ACTIVITY_NEW_TASK` + 同类 Activity 已在栈顶 → 系统 dedupe 到既有实例（intent 静默丢弃，无 onNewIntent）→ forward 假成功。修法：Activity context 启动**不带** NEW_TASK（plain `startActivity` LIFO 压栈）
 2. 注入脚本的 `__coconutInitialized` 早退守卫会挡掉 resume 时的 config 重注入 → 页面持有旧 bridge token → 恢复后所有调用 `300004`。修法：config + `_loadSecurityConfig()` 每次注入必跑，init 标志只 gate 日志
 
-**平台**：Android e2e 11 场景全过（dead URL 弹窗重试/退出、HTTP 500 不弹、A→B→C 返回链、根页 back 退化关闭、backToTop、守卫 200007、11 层超限、自定义按钮有/无订阅、close result 回传、模板命中/未注册、Run All 22/22 回归）。iOS/Harmony 未实施——H5 用 `coconut.supports('navigator','forward')` gating。
+**Harmony 差异**（同契约，实现差异如下）：
+- **容器 = router 路由页**（`pages/WebContainer` @Entry，`router.pushUrl`/`router.getParams()`），非独立 Ability。**页面必须在 `main_pages.json` 注册**——漏注册 `pushUrl` 即崩，e2e 场景⑩ 覆盖。栈深 = `router.getLength()`
+- **多容器 claim/release**：`onPageShow` claim（jsExecutor 指向自己 + config 重注入，token 恒定天然幂等）+ drain NavResultBus；`aboutToDisappear` 身份守卫 release。已知取舍（同 Android v1）：子容器页面加载 `clearAll()` 清掉本页 native 订阅登记 → 恢复后 `has('nav.button')` 失真退化为默认行为（下次加载自愈）；`nav.result` 走 `emitBypassingSubscription` 直达 H5 handler 表不受影响
+- **模板注册表浅校验**（ArkTS 无反射）：JSON 解析 + 名称非空 + 重复名拒收；页面是否真内嵌 CoconutWebPage / 是否注册 main_pages 是文档化宿主契约
+- **错误弹窗** `promptAction.showDialog`（无 onDidDismiss 回调——按钮 action 即唯一结果路径）；主帧判定用 request url == 当前 url 启发式
+- **backToTop**：webviewController 无 scrollTo API → `runJavaScript('window.scrollTo(0,0)')` fallback
+- **Harmony e2e 抓出的 bug（已修）**：`close({result})` 的 result 是对象，param 提取用的原始类型正则漏掉 → NavResultBus 拿不到 payload → 前容器收不到 nav.result。修法：深度感知扫描器（`NavigatorComponent.rawValue`）+ 回归测试
+
+**平台**：Android / Harmony e2e 11 场景全过（dead URL 弹窗重试/退出、HTTP 500 不弹、A→B→C 返回链、根页 back 退化关闭、backToTop、守卫 200007、11 层超限、自定义按钮有/无订阅、close result 回传、模板命中/未注册、Run All 22/22 回归）。iOS 未实施——H5 用 `coconut.supports('navigator','forward')` gating。
 
 ---
 
 ## 5. 验收方式
 
-用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + dialog + event + network + navigator 六组，navigator 仅 Android 生效）：
+用三端共享的 `coconut_index.html` 点一遍按钮（device + storage + dialog + event + network + navigator 六组，navigator 仅 Android/Harmony 生效）：
 - 返回 `code:'000000'` 且 result 字段符合本契约 → 合规 ✅
 - 字段缺失/命名不符 → 不合规 ❌
 
