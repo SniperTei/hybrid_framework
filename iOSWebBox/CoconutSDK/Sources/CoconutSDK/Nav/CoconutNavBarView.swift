@@ -27,6 +27,7 @@ public final class CoconutNavBarView: UIView {
         leftButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         leftButton.tintColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1)
         leftButton.contentHorizontalAlignment = .center
+        leftButton.accessibilityIdentifier = "nav.left"
         leftButton.addTarget(self, action: #selector(leftTapped), for: .touchUpInside)
         leftButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(leftButton)
@@ -42,6 +43,7 @@ public final class CoconutNavBarView: UIView {
         rightButton.setTitle("✕", for: .normal)
         rightButton.setTitleColor(UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1), for: .normal)
         rightButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        rightButton.accessibilityIdentifier = "nav.right"
         rightButton.addTarget(self, action: #selector(rightTapped), for: .touchUpInside)
         rightButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rightButton)

@@ -477,8 +477,11 @@ async function runAll() {
 
     c = startCheck('Navigator.forward template 未注册 → 业务层失败', 'success=false')
     t0 = performance.now()
+    // url 必须绝对：UrlGuard 拦 scheme-less 相对路径（200007）在 template
+    // 查询之前——用 pathname="/" 会错测成守卫拦截而不是 template 分支
+    //（coconut.navigator.forward 对 H5 调用者同样先做相对 URL 解析）
     r = await pcall('navigator', 'forward',
-      { url: window.location.pathname, template: 'no_such_template' })
+      { url: window.location.origin + window.location.pathname, template: 'no_such_template' })
     c.duration = Math.round(performance.now() - t0)
     finishCheck(c, !r.err && r.data && r.data.success === false,
       r.err ? `err ${r.err.code}` : `success=${r.data && r.data.success}, msg=${r.data && r.data.message}`)
@@ -495,6 +498,15 @@ async function runAll() {
     c.actual = 'coconut.supports("navigator") = false'
   }
 
+  // autorun 完成后把结果计数写进 document.title：iOS 容器导航栏（AUTO 模式）
+  // 会镜像 title —— backToTop 把结果面板滚出 WKWebView 可视区后，AX 树里
+  // 查不到面板文本，nav bar 的 native 标题始终可见（e2e test11 教训）。
+  if (new URLSearchParams(window.location.search).get('autorun') === '1') {
+    const fails = runAllResults.value.filter(r => r.status !== 'pass')
+    document.title = fails.length
+      ? `结果 ${passCount.value}/${runAllResults.value.length} ✗ ${fails.map(f => f.name).join(' | ')}`
+      : `结果 ${passCount.value}/${runAllResults.value.length}`
+  }
   running.value = false
 }
 
@@ -533,7 +545,13 @@ onMounted(() => {
   // Auto-run smoke test when URL has ?autorun=1 — used by e2e test scripts
   // (no UI automation available in iOS sim without accessibility permission).
   // Slight delay so env injection + bridge wiring settle first.
-  if (new URLSearchParams(window.location.search).get('autorun') === '1') {
+  // ?netUrl= overrides the network fixture URL: iOS simulator's localhost IS
+  // the Mac loopback（Mac 侧 fake-ip 代理会黑洞 LAN IP 直连——run2 教训），
+  // Android/Harmony emulator 的 localhost 是设备自身，仍走默认 Mac LAN IP。
+  const qs = new URLSearchParams(window.location.search)
+  if (qs.get('autorun') === '1') {
+    const netUrlOverride = qs.get('netUrl')
+    if (netUrlOverride) netUrl.value = netUrlOverride
     setTimeout(() => { runAll() }, 800)
   }
 })
@@ -707,7 +725,10 @@ function navForwardTemplate() {
 }
 
 function navForwardDead() {
-  const opts = { url: 'https://dead.invalid.example.com/' }
+  // 死链用「本机关闭端口」而非 .invalid 域名：DNS/TLS 经代理环境时失败模式
+  // 不确定（iOS e2e 抓到重试后 TLS 握手挂起 >24s）；connection refused 三端
+  // （各 emulator/simulator 的 localhost）都是即时确定失败
+  const opts = { url: 'http://localhost:51799/' }
   setRequest('navigator', 'forward', opts)
   window.coconut.navigator.forward(opts, (err, data) => setResponse(err, data))
 }
