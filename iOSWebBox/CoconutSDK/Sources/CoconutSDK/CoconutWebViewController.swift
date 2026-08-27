@@ -2,7 +2,9 @@ import Foundation
 import UIKit
 import WebKit
 
-public class CoconutWebViewController: UIViewController, ComponentHost {
+/// open（非 public）：容器模板 = 跨模块继承 CoconutWebViewController
+/// （coconut_templates.json 机制，v3.5.0）。
+open class CoconutWebViewController: UIViewController, ComponentHost {
 
     private let tag = "CoconutWebVC"
 

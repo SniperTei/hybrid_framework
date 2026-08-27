@@ -42,6 +42,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 NavigatorComponent(),
             ])
 
+            // 启动期 eager 模板校验：重复名 / 解析不了的类 / 非 CoconutWebViewController
+            // 子类都在 launch 时炸出来，而不是等到 forward 才发现（fail-fast）。
+            do {
+                try TemplateRegistry.shared.validateEagerly()
+            } catch {
+                NSLog("[TemplateRegistry] eager validation failed: \(error.localizedDescription)")
+            }
+
             await MainActor.run {
                 // 入口页（带两个按钮：bundle HTML / dev server），
                 // 对标 Android MainActivity。SDK 在 loadUrl 前已注册完组件。

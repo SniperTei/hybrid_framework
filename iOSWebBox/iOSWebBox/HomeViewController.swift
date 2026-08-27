@@ -73,6 +73,11 @@ class HomeViewController: UIViewController {
         openOfflineBtn.addTarget(self, action: #selector(openOfflinePackage), for: .touchUpInside)
         view.addSubview(openOfflineBtn)
 
+        // ---- 按钮 3b：打开模板容器（coconut_templates.json "demo"） ----
+        let openTemplateBtn = makeButton(title: "打开模板容器 (demo)", primary: false)
+        openTemplateBtn.addTarget(self, action: #selector(openTemplateContainer), for: .touchUpInside)
+        view.addSubview(openTemplateBtn)
+
         // ---- 热更新 manifest URL 输入框 ----
         manifestUrlField = UITextField()
         manifestUrlField.text = "http://localhost:8000/manifest.json"
@@ -134,7 +139,12 @@ class HomeViewController: UIViewController {
             openOfflineBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             openOfflineBtn.heightAnchor.constraint(equalToConstant: 56),
 
-            manifestUrlField.topAnchor.constraint(equalTo: openOfflineBtn.bottomAnchor, constant: 24),
+            openTemplateBtn.topAnchor.constraint(equalTo: openOfflineBtn.bottomAnchor, constant: 16),
+            openTemplateBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            openTemplateBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            openTemplateBtn.heightAnchor.constraint(equalToConstant: 56),
+
+            manifestUrlField.topAnchor.constraint(equalTo: openTemplateBtn.bottomAnchor, constant: 24),
             manifestUrlField.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
             manifestUrlField.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             manifestUrlField.heightAnchor.constraint(equalToConstant: 36),
@@ -196,6 +206,20 @@ class HomeViewController: UIViewController {
         presentWebVC(with: "coconut://demo/index.html")
     }
 
+    /// 打开模板容器：走 TemplateRegistry 真实解析路径（coconut_templates.json）
+    @objc private func openTemplateContainer() {
+        guard let templateType = TemplateRegistry.shared.resolve()["demo"] else {
+            showAlert(title: "模板容器", message: "模板 demo 未注册（见 coconut_templates.json）")
+            return
+        }
+        let vc = templateType.init()
+        vc.enableDebug = true
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true) {
+            vc.loadUrl("coconut://demo/index.html")
+        }
+    }
+
     // MARK: - 热更新（对标 Android checkHotUpdate / rollbackHotUpdate）
 
     /// 检查热更新；有更新则自动下载 + 应用
@@ -249,34 +273,12 @@ class HomeViewController: UIViewController {
     private func presentWebVC(with urlString: String) {
         let webVC = CoconutWebViewController()
         webVC.enableDebug = true
-        webVC.loadViewIfNeeded()
-
-        // 浮层关闭按钮（不修改 CoconutSDK 模块的 CoconutWebViewController）
-        let closeBtn = UIButton(type: .system)
-        closeBtn.setTitle("✕", for: .normal)
-        closeBtn.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-        closeBtn.setTitleColor(.white, for: .normal)
-        closeBtn.backgroundColor = UIColor.black.withAlphaComponent(0.55)
-        closeBtn.layer.cornerRadius = 18
-        closeBtn.layer.masksToBounds = true
-        closeBtn.translatesAutoresizingMaskIntoConstraints = false
-        closeBtn.addTarget(self, action: #selector(dismissWebVC), for: .touchUpInside)
-        webVC.view.addSubview(closeBtn)
-        NSLayoutConstraint.activate([
-            closeBtn.widthAnchor.constraint(equalToConstant: 36),
-            closeBtn.heightAnchor.constraint(equalToConstant: 36),
-            closeBtn.topAnchor.constraint(equalTo: webVC.view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            closeBtn.trailingAnchor.constraint(equalTo: webVC.view.trailingAnchor, constant: -16),
-        ])
-
+        // v3.5.0 起关闭按钮由容器导航栏提供（closePolicy auto：根页显示 ×，
+        // 有历史时显示返回），不再叠加宿主浮层 ✕。
         webVC.modalPresentationStyle = .fullScreen
         present(webVC, animated: true) {
             webVC.loadUrl(urlString)
         }
-    }
-
-    @objc private func dismissWebVC() {
-        presentedViewController?.dismiss(animated: true)
     }
 }
 
