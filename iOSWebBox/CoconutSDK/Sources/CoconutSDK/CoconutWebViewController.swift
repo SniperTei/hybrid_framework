@@ -5,6 +5,14 @@ import WebKit
 public class CoconutWebViewController: UIViewController, ComponentHost {
 
     private let tag = "CoconutWebVC"
+
+    /// Live container count (viewDidLoad - deinit). forward() caps the stack
+    /// at NavigatorComponent.MAX_STACK_DEPTH (test seam + limit check).
+    private static var liveContainerCount = 0
+
+    /// Current container-stack depth.
+    public static func stackDepth() -> Int { liveContainerCount }
+
     public private(set) var webView: WKWebView?
     private var bridge: CoconutBridge!
     private var progressView: UIProgressView!
@@ -37,6 +45,11 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     /// True between didFinish and the next didStart (token-refresh gate on claim).
     private var pageLoaded = false
 
+    /// Guards the stackDepth counter: instances that never load a view
+    /// (e.g. constructed-but-unpresented template lookups) must not decrement
+    /// a count they never incremented.
+    private var didCountContainer = false
+
     private var errorDialogVisible = false
 
     // MARK: - Delegate hooks (template subclasses)
@@ -56,6 +69,9 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        Self.liveContainerCount += 1
+        didCountContainer = true
+        Logger.shared.d(tag, "viewDidLoad (stackDepth=\(Self.stackDepth()))")
         resolveNavConfig()
         setupUI()
         setupWebView()
@@ -95,7 +111,30 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         if pageLoaded {
             injectBridgeJavaScript()
         }
+        drainNavResult()
         Logger.shared.d(tag, "Host claimed (self)")
+    }
+
+    /// Deliver a close({result}) payload posted by a finishing child
+    /// container as the `nav.result` H5 event. Dispatched bypassing the
+    /// native subscription gate: the child's page load may have
+    /// clearAll()'d our registration, but this page's JS handler table is
+    /// intact.
+    private func drainNavResult() {
+        guard let raw = NavResultBus.consume() else { return }
+        // Object/array results arrive as JSON text — parse back to a real
+        // JSON value; primitives stay as plain strings.
+        let result: Any
+        if let data = raw.data(using: .utf8),
+           let parsed = (try? JSONSerialization.jsonObject(with: data)) ?? nil {
+            result = parsed
+        } else {
+            result = raw
+        }
+        if let emitter = ComponentManager.shared.sharedContext?.eventEmitter {
+            emitter.emitBypassingSubscription(topic: "nav.result", data: ["result": result])
+        }
+        Logger.shared.d(tag, "nav.result drained")
     }
 
     // MARK: - NavConfig resolution
@@ -463,6 +502,9 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     deinit {
         // NSKeyValueObservation auto-invalidates on deinit; no manual removeObserver needed.
         MainActor.assumeIsolated {
+            if didCountContainer {
+                Self.liveContainerCount -= 1
+            }
             // Identity guard: only the current host holder tears down shared
             // bridge state. Without this, a dismissed backgrounded container B
             // would null the host / reset the token that the already-claimed

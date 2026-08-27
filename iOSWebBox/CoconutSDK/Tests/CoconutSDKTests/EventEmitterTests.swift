@@ -141,4 +141,39 @@ final class EventEmitterTests: XCTestCase {
         XCTAssertTrue(escaped.contains("\\n"))
         XCTAssertTrue(escaped.contains("\\r"))
     }
+
+    // MARK: - emitBypassingSubscription (nav.result delivery path)
+
+    func test_emitBypassingSubscription_dispatchesWithoutRegistration() async {
+        // No emitter.on(...) at all — the closing child's page load may have
+        // clearAll()'d our registration; delivery must still go through.
+        emitter.emitBypassingSubscription(topic: "nav.result", data: ["result": ["orderId": 123]])
+
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertEqual(executor.scripts.count, 1)
+        XCTAssertTrue(executor.scripts[0].contains("\"topic\":\"nav.result\""))
+        XCTAssertTrue(executor.scripts[0].contains("orderId"))
+    }
+
+    func test_emitBypassingSubscription_afterClearAll_stillDispatches() async {
+        emitter.on(topic: "nav.result")
+        emitter.clearAll()
+        emitter.emitBypassingSubscription(topic: "nav.result", data: ["result": "ok"])
+
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertEqual(executor.scripts.count, 1)
+    }
+
+    func test_emitBypassingSubscription_rejectsEmptyTopic() async {
+        emitter.emitBypassingSubscription(topic: "", data: nil)
+
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertEqual(executor.scripts.count, 0)
+    }
 }

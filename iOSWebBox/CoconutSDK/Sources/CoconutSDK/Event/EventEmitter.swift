@@ -59,12 +59,30 @@ public final class EventEmitter {
             Logger.shared.w(tag, "emit rejected: empty topic")
             return
         }
-        guard let executor = jsExecutor else {
-            Logger.shared.w(tag, "emit dropped (no jsExecutor): \(topic)")
-            return
-        }
         guard topics.contains(topic) else {
             Logger.shared.d(tag, "emit no subscriber: \(topic)")
+            return
+        }
+        dispatch(topic: topic, data: data)
+    }
+
+    /**
+     * Emit bypassing the native subscription gate. Used for `nav.result`
+     * delivery on container resume: the closing child's page load may have
+     * clearAll()'d our native registration, but this page's own JS handler
+     * table (coconut.on) is intact.
+     */
+    public func emitBypassingSubscription(topic: String, data: Any? = nil) {
+        guard !topic.isEmpty else {
+            Logger.shared.w(tag, "emit rejected: empty topic")
+            return
+        }
+        dispatch(topic: topic, data: data)
+    }
+
+    private func dispatch(topic: String, data: Any?) {
+        guard let executor = jsExecutor else {
+            Logger.shared.w(tag, "emit dropped (no jsExecutor): \(topic)")
             return
         }
 
@@ -90,7 +108,7 @@ public final class EventEmitter {
                                 error)
             }
         }
-        Logger.shared.d(tag, "Emitted '\(topic)'")
+        Logger.shared.d(tag, "Emitted '\(topic)' (bypass=\(topics.contains(topic) ? "no" : "yes"))")
     }
 
     /**
