@@ -10,33 +10,141 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     private var progressView: UIProgressView!
     private var currentUrl: String?
     private var containerView: UIView!
-    private var errorPageView: UIView?
+    private var navBarView: CoconutNavBarView?
     private var progressObservation: NSKeyValueObservation?
+    private var titleObservation: NSKeyValueObservation?
 
     public var enableDebug: Bool = false
+
+    // ---- Navigation bar config (v3.5.0 container-nav) ----
+
+    /// Per-open override tier (forward header / native callers), merged on top
+    /// of `defaultNavConfig` and CoconutConfig.nav in viewDidLoad.
+    public var navOverride: NavConfig?
+
+    /// Template-subclass code-level default (middle tier of the three-tier
+    /// chain: CoconutConfig.nav < this < navOverride). All-nil by default →
+    /// pure inherit. Override in subclasses:
+    /// `override var defaultNavConfig: NavConfig { NavConfig(titleMode: .fixed("模板页")) }`
+    open var defaultNavConfig: NavConfig { NavConfig() }
+
+    /// Effective config, resolved once in viewDidLoad before setupUI.
+    public private(set) var navConfig: NavConfig = NavConfig.default()
+
+    /// Per-instance error-dialog override; nil = CoconutConfig.enableErrorDialog.
+    public var enableErrorDialog: Bool?
+
+    /// True between didFinish and the next didStart (token-refresh gate on claim).
+    private var pageLoaded = false
+
+    private var errorDialogVisible = false
+
+    // MARK: - Delegate hooks (template subclasses)
+
+    /// Back interception: return true to consume the tap (default back
+    /// semantics NOT performed), false to fall through.
+    open func onBack() -> Bool { false }
+
+    /// Main-frame network-level load failure (also fires with the error
+    /// dialog disabled — observability for template subclasses).
+    open func onLoadFail(url: String, error: Error) {}
+
+    /// document.title change (fires in both AUTO and FIXED nav modes).
+    open func onTitleChange(title: String) {}
 
     // MARK: - Lifecycle
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        resolveNavConfig()
         setupUI()
         setupWebView()
         setupBridge()
         applySecurityConfig()
-
-        ComponentManager.shared.setHost(self)
 
         if enableDebug {
             CoconutSDK.configure { config in
                 config.debugMode = true
             }
         }
+        // Host claim + token + event wiring happen in viewWillAppear
+        // (resume-claim model): viewDidLoad-time claiming lets a stacked
+        // container B steal the singleton host from A.
+    }
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        claimHost()
+    }
+
+    /// Resume-claim: the top-of-stack container owns the singleton host,
+    /// bridge token and event jsExecutor. Claiming on appear means modal
+    /// LIFO order keeps routing to the visible container with zero extra
+    /// plumbing (B over A: B claims; B dismissed: A re-claims).
+    private func claimHost() {
+        guard let webView else { return }
+
+        ComponentManager.shared.setHost(self)
+        if BridgeTokenManager.shared.enabled {
+            BridgeTokenManager.shared.generateToken()
+        }
+        ComponentManager.shared.sharedContext.eventEmitter.jsExecutor = WebViewJSExecutor(webView: webView)
+
+        // A re-appeared page still holds its old token in JS; re-inject to
+        // refresh (injectBridgeJavaScript re-runs config on every pass).
+        if pageLoaded {
+            injectBridgeJavaScript()
+        }
+        Logger.shared.d(tag, "Host claimed (self)")
+    }
+
+    // MARK: - NavConfig resolution
+
+    /// CoconutConfig.nav (global) ← defaultNavConfig (template subclass)
+    /// ← navOverride (forward header / native caller). Field-by-field.
+    private func resolveNavConfig() {
+        var cfg = CoconutConfig.shared.nav
+        cfg = NavConfig.merge(base: cfg, override: defaultNavConfig)
+        if let navOverride {
+            cfg = NavConfig.merge(base: cfg, override: navOverride)
+        }
+        navConfig = cfg
+        Logger.shared.d(tag, "NavConfig resolved: visible=\(String(describing: navConfig.visible)), titleMode=\(String(describing: navConfig.titleMode)), closePolicy=\(String(describing: navConfig.closePolicy))")
+    }
+
+    private var resolvedEnableErrorDialog: Bool {
+        enableErrorDialog ?? CoconutConfig.shared.enableErrorDialog
     }
 
     // MARK: - UI Setup
 
     private func setupUI() {
         view.backgroundColor = .white
+
+        if navConfig.visible == true {
+            let bar = CoconutNavBarView()
+            bar.translatesAutoresizingMaskIntoConstraints = false
+            bar.onLeftTap = { [weak self] in self?.handleLeftTap() }
+            bar.onRightTap = { [weak self] in self?.handleRightTap() }
+            view.addSubview(bar)
+            NSLayoutConstraint.activate([
+                bar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                bar.heightAnchor.constraint(equalToConstant: 44),
+            ])
+            navBarView = bar
+
+            if let text = navConfig.leftButtonText {
+                bar.setLeftText(text)
+            } else {
+                bar.setLeftBack()
+            }
+            if case .fixed(let text) = navConfig.titleMode {
+                bar.setTitle(text)
+            }
+            refreshNavButtons()
+        }
 
         containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
@@ -48,17 +156,33 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         progressView.isHidden = true
         view.addSubview(progressView)
 
+        let barBottom = navBarView?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            containerView.topAnchor.constraint(equalTo: barBottom),
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            progressView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            progressView.topAnchor.constraint(equalTo: barBottom),
             progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             progressView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             progressView.heightAnchor.constraint(equalToConstant: 2)
         ])
+    }
+
+    /// Recompute the right nav slot: custom action text when configured,
+    /// otherwise × when NavConfig.shouldShowClose says so. Called on history
+    /// changes (didCommit/didFinish — WKWebView has no doUpdateVisitedHistory).
+    private func refreshNavButtons() {
+        guard let bar = navBarView else { return }
+        let canGoBack = webView?.canGoBack ?? false
+        if let text = navConfig.rightButtonText {
+            bar.setRightText(text)
+        } else if navConfig.shouldShowClose(canGoBack: canGoBack) {
+            bar.setRightClose()
+        } else {
+            bar.hideRight()
+        }
     }
 
     // MARK: - WebView Setup
@@ -91,6 +215,15 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
             self.progressView.isHidden = progress >= 1.0
         }
 
+        // AUTO title mode syncs document.title into the nav bar; FIXED keeps
+        // whatever the config resolved.
+        titleObservation = wv.observe(\.title, options: [.new]) { [weak self] _, change in
+            guard let title = change.newValue ?? nil, !title.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.handleTitleChange(title)
+            }
+        }
+
         containerView.addSubview(wv)
         NSLayoutConstraint.activate([
             wv.topAnchor.constraint(equalTo: containerView.topAnchor),
@@ -100,6 +233,15 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         ])
     }
 
+    private func handleTitleChange(_ title: String) {
+        if case .fixed = navConfig.titleMode {
+            // FIXED keeps the configured text
+        } else {
+            navBarView?.setTitle(title)
+        }
+        onTitleChange(title: title)
+    }
+
     // MARK: - Bridge Setup
 
     private func setupBridge() {
@@ -107,11 +249,7 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         if let webView = webView {
             webView.configuration.userContentController.add(bridge, name: "CoconutBridge")
         }
-
-        // Wire EventEmitter → WebView. The host owns the WebView lifecycle, so
-        // we hand it a fresh executor each setupBridge pass.
-        ComponentManager.shared.sharedContext.eventEmitter.jsExecutor = WebViewJSExecutor(webView: webView)
-
+        // EventEmitter jsExecutor wiring moved to claimHost (resume-claim).
         Logger.shared.d(tag, "Bridge setup complete")
     }
 
@@ -169,11 +307,14 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         let configJson = String(data: data, encoding: .utf8) ?? "{}"
         return """
         (function() {
-            if (window.__coconutInitialized) return;
+            // Config must refresh on EVERY injection: the resume-claim model
+            // regenerates the bridge token when this container regains host,
+            // and a page keeping the stale token fails every call with 300004.
             window.__coconutConfig = \(configJson);
             if (window.coconut && window.coconut._loadSecurityConfig) {
                 window.coconut._loadSecurityConfig();
             }
+            if (window.__coconutInitialized) return;
             window.__coconutInitialized = true;
             console.log('Coconut SDK config injected (iOS)');
         })();
@@ -184,7 +325,6 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
 
     public func loadUrl(_ urlString: String) {
         currentUrl = urlString
-        hideErrorPage()
         guard let url = URL(string: urlString) else {
             Logger.shared.e(tag, "Invalid URL: \(urlString)")
             return
@@ -208,66 +348,105 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
         webView.goBack()
     }
 
-    // MARK: - Error Page
-
-    private func showErrorPage() {
-        guard errorPageView == nil else { return }
-
-        let container = UIView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-
-        let label = UILabel()
-        label.text = "页面加载失败\n请检查网络连接"
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.textColor = .gray
-        label.font = .systemFont(ofSize: 16)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: container.centerYAnchor)
-        ])
-
-        let retryButton = UIButton(type: .system)
-        retryButton.setTitle("重试", for: .normal)
-        retryButton.translatesAutoresizingMaskIntoConstraints = false
-        retryButton.addTarget(self, action: #selector(retryLoad), for: .touchUpInside)
-        container.addSubview(retryButton)
-        NSLayoutConstraint.activate([
-            retryButton.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            retryButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 16)
-        ])
-
-        containerView.addSubview(container)
-        NSLayoutConstraint.activate([
-            container.topAnchor.constraint(equalTo: containerView.topAnchor),
-            container.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            container.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            container.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-        ])
-
-        errorPageView = container
+    /// Native viewport scroll — JS window.scrollTo can't find the right
+    /// scroll host inside inner scrollable containers.
+    public func backToTop() {
+        webView?.scrollView.setContentOffset(.zero, animated: true)
     }
 
-    private func hideErrorPage() {
-        errorPageView?.removeFromSuperview()
-        errorPageView = nil
+    // MARK: - Back / close semantics
+
+    /**
+     * Unified back semantics: H5 history first, degrade to closing the
+     * container. Nav-bar back and coconut.navigator.back() both route here.
+     * `onBack()` interception runs first (template subclasses).
+     */
+    public func handleBack() {
+        if onBack() { return }
+        performDefaultBack()
     }
 
-    @objc private func retryLoad() {
-        if let url = currentUrl {
-            hideErrorPage()
-            loadUrl(url)
+    private func performDefaultBack() {
+        if let webView = webView, webView.canGoBack {
+            webView.goBack()
+        } else {
+            closeContainer()
         }
     }
 
-    // MARK: - Back Button Handling
+    /// Close this container. Dismisses when presented; warns when it is the
+    /// window root (e.g. COCONUT_URL e2e hook — the host owns that case).
+    public func closeContainer() {
+        if presentingViewController != nil {
+            dismiss(animated: true)
+        } else {
+            Logger.shared.w(tag, "close: no presenting VC (root container) — nothing to close")
+        }
+    }
 
-    public override func didMove(toParent parent: UIViewController?) {
-        super.didMove(toParent: parent)
-        if parent == nil {
-            // VC is being popped - check if WebView can go back first
+    /// Left slot tap: custom text + H5 nav.button subscriber → push the event
+    /// only (page decides whether to call back); otherwise default back
+    /// semantics (prevents the "custom text but forgot to subscribe"
+    /// dead-button trap). Plain chevron always goes through default back.
+    private func handleLeftTap() {
+        if navConfig.leftButtonText != nil,
+           let emitter = ComponentManager.shared.sharedContext?.eventEmitter,
+           emitter.has(topic: "nav.button") {
+            emitter.emit(topic: "nav.button", data: ["side": "left"])
+            return
+        }
+        handleBack()
+    }
+
+    /// Right slot tap: H5 nav.button subscriber → push the event; no
+    /// subscriber → no-op + warn (close capability is yielded to the custom
+    /// action, but the back button still exits).
+    private func handleRightTap() {
+        guard let emitter = ComponentManager.shared.sharedContext?.eventEmitter,
+              emitter.has(topic: "nav.button") else {
+            Logger.shared.w(tag, "nav.button right tap with no subscriber — no-op")
+            return
+        }
+        emitter.emit(topic: "nav.button", data: ["side": "right"])
+    }
+
+    // MARK: - Error Dialog (white-screen rescue)
+
+    /// Native error dialog on main-frame network-level load failure.
+    /// 重试 = reload the original URL; 退出 = close the container.
+    /// Independent of nav-bar visibility (a hidden bar still gets rescue);
+    /// no stacking within one load attempt (didStartProvisional resets).
+    /// HTTP 4xx/5xx responses render the server error body and are NOT
+    /// treated as white screens (WKWebView never reports them as failures).
+    private func handleLoadFailure(_ error: Error) {
+        // NSURLErrorCancelled accompanies every programmatic navigation
+        // (goBack/reload) — not a user-facing failure.
+        if (error as NSError).code == NSURLErrorCancelled { return }
+
+        onLoadFail(url: currentUrl ?? "", error: error)
+
+        guard resolvedEnableErrorDialog, !errorDialogVisible else { return }
+        errorDialogVisible = true
+
+        let alert = UIAlertController(title: "加载失败", message: error.localizedDescription, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "重试", style: .default) { [weak self] _ in
+            self?.errorDialogVisible = false
+            if let url = self?.currentUrl {
+                self?.loadUrl(url)
+            }
+        })
+        alert.addAction(UIAlertAction(title: "退出", style: .cancel) { [weak self] _ in
+            self?.errorDialogVisible = false
+            self?.closeContainer()
+        })
+        present(alert, animated: true)
+        Logger.shared.d(tag, "Error dialog shown")
+    }
+
+    private func dismissErrorDialog() {
+        errorDialogVisible = false
+        if let alert = presentedViewController as? UIAlertController {
+            alert.dismiss(animated: false)
         }
     }
 
@@ -284,8 +463,14 @@ public class CoconutWebViewController: UIViewController, ComponentHost {
     deinit {
         // NSKeyValueObservation auto-invalidates on deinit; no manual removeObserver needed.
         MainActor.assumeIsolated {
-            ComponentManager.shared.setHost(nil)
-            BridgeTokenManager.shared.reset()
+            // Identity guard: only the current host holder tears down shared
+            // bridge state. Without this, a dismissed backgrounded container B
+            // would null the host / reset the token that the already-claimed
+            // container A depends on (calls going silent, 300004 errors).
+            if ComponentManager.shared.sharedContext?.host === self {
+                ComponentManager.shared.setHost(nil)
+                BridgeTokenManager.shared.reset()
+            }
         }
     }
 }
@@ -297,27 +482,39 @@ extension CoconutWebViewController: WKNavigationDelegate {
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         progressView.isHidden = false
         progressView.progress = 0
-        hideErrorPage()
+        pageLoaded = false
+        dismissErrorDialog()
         // Clear stale H5 event subscriptions so reload doesn't deliver events
         // registered by the previous page context.
         ComponentManager.shared.sharedContext.eventEmitter.clearAll()
         Logger.shared.d(tag, "Page started: \(webView.url?.absoluteString ?? "")")
     }
 
+    public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        // SPA route changes don't always re-fire the title KVO; re-read on
+        // commit as the mitigation. Also refresh ×-visibility (canGoBack).
+        if let title = webView.title, !title.isEmpty {
+            handleTitleChange(title)
+        }
+        refreshNavButtons()
+    }
+
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         progressView.setProgress(1.0, animated: true)
+        pageLoaded = true
         let url = webView.url?.absoluteString ?? ""
         Logger.shared.d(tag, "Page loaded: \(url)")
         injectBridgeJavaScript()
+        refreshNavButtons()
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         Logger.shared.e(tag, "Navigation failed", error)
-        showErrorPage()
+        handleLoadFailure(error)
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         Logger.shared.e(tag, "Provisional navigation failed", error)
-        showErrorPage()
+        handleLoadFailure(error)
     }
 }
