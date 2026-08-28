@@ -39,10 +39,11 @@
 
 ```
 AndroidWebBox/
-├── coconut-core/        # 核心库（Bridge / Component / Security）
+├── coconut-core/        # 核心库（Bridge / Component / Security / Nav）
 │   └── com/sniper/coconut/
 │       ├── bridge/      # CoconutBridge, 安全管线
 │       ├── component/   # ComponentManager, BaseComponent, ComponentContext
+│       ├── nav/         # NavConfig, TemplateRegistry（容器导航 v3.5.0）
 │       ├── resource/    # OfflineResourceManager（离线包 + 热更新）
 │       └── utils/
 ├── coconut-network/     # 独立网络引擎（纯 Kotlin JVM 库，零 Android 依赖）
@@ -54,12 +55,12 @@ AndroidWebBox/
 ├── coconut-sdk/         # SDK 入口 + WebView 封装（不含组件）
 │   └── com/sniper/coconut/
 │       ├── CoconutSDK.kt
-│       ├── web/         # CoconutWebActivity
+│       ├── web/         # CoconutWebActivity, NavResultBus
 │       └── config/
 └── app/                 # 宿主 App（持有全部组件源码）
     └── com/sniper/androidwebbox/
-        ├── WebBoxApplication.kt   # 在此显式注册组件
-        └── components/            # 5 个组件：device / storage / event / dialog / network
+        ├── WebBoxApplication.kt   # 在此显式注册组件 + 模板 eager 校验
+        └── components/            # 6 个组件：device / storage / event / dialog / network / navigator
 ```
 
 ### iOS
@@ -71,7 +72,8 @@ iOSWebBox/
 │       ├── Bridge/     # CoconutBridge, BridgeSecurityValidator, ...
 │       ├── Core/       # ComponentManager, BaseComponent, CoconutPlugin
 │       ├── Config/     # CoconutConfig, Environment
-│       └── web/        # CoconutWebViewController, CoconutUpdateManager（热更新）
+│       ├── Nav/        # NavConfig, NavResultBus, CoconutNavBarView（容器导航 v3.5.0）
+│       └── web/        # CoconutWebViewController（open，模板继承）, CoconutUpdateManager（热更新）
 ├── CoconutNetwork/                      # 独立网络引擎 SPM 包（纯 Foundation，零依赖）
 │   └── Sources/CoconutNetwork/
 │       ├── HttpClient / Call / HttpRequest / HttpResponse / JSONValue
@@ -79,13 +81,16 @@ iOSWebBox/
 │       ├── guard/      # UrlGuard（SSRF 防护）
 │       └── interceptors/ # Log / Mock
 └── iOSWebBox/                           # 宿主 App
-    ├── SceneDelegate.swift              # 在此显式注册组件
-    └── Components/                      # 5 个组件（不属于 SPM）
+    ├── SceneDelegate.swift              # 在此显式注册组件 + 模板 eager 校验
+    └── Components/                      # 6 个组件 + 模板注册表（不属于 SPM）
         ├── DeviceComponent.swift
         ├── StorageComponent.swift
         ├── EventComponent.swift
         ├── DialogComponent.swift
-        └── NetworkComponent.swift
+        ├── NetworkComponent.swift
+        ├── NavigatorComponent.swift
+        ├── TemplateRegistry.swift
+        └── DemoTemplateViewController.swift   # 模板示范（继承 CoconutWebViewController）
 ```
 
 ### HarmonyOS
@@ -97,7 +102,7 @@ HarmonyWebBox/
 │       ├── bridge/                # CoconutBridgeImpl, SecurityValidator, ...
 │       ├── component/             # ComponentManager, BaseComponent, CoconutPlugin
 │       ├── config/
-│       ├── web/                   # CoconutWebPage, CoconutUpdateManager（热更新）
+│       ├── web/                   # CoconutWebPage, CoconutWebDelegate, NavConfig, NavResultBus, CoconutUpdateManager（热更新）
 │       └── utils/
 ├── CoconutNetwork/                # 独立网络引擎 HAR @coconut/network（零依赖）
 │   └── src/main/ets/
@@ -109,7 +114,8 @@ HarmonyWebBox/
     └── src/main/ets/
         ├── entryability/EntryAbility.ets
         ├── pages/Index.ets        # 在此显式注册组件
-        └── components/            # 5 个组件：device / storage / event / dialog / network
+        ├── pages/WebContainer.ets # 标准容器路由页（自绘导航栏 + 错误弹窗）+ DemoTemplatePage
+        └── components/            # 6 个组件：device / storage / event / dialog / network / navigator
 ```
 
 ### 模块拆分原则（三端一致）
@@ -158,7 +164,8 @@ CoconutSDK.registerComponents(
     StorageComponent(),     // 本地存储
     EventComponent(),       // 事件订阅
     DialogComponent(),      // 原生弹窗
-    NetworkComponent()      // 网络请求 + 状态推送
+    NetworkComponent(),     // 网络请求 + 状态推送
+    NavigatorComponent()    // 容器导航（forward/back/backToTop/close，v3.5.0）
 )
 ```
 
@@ -171,6 +178,7 @@ await CoconutSDK.registerComponents([
     EventComponent(),
     DialogComponent(),
     NetworkComponent(),
+    NavigatorComponent(),
 ])
 ```
 
@@ -181,7 +189,8 @@ CoconutSDK.registerComponents([
   new StorageComponent(),
   new EventComponent(),
   new DialogComponent(),
-  new NetworkComponent()
+  new NetworkComponent(),
+  new NavigatorComponent()
 ])
 ```
 
@@ -411,7 +420,84 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 ---
 
-## 8. 关键 API 签名对照
+## 8. 容器导航（v3.5.0）
+
+容器 = 承载一次 H5 会话的原生单元（Android `CoconutWebActivity` / iOS `CoconutWebViewController` fullScreen modal / Harmony `WebContainer` 路由页）。v3.5.0 之前容器是黑盒：H5 开不了新容器、带不了结果返回、白屏无逃生门。容器导航补齐三块：**导航栏配置（NavConfig）+ 白屏错误弹窗 + `coconut.navigator` 组件**。API 契约见 `API_CONTRACT.md` §4.6，本节讲机制。
+
+### 多容器栈与 resume-claim 模型
+
+容器栈天然 LIFO（Android back stack / iOS modal present 链 / Harmony router 栈）。bridge 的 host / token / 事件 jsExecutor 是**单例**，多容器下由栈顶容器持有：
+
+```
+B（栈顶，持有 host + token + jsExecutor）
+└─ A（后台挂起，页面 JS 状态完好）
+```
+
+- **claim（容器到前台）**：Android `onResume` / iOS `viewWillAppear` / Harmony `onPageShow` → 认领 host + 生成 token + 接线 jsExecutor + 重注入 bridge config。config 重注入每次必跑（`__coconutInitialized` 早退守卫只 gate 日志——否则恢复后页面持旧 token，全部调用 `300004`，Android e2e 抓出）
+- **release（容器销毁）**：`onDestroy` / `deinit` / `aboutToDisappear` → **身份守卫**（仅当当前 host === self 才清 host/reset token）——后台容器析构不得拆掉栈顶已认领的接线（iOS e2e 抓出的" calls 静默失联"同型问题）
+- **栈深上限 10**：防 self-forward 死循环，超限 forward 返回业务失败（`000000 + success:false`）
+
+### NavConfig 三级合并（onCreate 单点，逐字段 nil = 继承）
+
+```
+CoconutConfig.nav（全局默认）
+  ← defaultNavConfig（模板子类代码级钩子）
+    ← per-open（forward header / native 启动参数）
+```
+
+字段：`visible` / `title`（auto=跟随 document.title / fixed 文本）/ `closePolicy`（auto=仅根页显示 × / always 恒显）/ `leftButtonText` / `rightButtonText`。右文本与 × 互斥（宿主通过 refresh 调用决定）。
+
+### 返回语义（三端一条路）
+
+导航栏返回 / 系统返回 / `navigator.back()` 统一路由：
+
+```
+模板 onBack() 拦截（return true = 消费）
+  → canGoBack ? webView.goBack : 关容器     // 根页返回退化为关闭——白屏逃生门
+```
+
+自定义左/右文本按钮 tap → native 查 `nav.button` 订阅：有 → 只推 `{side}` 事件（H5 自行决定后续）；无 → 左键兜底默认返回（防"自定义文案忘订阅"死按钮），右键 no-op + 日志（关闭能力让位，返回通路仍在）。
+
+### 白屏错误弹窗
+
+主帧 network-level 失败 → 原生弹窗「加载失败」+「重试」(reload 原 URL) / 「退出」(关容器)。与导航栏可见性**解耦**（导航栏隐藏也有逃生门）；同次加载不叠弹。HTTP 4xx/5xx 不算白屏（WebView 渲染 server error body，不报为失败）。平台注记：iOS 过滤 `NSURLErrorCancelled`（每次程序化导航都伴随）；Harmony 无主帧标志位，用 request url == 当前 url 启发式。
+
+### close({result}) 回传链
+
+```
+B: coconut.navigator.close({result})   → NavResultBus.post（单槽）
+B 关闭 → A resume（claim）→ drain NavResultBus
+       → emitBypassingSubscription('nav.result', {result}) → A 页面 JS handler
+```
+
+`emitBypassingSubscription` 绕过 native 订阅登记直达 H5 handler 表：B 的页面加载会 `clearAll()` 掉 A 的 native 登记，但 A 页面自身的 JS handler 完好。对象 result 走 JSON 序列化（Harmony 曾因原始类型正则提取漏掉对象值，e2e 抓出后换深度感知扫描器）。
+
+### 模板容器（三端定制机制各异）
+
+| | Android | iOS | Harmony |
+|---|---|---|---|
+| **机制** | 继承 `CoconutWebActivity` | 继承 `CoconutWebViewController`（open class） | 路由页组合 `CoconutWebPage` + `CoconutWebDelegate` 继承（ArkUI struct 无继承） |
+| **注册** | `assets/coconut_templates.json`（FQCN 反射） | bundle JSON（`NSClassFromString("Module.Class")` ⚠️ 必须模块前缀，裸类名静默 nil） | JSON（路由页路径，ArkTS 无反射） |
+| **额外声明** | **AndroidManifest 必须声明 `<activity>`**（反射救不了未声明的） | — | **main_pages.json 必须注册**（漏了 pushUrl 即崩） |
+| **行为定制** | 覆写 protected 方法 | 覆写 open 方法（`onBack/onLoadFail/onTitleChange`） | 继承 delegate 注入页面 |
+
+三端注册表启动期 eager 校验（类/页面可解析 + 是容器子类 + 重复名拒收）；template 未注册 → 业务失败，**不静默回退**标准容器（避免吞 typo / 掩盖三端 drift）。
+
+### 三端容器实现对照
+
+| 项 | Android | iOS | Harmony |
+|---|---|---|---|
+| 导航栏 | 系统 Toolbar 扩展 | 自绘 `CoconutNavBarView`（不绑 UINavigationController） | WebContainer 内自绘 |
+| 标题 AUTO 同步 | `onReceivedTitle` | KVO `webView.title` + didCommit 补读（SPA 路由 KVO 可能不触发） | `onTitleReceive` |
+| 栈深来源 | 活容器静态计数 | 同左（`stackDepth()`，`didCountContainer` 守卫未呈现实例） | `router.getLength()` |
+| backToTop | `webView.scrollTo(0,0)` | `scrollView.setContentOffset(.zero)`（native viewport scroll） | `runJavaScript('window.scrollTo')` fallback |
+| 错误弹窗 | AlertDialog | UIAlertController | `promptAction.showDialog`（无 onDidDismiss，按钮 action 即唯一路径） |
+
+**已知取舍**（三端一致，文档化）：子容器页面加载 `clearAll()` 清掉父容器的 native 订阅登记 → 父容器恢复后 `has('nav.button')` 失真，自定义按钮退化为默认行为（下次加载自愈；`nav.result` 不受影响，走 bypass 通道）。
+
+---
+
+## 9. 关键 API 签名对照
 
 ### 初始化
 
@@ -439,7 +525,7 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 ---
 
-## 9. 错误码命名空间
+## 10. 错误码命名空间
 
 | 段 | 含义 | 示例 |
 |----|------|------|
@@ -452,7 +538,7 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 ---
 
-## 10. 相关文档
+## 11. 相关文档
 
 - [`API_CONTRACT.md`](./API_CONTRACT.md) — 三端 API 契约（组件方法签名、错误码、安全机制）
 - [`coconutWebBox/README.md`](./coconutWebBox/README.md) — H5 端 JS Bridge 用法
@@ -460,7 +546,7 @@ ES module `<script type="module">` 规范上**永远走 CORS 模式请求**，�
 
 ---
 
-## 11. 设计原则
+## 12. 设计原则
 
 1. **三端对齐**：API 签名、错误码、安全机制三端必须一致（详见 `API_CONTRACT.md`）
 2. **SDK 纯净**：框架只放 Bridge / 安全 / ComponentManager；组件归 App 装配
