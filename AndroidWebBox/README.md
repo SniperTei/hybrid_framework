@@ -17,7 +17,7 @@ Android 端把 CoconutSDK 拆成两个 Gradle 模块：
 | `coconut-sdk` | **SDK 入口 + WebView 封装** | CoconutSDK 单例、CoconutWebActivity、资源管理 |
 
 > 为什么拆？
-> `coconut-core` 可以**纯 JVM 单元测试**（不需要 Robolectric 或真机），覆盖 61 个 case。WebView 相关的封装（`CoconutWebActivity` 等）放 `coconut-sdk`，因为它们需要 `Context` 和 `WebView` 实例。
+> `coconut-core` 可以**纯 JVM 单元测试**（不需要 Robolectric 或真机），覆盖 137 个 case。WebView 相关的封装（`CoconutWebActivity` 等）放 `coconut-sdk`，因为它们需要 `Context` 和 `WebView` 实例。
 
 ```
 AndroidWebBox/
@@ -43,7 +43,10 @@ AndroidWebBox/
 │       │   └── ActivityForResultDispatcher.kt   # 组件 startActivityForResult 调度
 │       ├── resource/
 │       │   ├── CoconutResourceHolder.kt         # 资源持有
-│       │   └── OfflineResourceManager.kt        # 离线包管理
+│       │   └── OfflineResourceManager.kt        # 离线包 + 热更新管理
+│       ├── nav/                                 # 容器导航（v3.5.0）
+│       │   ├── NavConfig.kt                     # 导航栏配置（三级合并链）
+│       │   └── TemplateRegistry.kt              # 模板容器注册表（assets/coconut_templates.json）
 │       └── utils/
 │           └── Logger.kt
 │
@@ -51,19 +54,23 @@ AndroidWebBox/
 │   └── src/main/java/com/sniper/coconut/
 │       ├── CoconutSDK.kt                        # SDK 单例入口（initialize / configure / registerComponents）
 │       ├── config/
-│       │   ├── CoconutConfig.kt                 # 配置（debugMode / environment / 开关）
+│       │   ├── CoconutConfig.kt                 # 配置（debugMode / environment / 开关 / nav）
 │       │   └── Environment.kt                   # DEV / STAGING / PROD
 │       ├── resource/
 │       │   └── ResourceManager.kt
 │       └── web/
-│           ├── CoconutWebActivity.kt            # 现成 Activity：WKWebView 装配 + 全套 bridge
+│           ├── CoconutWebActivity.kt            # 现成 Activity：WebView 装配 + 全套 bridge + 导航栏 + 错误弹窗（可继承做模板容器）
 │           ├── CoconutWebViewHelper.kt          # WebView 配置（缓存 / UserAgent / 等）
+│           ├── NavResultBus.kt                  # close({result}) 单槽回传（v3.5.0）
 │           └── WebViewSecurityConfig.kt         # HTTPS / file access 安全配置
 │
-└── app/                                         # 宿主 App（持有 14 个组件）
+└── app/                                         # 宿主 App（持有 6 个组件）
     └── src/main/java/com/sniper/androidwebbox/
-        ├── WebBoxApplication.kt                 # 注册组件入口
-        └── components/                          # 14 个组件 + 业务组件
+        ├── WebBoxApplication.kt                 # 注册组件入口 + 模板 eager 校验
+        ├── DemoTemplateActivity.kt              # 模板容器示范（继承 CoconutWebActivity，注册名 "demo"）
+        └── components/                          # 6 个组件（各一子包）+ 业务组件
+            ├── device/ ├── storage/ ├── event/ ├── dialog/ ├── network/
+            └── navigator/                       # NavigatorComponent：forward / back / backToTop / close
 ```
 
 > **组件不在 SDK 内**。框架不含任何业务组件，所有组件都在宿主 App `app/src/.../components/` 下，App 决定启用哪些。
@@ -89,9 +96,12 @@ CoconutSDK.configure {
 // 3. 注册组件（suspend，通常在 Application.onCreate 协程里调）
 CoconutSDK.registerComponents(
     DeviceComponent(),
-    NetworkComponent(),
     StorageComponent(),
-    // ... 共 14 个
+    EventComponent(),
+    DialogComponent(),
+    NetworkComponent(),
+    NavigatorComponent()
+    // ... + 业务组件按需添加
 )
 
 // 4. 清理（App 退出时）
@@ -167,7 +177,7 @@ H5: 拿到 JSON，Promise resolve
 ```bash
 cd AndroidWebBox
 ./gradlew :coconut-core:testDebugUnitTest
-# 61 个 case / 8 suites，~1.5s
+# 137 个 case，~2s
 ```
 
 测试覆盖：Bridge 模型 / 安全管线（Token / Security / Audit / Performance） / Component 系统。

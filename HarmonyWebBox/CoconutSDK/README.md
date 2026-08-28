@@ -43,7 +43,12 @@ CoconutSDK/                                   # HAR 模块根
         │       └── SecurityResult.ets        # 安全校验结果
         │
         ├── web/
-        │   ├── CoconutWebPage.ets            # 顶层 @Component：Web + CoconutSDK 装配
+        │   ├── CoconutWebPage.ets            # 顶层 @Component：Web + CoconutSDK 装配（行为钩子走 CoconutWebDelegate）
+        │   ├── CoconutWebDelegate.ets        # 可继承 delegate（onBack 拦截 / onLoadFail / onTitleChange，v3.5.0）
+        │   ├── NavConfig.ets                 # 导航栏配置（三级合并链，v3.5.0）
+        │   ├── NavResultBus.ets              # close({result}) 单槽回传（v3.5.0）
+        │   ├── CoconutOfflineResources.ets   # coconut:// 离线包本地服务（onInterceptRequest）
+        │   ├── CoconutUpdateManager.ets      # 热更新（checkUpdate / performUpdate / rollback）
         │   └── WebViewHelper.ets             # WebviewController 配置
         │
         └── utils/

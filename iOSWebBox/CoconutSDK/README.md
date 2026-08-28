@@ -13,7 +13,7 @@
 CoconutSDK/                         # SPM 包根
 ├── Package.swift                   # Swift 6.0 / iOS 15+
 ├── Sources/CoconutSDK/
-│   ├── CoconutWebViewController.swift   # 顶层 VC：WKWebView + CoconutSDK 装配
+│   ├── CoconutWebViewController.swift   # 顶层 VC（open）：WKWebView + CoconutSDK 装配 + 导航栏 + 错误弹窗 + 多容器 resume-claim（可继承做模板容器）
 │   │
 │   ├── Config/
 │   │   ├── CoconutConfig.swift          # SDK 入口（静态 initialize / configure / registerComponents）
@@ -39,9 +39,19 @@ CoconutSDK/                         # SPM 包根
 │   │   ├── ComponentException.swift     # 组件异常类型
 │   │   └── ErrorCode.swift              # 错误码命名空间
 │   │
-│   └── (待补充)
+│   ├── Event/
+│   │   └── EventEmitter.swift            # native → H5 事件推送（含 bypass 通道）
+│   │
+│   ├── Nav/                             # 容器导航（v3.5.0）
+│   │   ├── NavConfig.swift              # 导航栏配置（三级合并链）
+│   │   ├── NavResultBus.swift           # close({result}) 单槽回传
+│   │   └── CoconutNavBarView.swift      # 自绘导航栏（不绑 UINavigationController）
+│   │
+│   └── web/
+│       ├── CoconutSchemeHandler.swift    # coconut:// 离线包本地服务（WKURLSchemeHandler）
+│       └── CoconutUpdateManager.swift   # 热更新（checkUpdate / performUpdate / rollback）
 │
-└── Tests/CoconutSDKTests/               # 64 个 XCTest case
+└── Tests/CoconutSDKTests/               # 128 个 XCTest case
     ├── BridgeTokenManagerTests.swift
     ├── BridgeSecurityValidatorTests.swift
     ├── BridgePerformanceTests.swift
@@ -54,7 +64,10 @@ CoconutSDK/                         # SPM 包根
     ├── ComponentExceptionTests.swift
     ├── EnvironmentTests.swift
     ├── JsonHelperTests.swift
-    └── BridgeDispatcherTests.swift
+    ├── BridgeDispatcherTests.swift
+    ├── NavConfigTests.swift
+    ├── NavResultBusTests.swift
+    └── ...
 ```
 
 > **组件不在 SPM 内**。框架不含任何业务组件，所有组件（DeviceComponent / NetworkComponent / ...）都在宿主 App `iOSWebBox/Components/` 下，App 决定启用哪些。

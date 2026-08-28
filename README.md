@@ -2,14 +2,14 @@
 
 > 三端（iOS / Android / HarmonyOS NEXT）混合开发框架——H5 通过 JSON-RPC 2.0 调用原生能力。
 
-一个 WebView 容器 + JS Bridge 框架。H5 用同一套 API（`CoconutBridge.call('device.getInfo')`）调用三端的设备能力、网络、存储、UI 组件等。三端 CoconutSDK 接口、安全管线、错误码完全对齐。
+一个 WebView 容器 + JS Bridge 框架。H5 用同一套 API（`coconut.call('device', 'getInfo', …)`）调用三端的设备能力、网络、存储、UI 组件、容器导航等。三端 CoconutSDK 接口、安全管线、错误码完全对齐。
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │              H5 (coconutWebBox / coconut.js)              │
-│            CoconutBridge.call('device.getInfo')           │
+│        coconut.call('device', 'getInfo', params, cb)      │
 └────────────────────────┬─────────────────────────────────┘
-                         │ JSON-RPC 2.0
+                         │ 类 JSON-RPC（v3 wire 协议）
                          ▼
 ┌──────────────┬─────────────────┬────────────────────────┐
 │    iOS       │     Android     │      HarmonyOS         │
@@ -29,16 +29,16 @@ hybrid_framework/
 ├── iOSWebBox/             # iOS 宿主 App + CoconutSDK SPM 包
 │   ├── CoconutSDK/        # SPM 包（框架）
 │   ├── CoconutNetwork/    # 独立 HTTP 引擎 SPM 包（纯 Foundation，零依赖，可单独使用）
-│   └── iOSWebBox/         # 宿主 App（持有 5 个组件：device / storage / event / dialog / network）
+│   └── iOSWebBox/         # 宿主 App（持有 6 个组件：device / storage / event / dialog / network / navigator）
 ├── AndroidWebBox/         # Android 宿主 App + CoconutSDK Gradle 模块
-│   ├── coconut-core/      # 核心库（Bridge / Component / Security）
+│   ├── coconut-core/      # 核心库（Bridge / Component / Security / Nav）
 │   ├── coconut-sdk/       # SDK 入口 + WebView 封装
 │   ├── coconut-network/   # 独立 HTTP 引擎（纯 Kotlin JVM 库，零 Android 依赖，可单独使用）
-│   └── app/               # 宿主 App（持有 5 个组件：device / storage / event / dialog / network）
+│   └── app/               # 宿主 App（持有 6 个组件：device / storage / event / dialog / network / navigator）
 ├── HarmonyWebBox/         # HarmonyOS 宿主 App + CoconutSDK HAR
 │   ├── CoconutSDK/        # HAR 库（框架）
 │   ├── CoconutNetwork/    # 独立 HTTP 引擎 HAR（@coconut/network，零依赖，可单独使用）
-│   └── entry/             # HAP 宿主 App（持有 5 个组件：device / storage / event / dialog / network）
+│   └── entry/             # HAP 宿主 App（持有 6 个组件：device / storage / event / dialog / network / navigator）
 ├── ARCHITECTURE.md        # 三端架构对照（详细模块图 / Bridge / 安全管线）
 └── API_CONTRACT.md        # 三端 API 契约（组件方法签名、错误码、安全机制）
 ```
@@ -51,17 +51,26 @@ hybrid_framework/
 
 ### 1. H5 端（coconut.js）
 
-```js
-import { CoconutBridge } from './coconutWebBox/coconut.js';
+```html
+<script src="/coconut.js"></script>
+```
 
-const res = await CoconutBridge.call('device.getInfo', {});
-console.log(res.result); // { manufacturer, model, ... }
+```js
+// 全局小写 coconut（v3.0.0 起），error-first callback
+coconut.call('device', 'getInfo', {}, (err, data) => {
+  if (err) { console.error(err.code, err.message); return; }
+  console.log(data); // { manufacturer, model, ... }
+});
+
+// 快捷方法 / Promise 版
+coconut.device.getInfo((err, data) => { /* ... */ });
+const data = await coconut.callAsync('device', 'getInfo', {});
 
 // 环境检测
-CoconutBridge.env.isIOS      // iOS WebView
-CoconutBridge.env.isAndroid  // Android WebView
-CoconutBridge.env.isHarmony  // Harmony WebView
-CoconutBridge.env.isNative   // 任一原生环境
+coconut.env.isIOS      // iOS WebView
+coconut.env.isAndroid  // Android WebView
+coconut.env.isHarmony  // Harmony WebView
+coconut.env.isNative   // 任一原生环境
 ```
 
 详细用法见 [`coconutWebBox/README.md`](./coconutWebBox/README.md)。
@@ -76,7 +85,7 @@ open iOSWebBox.xcodeproj
 
 CoconutSDK 是内嵌的 SPM 包（`iOSWebBox/CoconutSDK/`），依赖 CoconutNetwork 引擎包，无需额外配置。组件在 `iOSWebBox/iOSWebBox/Components/` 下，注册在 `SceneDelegate.swift`。
 
-离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 CoconutNetwork 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `CoconutNetwork` v1.1.0（纯 Foundation 零依赖，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + URLSessionAdapter + mock + SSRF 守卫，可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
+离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 CoconutNetwork 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `CoconutNetwork` v1.1.0（纯 Foundation 零依赖，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + URLSessionAdapter + mock + SSRF 守卫，可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`CoconutWebViewController`（open，可继承做模板容器）+ 自绘导航栏（NavConfig 三级合并）+ 白屏错误弹窗 + `NavigatorComponent`（forward / back / backToTop / close 带结果回传），H5 `coconut.navigator.*`。
 
 ### 3. Android（Android Studio + Gradle）
 
@@ -89,7 +98,7 @@ cd AndroidWebBox
 
 集成到自己的 Android 项目见 [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md)。
 
-离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 `coconut-network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network` v1.1.0（纯 Kotlin JVM 库，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
+离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 `coconut-network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network` v1.1.0（纯 Kotlin JVM 库，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`CoconutWebActivity`（可继承做模板容器）+ Toolbar 导航栏（NavConfig 三级合并）+ 白屏错误弹窗 + `NavigatorComponent`（forward / back / backToTop / close 带结果回传），H5 `coconut.navigator.*`。
 
 ### 4. HarmonyOS NEXT（DevEco Studio）
 
@@ -102,7 +111,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 或用 DevEco Studio 打开 `HarmonyWebBox/` 直接 Run。组件在 `entry/src/main/ets/components/`，注册在 `pages/Index.ets`。
 
-离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 用 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后 127.0.0.1；下载走 `@coconut/network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network` v1.1.0（`CoconutNetwork/`，**native-first**：一发式 API + bytes 模式，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。
+离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 用 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后 127.0.0.1；下载走 `@coconut/network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network` v1.1.0（`CoconutNetwork/`，**native-first**：一发式 API + bytes 模式，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`WebContainer` 标准路由页（组合 `CoconutWebPage` + `CoconutWebDelegate` 行为钩子）+ 自绘导航栏 + 白屏错误弹窗 + `NavigatorComponent`，H5 `coconut.navigator.*`。
 
 ---
 
@@ -110,11 +119,11 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 | 平台 | 框架 | 测试数 | 跑法 |
 |------|------|--------|------|
-| iOS（SDK） | XCTest | 106 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
+| iOS（SDK） | XCTest | 128 | `xcodebuild test -scheme CoconutSDK -destination 'id=<UDID>'` |
 | iOS（引擎） | XCTest (swift test) | 64 | `cd iOSWebBox/CoconutNetwork && swift test`（纯 Foundation，宿主机直跑） |
-| iOS（App 组件） | XCTest | 12 | `xcodebuild test -scheme iOSWebBox -only-testing:iOSWebBoxTests -destination 'id=<UDID>'` |
-| Android | JUnit (JVM) | 191 | `./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest` |
-| Harmony | Hypium (on-device) | 237 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
+| iOS（App 组件） | XCTest | 33 | `xcodebuild test -scheme iOSWebBox -only-testing:iOSWebBoxTests -destination 'id=<UDID>'` |
+| Android | JUnit (JVM) | 227 | `./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest` |
+| Harmony | Hypium (on-device) | 280 | `cd HarmonyWebBox && ./scripts/run-harmony-tests.sh` |
 
 **Harmony 测试必须真机/模拟器跑**（crypto/UUID 需 HarmonyOS runtime）。一键脚本会自动 build + install + run + 写 markdown 报告到 `docs/`。
 

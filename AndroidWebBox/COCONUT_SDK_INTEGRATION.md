@@ -141,6 +141,13 @@ coconut.call('storage', 'setItem', { key: 'myKey', value: 'myValue' }, (err, dat
     if (err) { console.error(err.message); return; }
     console.log(data);
 });
+
+// 容器导航（v3.5.0，需宿主注册 NavigatorComponent）
+coconut.navigator.forward(
+    { url: '/order/detail', params: { id: 123 }, header: { title: '订单详情' } },
+    (err, data) => { if (err) { console.error(err.message); return; } }
+);
+coconut.on('nav.result', ({ result }) => { /* 子容器 close({result}) 回传 */ });
 ```
 
 组件/方法名以 `API_CONTRACT.md`（仓库根，唯一权威）为准；H5 侧可用 `coconut.supports(component, fn)` 同步探测当前宿主是否启用某方法。

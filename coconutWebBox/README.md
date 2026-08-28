@@ -2,7 +2,7 @@
 
 Coconut SDK 的 H5/Web 测试项目（Vue 3 + Vite），用于开发期联调 H5 ↔ 原生 Bridge。
 
-> **当前协议版本：v3.2.0**（`component` + `function` 拆分、streaming、`__coconutConfig`）。
+> **当前协议版本：v3.5.0**（`component` + `function` 拆分、streaming、`__coconutConfig`、`coconut.dialog` / `coconut.navigator` 命名空间）。
 > 详细 API 参考见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)。
 
 ---
@@ -15,7 +15,7 @@ coconutWebBox/
 │   └── coconut.js          # 📦 Coconut H5 SDK（源文件 / 分发用）
 ├── src/
 │   ├── components/
-│   │   └── Demo.vue        # 测试页面（device + storage + event）
+│   │   └── Demo.vue        # 测试页面（device / storage / event / dialog / network / navigator 六组件 + env / lifecycle）
 │   ├── App.vue             # 根组件
 │   └── main.js             # 入口文件
 ├── index.html              # HTML 模板
@@ -23,7 +23,7 @@ coconutWebBox/
 └── package.json
 ```
 
-> 生产用的 `coconut_index.html`（三端字节级一致、device + storage + event 三组按钮）是**另一套独立前端**，与本 Vue 项目未打通。本项目的 `public/coconut.js` 才是分发用的 SDK 源文件，三端 copy 自此处。
+> 生产用的 `coconut_index.html`（三端字节级一致、device / storage / event / dialog / network / navigator 六组按钮）是**另一套独立前端**，与本 Vue 项目未打通。本项目的 `public/coconut.js` 才是分发用的 SDK 源文件，三端 copy 自此处。
 
 ---
 
@@ -66,6 +66,11 @@ coconutWebBox/
    coconut.storage.setItem(key, value, (err, data) => { /* ... */ });
    coconut.storage.getItem(key, (err, data) => { /* ... */ });
 
+   // 命名空间快捷方法（v3.3.0 dialog / v3.5.0 navigator）
+   coconut.dialog.toast({ message: 'hi', duration: 2 });
+   coconut.navigator.forward({ url: '/detail', params: { id: 1 } }, (err, data) => { /* ... */ });
+   coconut.navigator.close({ result: { id: 1 } });
+
    // 事件订阅（native → H5 push）
    coconut.on('test.echo', (eventData) => { /* ... */ });
    coconut.off('test.echo');
@@ -73,7 +78,7 @@ coconutWebBox/
 
 ### 版本要求
 
-- coconut.js 当前版本 **3.2.0**（见文件头部 `@version` 注释）
+- coconut.js 当前版本 **3.5.0**（见文件头部 `@version` 注释）
 - Bridge 协议主版本 = `coconut.env.hybridVersion` = `"3"`
 - 协议要求：native 端 CoconutSDK **≥ 3.0.0**（三端任一）
 - 不匹配的故障模式：H5 发 `component:function` 拆参数请求到旧 native（v2.x 仍读 `method` 字段）→ 返回 `code:'200001' UNKNOWN_COMPONENT`
@@ -162,7 +167,7 @@ npm run dev
 
 ## 当前可用组件测试
 
-`Demo.vue` 测试三个组件（与三端 `coconut_index.html` 对齐）：
+`Demo.vue` 测试六个组件（与三端 `coconut_index.html` 对齐；未在某端注册的组件显示 skip，H5 侧先 `coconut.supports(component, fn)` 探测）：
 
 ### device — 获取设备信息
 - `coconut.device.getInfo(cb)` → `{manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight}`
@@ -175,6 +180,21 @@ npm run dev
 - `coconut.on(topic, cb)` —— 订阅事件，cb 收到的是 event.data
 - `coconut.off(topic)` —— 取消订阅
 - `coconut.call('event', 'echo', payload, cb)` —— 自验证：500ms 后 native 推送 `test.echo` 事件
+
+### dialog — 原生弹窗（v3.3.0）
+- `coconut.dialog.toast({ message, duration?, position? }, cb)` —— 非阻塞 toast（Run All 只测 toast；alert/confirm 需用户交互）
+
+### network — 原生 HTTP 请求 + 网络状态（v3.4.0）
+- `coconut.call('network', 'request', { url, method, body?, timeoutMs? }, cb)` —— 走 native HTTP 引擎（重试 / SSRF 守卫）
+- `coconut.call('network', 'getNetworkType', {}, cb)` → `{ type: 'wifi'|'cellular'|..., online }`
+- `coconut.on('network.change', cb)` —— 网络状态变化推送
+
+### navigator — 容器导航（v3.5.0）
+- `coconut.navigator.forward({ url, params?, header?, template? }, cb)` —— 开新容器（相对 URL 自动解析；header 覆盖导航栏配置）
+- `coconut.navigator.back(cb)` —— 返回（WebView 历史，根页退化为关容器）
+- `coconut.navigator.backToTop(cb)` —— 滚回顶部（native viewport scroll）
+- `coconut.navigator.close({ result? }, cb)` —— 关当前容器；带 result 时前一容器收 `nav.result` 事件
+- `coconut.on('nav.button', ({ side }) => ...)` —— 容器导航栏自定义按钮点击
 
 ### lifecycle — 内置事件（无需注册组件）
 - `coconut.on('app.foreground', cb)` —— WebView 由隐藏转可见（app 切回前台）时触发
