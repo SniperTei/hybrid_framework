@@ -2,13 +2,29 @@
 
 > 面向要在**自己的 HarmonyOS App** 里接入 CoconutSDK 的开发者。框架内部结构见 [`CoconutSDK/README.md`](./CoconutSDK/README.md)，三端 API 契约见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)（唯一权威）。
 >
-> 参考实现：`HarmonyWebBox/entry/`（宿主 demo，持有 6 个组件 + 模板容器 + 热更新入口）。最低 HarmonyOS NEXT API 12+。
+> 参考实现：`HarmonyWebBox/entry/`（宿主 demo，持有 6 个组件 + 模板容器 + 热更新入口）。最小消费者工程（HAR 产物接入实证）：仓库根 `CoconutHarmonyApp/`。最低 HarmonyOS NEXT API 12+。
 
 ---
 
 ## 1. 集成 CoconutSDK（HAR）
 
-在你的 entry 模块 `oh-package.json5` 里加本地 HAR 依赖（网络组件还需引擎包 `@coconut/network`）：
+**方式 A：HAR 产物（真实消费者）**——在你的 entry 模块 `oh-package.json5` 里加本地 HAR 依赖：
+
+```json5
+{
+  "dependencies": {
+    "@coconut/sdk": "file:../hars/CoconutSDK.har"
+  }
+}
+```
+
+⚠️ **HAR 分发三连坑（CoconutHarmonyApp 实证，2026-08-29）**：
+
+1. **构建 HAR 需 `useNormalizedOHMUrl: false`**——true 时 `hvigorw assembleHar` 必炸（10310009 Failed to find module info .../Index.ets）。生产工程 `build-profile.json5` 已改，自己攒 HAR 工程时注意
+2. **HAR 内嵌 `file:` 依赖不可解析**——HAR 的 oh-package.json5 若声明 `@coconut/network: file:../CoconutNetwork`，消费者 ohpm 会按**安装副本路径**（`oh_modules/.ohpm/@coconut+sdk@<hash>/`）解析相对引用 → 00617301 Fetch Source Code Failed。HAR→HAR 依赖正式分发只有 ohpm registry 一条路
+3. **本地分发 workaround = vendored 自包含 HAR**——把 CoconutNetwork 的 `src/main/ets/**` 源码并入 SDK HAR 的 `src/main/network/`（必须在 sourceRoots `./src/main` 内，放包根编译器看不见）+ barrel `Index.ets` 重写子路径（`./ets/X` → `./X`）+ `CoconutUpdateManager` 的 import 改相对路径（`ets/web/` 出发是 `../../network/Index`）+ **剥掉 oh-package.json5 的 dependencies**。成品参考 `CoconutHarmonyApp/hars/CoconutSDK.har`
+
+**方式 B：源码模块**（SDK 开发主场 / WebBox demo 的用法）：
 
 ```json5
 {
@@ -156,6 +172,18 @@ cd HarmonyWebBox
 ⚠️ 脚本 build 管道会吞编译错误然后**装旧 HAP 跑旧测试**——加新测试后先手动
 `hvigorw --mode module -p module=entry@ohosTest -p product=default assembleHap`
 确认 BUILD SUCCESSFUL 再跑脚本。
+
+模拟器验证备忘（无需 DevEco GUI / 真机 / 签名配置）：
+
+```bash
+# 模拟器 CLI 启动（DevEco 自带）
+/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator -list
+/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator -start "Mate X7"
+
+# 未签名 HAP 模拟器可直接安装（不强制签名）
+hdc install entry/build/default/outputs/default/entry-default-unsigned.hap
+hdc shell aa start -a EntryAbility -b <bundleName>
+```
 
 ## 8. HarmonyOS 踩坑速查（真金换来的）
 

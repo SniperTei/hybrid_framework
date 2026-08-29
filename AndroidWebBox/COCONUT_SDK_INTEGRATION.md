@@ -1,5 +1,7 @@
 # Coconut SDK 集成完成
 
+> 最小消费者工程（artifact 接入实证）：仓库根 `CoconutAndroidApp/`。
+
 ## 项目结构
 
 ```
@@ -54,7 +56,36 @@ coconut-core
 
 ## 如何使用
 
-### 1. 在app模块中引用
+### 1. 引入 SDK
+
+**方式 A：Maven 坐标（真实消费者推荐）**——SDK 发布产物为 `coconut-sdk`（传递带入 `coconut-core` 3.5.0 与引擎 `coconut-network` 1.1.0）：
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal()   // 本地验证；生产替换为你的私有 Maven
+    }
+}
+
+// app/build.gradle.kts
+dependencies {
+    implementation("com.sniper.coconut:coconut-sdk:3.5.0")
+}
+```
+
+⚠️ **宿主 JVM target 必须 17**：AAR 是 Java 17 字节码，新工程模板默认 11 直接炸——
+
+```kotlin
+android {
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+```
+
+**方式 B：源码模块**（SDK 开发主场 / WebBox demo 的用法）：
 
 ```kotlin
 // app/build.gradle.kts
@@ -94,7 +125,29 @@ class MyApplication : Application() {
 }
 ```
 
-### 3. 在Activity中使用
+### 3. 打开容器
+
+**推荐：现成容器 `CoconutWebActivity`（一行）**：
+
+```kotlin
+CoconutWebActivity.start(this, "https://example.com")   // 或 coconut://demo/index.html（离线包）
+// 调试构建：CoconutWebActivity.start(this, url, enableDebug = true)
+```
+
+v3.5.0 起容器自带：自绘导航栏（NavConfig 三级合并）、白屏错误弹窗、多容器 resume-claim。**返回语义一条路**：导航栏返回 = `canGoBack ? goBack : finish`。
+
+⚠️ **宿主必须在自己的 `AndroidManifest.xml` 声明容器 Activity**——coconut-sdk 的 library manifest 是空的，不声明则 `start()` 直接 `ActivityNotFoundException`：
+
+```xml
+<activity
+    android:name="com.sniper.coconut.web.CoconutWebActivity"
+    android:exported="false"
+    android:label="Coconut WebView" />
+```
+
+### 完全自定义容器（用自己的 WebView）
+
+有自己的 WebView 也行：`CoconutBridgeImpl` 经 `addJavascriptInterface` 挂上去，注入 `coconut.js` 即可：
 
 ```kotlin
 class MyActivity : AppCompatActivity() {
@@ -121,7 +174,7 @@ class MyActivity : AppCompatActivity() {
 
 ### 4. H5端调用
 
-页面引入 `coconut.js`（随 SDK 分发，见 `app/src/main/assets/`）后，用全局小写 `coconut`，error-first callback 风格：
+页面引入 `coconut.js` 后，用全局小写 `coconut`，error-first callback 风格。H5 三件套（`coconut.js` / `coconut.d.ts` / `coconut_index.html`）在 WebBox 的 `app/src/main/assets/`，坐标消费的宿主自行拷进自己的 assets（参考 `CoconutAndroidApp/app/src/main/assets/`）：
 
 ```javascript
 // 调用设备组件

@@ -2,7 +2,7 @@
 
 > 面向要在**自己的 iOS App** 里接入 CoconutSDK 的开发者。框架内部结构见 [`CoconutSDK/README.md`](./CoconutSDK/README.md)，三端 API 契约见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)（唯一权威）。
 >
-> 参考实现：`iOSWebBox/`（宿主 demo，持有 6 个组件 + 模板容器 + 热更新入口）。
+> 参考实现：`iOSWebBox/`（宿主 demo，持有 6 个组件 + 模板容器 + 热更新入口）。最小消费者工程（SPM 接入实证）：仓库根 `CoconutiOSApp/`。
 
 ---
 
@@ -13,6 +13,10 @@ CoconutSDK 是本地 SPM 包（`iOSWebBox/CoconutSDK/`），依赖独立 HTTP �
 ### 方式 1：SPM 包引用（推荐）
 
 把 `CoconutSDK/` 和 `CoconutNetwork/` 两个目录拷进你的工程（如 `Vendor/` 下），拖入 workspace，在你的主 target 的 **General → Frameworks, Libraries, and Embedded Content** 里加 `CoconutSDK`。CoconutNetwork 由 CoconutSDK 的 Package.swift 自动带出，无需单独配置。
+
+也可以**不拷贝直接引用本地路径**：在 xcodeproj 加 `XCLocalSwiftPackageReference`（relativePath 指向 CoconutSDK 目录）+ target 的 package product dependency（手工编辑 pbxproj 或 File → Add Package → Add Local…）。实证参考 `CoconutiOSApp/CoconutiOSApp.xcodeproj/project.pbxproj`（`../iOSWebBox/CoconutSDK`）。
+
+Xcode 26 的 **buildable folder** 模板（PBXFileSystemSynchronizedRootGroup）下，H5 三件套拷进 app 目录即自动打包进 bundle，pbxproj 零改动。
 
 ### 方式 2：源文件拷贝
 
