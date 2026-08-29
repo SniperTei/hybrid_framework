@@ -28,7 +28,7 @@ class ComponentContext(
      * SDK version string, set during SDK configuration
      */
     @Volatile
-    var sdkVersion: String = "3.4.0"
+    var sdkVersion: String = "3.5.0"
         internal set
 
     /**
