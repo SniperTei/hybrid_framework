@@ -4,10 +4,14 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to take photos and scan QR codes.</string>
-	<!-- "打开本地测试页面" 按钮 load http://localhost:5174/ (Vite dev server) 需要 ATS 例外 -->
+	<!-- ATS 例外（仅 demo app）：
+	     1) "打开本地测试页面" load http://localhost:5174/ (Vite dev server)
+	     2) Sniper YOLO API 冒烟页对明文 HTTP 服务（如 http://115.191.30.167:8041）直调 ——
+	        服务地址是 IP + http，NSExceptionDomains 不收 IP 字面量，只能整开
+	     生产 App 请按域名配 NSExceptionDomains，勿照抄 -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsLocalNetworking</key>
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
 	<key>UIApplicationSceneManifest</key>

@@ -28,6 +28,10 @@ final class SniperYoloAPIViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        // e2e 钩子（同 SceneDelegate 的 COCONUT_URL 风格）：env 覆盖默认 base URL
+        if let env = ProcessInfo.processInfo.environment["SNIPER_API_BASE"], !env.isEmpty {
+            baseUrlField.text = env
+        }
     }
 
     // MARK: - UI
@@ -59,6 +63,7 @@ final class SniperYoloAPIViewController: UIViewController {
         baseUrlField.autocorrectionType = .no
         baseUrlField.keyboardType = .URL
         baseUrlField.clearButtonMode = .whileEditing
+        baseUrlField.accessibilityIdentifier = "sniper_base_url"
         baseUrlField.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(baseUrlField)
 
@@ -99,6 +104,7 @@ final class SniperYoloAPIViewController: UIViewController {
         logView.backgroundColor = .secondarySystemBackground
         logView.layer.cornerRadius = 8
         logView.isEditable = false
+        logView.accessibilityIdentifier = "sniper_log"
         logView.text = "（日志区）"
         logView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logView)
