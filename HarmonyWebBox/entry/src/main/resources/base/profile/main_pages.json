@@ -2,6 +2,7 @@
   "src": [
     "pages/Index",
     "pages/WebContainer",
-    "pages/DemoTemplatePage"
+    "pages/DemoTemplatePage",
+    "pages/SniperYoloAPIPage"
   ]
 }

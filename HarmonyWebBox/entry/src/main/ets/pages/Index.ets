@@ -177,6 +177,18 @@ struct Index {
               router.pushUrl({ url: 'pages/DemoTemplatePage', params: params });
             })
 
+            // Sniper YOLO API 冒烟（native 引擎直调，对标 Android/iOS）：
+            // @coconut/network 纯 native 消费者场景验证，与 bridge 全链路互补
+            Button('Sniper API 冒烟 (native)')
+              .fontSize(18)
+              .width(200)
+              .height(50)
+              .backgroundColor('#0095FF')
+              .margin({ top: 16 })
+              .onClick(() => {
+                router.pushUrl({ url: 'pages/SniperYoloAPIPage' });
+              })
+
             // 热更新（对标 iOS/Android demo）：检查更新（可用则自动下载+应用）/ 回滚
             TextInput({ text: this.manifestUrl, placeholder: 'manifest URL' })
               .fontSize(14)
