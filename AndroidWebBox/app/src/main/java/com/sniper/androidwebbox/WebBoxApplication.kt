@@ -8,6 +8,7 @@ import com.sniper.androidwebbox.components.event.EventComponent
 import com.sniper.androidwebbox.components.network.NetworkComponent
 import com.sniper.androidwebbox.components.navigator.NavigatorComponent
 import com.sniper.androidwebbox.components.storage.StorageComponent
+import com.sniper.androidwebbox.components.update.UpdateComponent
 import com.sniper.coconut.config.Environment
 import com.sniper.coconut.nav.TemplateRegistry
 import com.sniper.coconut.web.CoconutWebActivity
@@ -85,7 +86,8 @@ class WebBoxApplication : Application() {
                     EventComponent(),       // 事件订阅
                     DialogComponent(),      // 原生弹窗
                     NetworkComponent(),     // 网络请求 + 状态推送
-                    NavigatorComponent()    // 容器导航（forward/back/backToTop/close）
+                    NavigatorComponent(),   // 容器导航（forward/back/backToTop/close）
+                    UpdateComponent(this@WebBoxApplication)   // 热更新（check/apply/rollback/version）
                 )
 
                 val components = CoconutSDK.getRegisteredComponents()

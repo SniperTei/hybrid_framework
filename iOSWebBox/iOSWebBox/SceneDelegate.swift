@@ -40,6 +40,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 DialogComponent(),
                 NetworkComponent(),
                 NavigatorComponent(),
+                UpdateComponent(),   // 热更新（iOS 空实现：App Store 2.5.2，业务层 success:false）
             ])
 
             // 启动期 eager 模板校验：重复名 / 解析不了的类 / 非 CoconutWebViewController

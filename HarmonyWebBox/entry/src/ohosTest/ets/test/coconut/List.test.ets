@@ -13,6 +13,7 @@ import componentExceptionTest from './component/ComponentException.test';
 import networkComponentTest from './component/NetworkComponent.test';
 import navigatorComponentTest from './component/NavigatorComponent.test';
 import templateRegistryTest from './component/TemplateRegistry.test';
+import updateComponentTest from './component/UpdateComponent.test';
 import environmentTest from './config/Environment.test';
 import eventEmitterTest from './event/EventEmitter.test';
 import coconutOfflineResourcesTest from './web/CoconutOfflineResources.test';
@@ -41,6 +42,7 @@ export default function testsuite() {
   networkComponentTest();
   navigatorComponentTest();
   templateRegistryTest();
+  updateComponentTest();
   environmentTest();
   eventEmitterTest();
   coconutOfflineResourcesTest();

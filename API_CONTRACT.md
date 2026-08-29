@@ -119,9 +119,10 @@ coconut.js 在 `init()` 里监听 `document.visibilitychange`，自动派发到�
 
 ## 1. 组件可用性矩阵
 
-> 当前活跃组件有 5 个。device + storage 来自 commit `3b3b6de` / `8a1437f` / `95b632a`（2026-07-26 三端 trim）；
+> 当前活跃组件有 7 个。device + storage 来自 commit `3b3b6de` / `8a1437f` / `95b632a`（2026-07-26 三端 trim）；
 > event 为 2026-08-09 新增（native → H5 push 能力）；dialog 为 2026-08-15 从 git 历史恢复（§4.4）；
-> network 为 2026-08-19 新增（§4.5，Harmony 先行），2026-08-20 Android 落地、2026-08-22 iOS 落地（同契约，三端齐活）。
+> network 为 2026-08-19 新增（§4.5，Harmony 先行），2026-08-20 Android 落地、2026-08-22 iOS 落地（同契约，三端齐活）；
+> navigator 为 v3.5.0 新增（§4.6，容器导航）；update 为 2026-08-29 新增（§4.7，热更新）。
 > 其余 11 个已删除组件契约保留在文末「附录 A」供 git 历史参考。
 
 | 组件 | iOS | Android | Harmony | 状态 |
@@ -131,6 +132,8 @@ coconut.js 在 `init()` 里监听 `document.visibilitychange`，自动派发到�
 | event | ✅ | ✅ | ✅ | 活跃（v2.4.0 on/off/emit API） |
 | dialog | ✅ | ✅ | ✅ | 活跃（v3.3.0 恢复，见 §4.4；`prompt` 不恢复——旧实现 Harmony input 恒空） |
 | network | ✅ | ✅ | ✅ | 活跃（见 §4.5；引擎 = 独立库：Harmony HAR `@coconut/network` / Android JVM `coconut-network` / iOS SPM `CoconutNetwork`） |
+| navigator | ✅ | ✅ | ✅ | 活跃（v3.5.0 容器导航，见 §4.6） |
+| update | ⚠️ 空实现 | ✅ | ✅ | 活跃（见 §4.7 —— **同契约不同实现首例**：iOS 因 App Store 2.5.2 业务层失败，methods 照常声明） |
 
 ---
 
@@ -405,6 +408,23 @@ CoconutConfig.nav（全局） ← defaultNavConfig（模板子类 protected open
 - **e2e 钩子注意**：`COCONUT_URL` env 直开的容器是 window root（无 presenting VC）→ close 仅 warn 不动作；多容器场景用 Home 入口按钮路径
 
 **平台**：三端 e2e 11 场景全过（dead URL 弹窗重试/退出、HTTP 500 不弹、A→B→C 返回链、根页 back 退化关闭、backToTop、守卫 200007、11 层超限、自定义按钮有/无订阅、close result 回传、模板命中/未注册、Run All 22/22 回归）。iOS = XCUITest 驱动（`ContainerNavE2ETests`，native 按钮/alert + WKWebView content 元素）。
+
+### 4.7 update ✅ 三端同契约不同实现（首个正式案例）
+
+**目标**：H5 发起离线包热更新——查更新、应用、回滚、查本地版本。下载/校验/原子切换复用 v3.4.0 `CoconutUpdateManager` / `OfflineResourceManager`（逐文件 md5 + `.staging_` 切换），本组件只做 bridge 封装 + 状态机。
+
+**标准签名**（`coconut.call('update', fn, params)`，无 js 命名空间——走通用 call，coconut.js 不动）：
+
+| 方法 | params | returns | 说明 |
+|---|---|---|---|
+| `check` | `manifestUrl*`, `moduleId?`(默认 `demo`) | `{available, currentVersion, remoteVersion}` | 查更新服务器。**manifest + 推导 baseUrl 缓存在组件内部，不透传 H5**（baseUrl = manifestUrl 去掉最后一段路径） |
+| `apply` | — | `{success, moduleId, version}` | **无参复用 check 缓存**。未 check 先 apply → `success:false` + "call check first"；check 结果无更新 → 缓存清空，apply 同样拒绝 |
+| `rollback` | — | `{success, version}` | 回滚模块上一版本；无可回滚 → `success:false` + "nothing to roll back" |
+| `version` | — | `{version}` | 当前本地模块版本（回滚/apply 后即新版本） |
+
+**失败模式**：`manifestUrl` 缺失 → bridge `200007`（参数校验层）；更新服务器不可达 / md5 校验失败 / 状态机拒绝 → 业务层失败 `000000` + `success:false` + `message`（对齐 §3 「平台/权限拒绝走业务层」约定）。apply 成功后**旧包仍在 WebView 缓存里**——H5 应提示「重启容器生效」，close 后重进验证。
+
+**iOS 差异（同契约不同实现的首个正式案例）**：App Review Guideline **2.5.2** 禁止下载可执行代码改变应用行为 → iOS 空实现。`methods` 照常声明（capabilities 注入 → H5 `coconut.supports('update','check')` = **true**，语义是「方法在但平台不支持」），4 个方法全部业务层失败（`000000` + `success:false`，message 注明 2.5.2）。H5 侧用 `coconut.env.isIOS` 或检查 `success:false` 置灰入口。**设计意图**：框架层面表达「三端对齐但允许平台差异」，而非 iOS 不注册该组件（不注册会让 `supports()` = false，语义变成「方法不存在」）。
 
 ---
 

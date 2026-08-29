@@ -7,6 +7,7 @@ import { EventComponent } from '../components/EventComponent';
 import { NetworkComponent } from '../components/NetworkComponent';
 import { NavigatorComponent } from '../components/NavigatorComponent';
 import { StorageComponent } from '../components/StorageComponent';
+import { UpdateComponent } from '../components/UpdateComponent';
 import { TemplateRegistry } from '../components/TemplateRegistry';
 import { VerifyDialog, VerifyDialogConfig } from '../components/VerifyDialog';
 import { SecondPage } from './SecondPage';
@@ -54,7 +55,8 @@ struct Index {
       new EventComponent(),
       new DialogComponent(),
       new NetworkComponent(),
-      new NavigatorComponent()
+      new NavigatorComponent(),
+      new UpdateComponent()
     ]);
     // Eager template registry validation (JSON parse + path non-empty +
     // duplicate names) — surface config errors at startup, not first
