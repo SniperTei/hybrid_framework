@@ -160,6 +160,8 @@ H5 call(component.method, params, bridgeToken)
 **接入 / 用法**：
 - [`coconutWebBox/README.md`](./coconutWebBox/README.md) — H5 端 JS Bridge 用法
 - [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md) — Android 项目接入指南
+- [`iOSWebBox/COCONUT_SDK_INTEGRATION.md`](./iOSWebBox/COCONUT_SDK_INTEGRATION.md) — iOS 项目接入指南
+- [`HarmonyWebBox/COCONUT_SDK_INTEGRATION.md`](./HarmonyWebBox/COCONUT_SDK_INTEGRATION.md) — HarmonyOS 项目接入指南
 
 **测试**：
 - [`iOSWebBox/docs/EVENT_E2E_TEST.md`](./iOSWebBox/docs/EVENT_E2E_TEST.md) — iOS Event 订阅端到端测试（单元 + UI + Safari Inspector）
