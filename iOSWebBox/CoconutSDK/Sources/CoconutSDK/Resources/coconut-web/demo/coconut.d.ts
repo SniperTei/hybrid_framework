@@ -155,6 +155,43 @@ export interface DialogAPI {
   hideLoading(cb?: CoconutCallback<DialogOpResult>): void;
 }
 
+// navigator component (v3.5.0)
+export interface NavigatorForwardOptions {
+  /** Optional template name from the native registry (assets/coconut_templates.json) */
+  template?: string;
+  /** Required target url — relative resolved against the current page, or absolute http(s):// / coconut:// */
+  url: string;
+  /** Flat kv object flattened into the query string */
+  params?: Record<string, string | number | boolean>;
+  /** Per-open NavConfig override (field-by-field inherit from CoconutConfig.nav) */
+  header?: NavHeaderOverride;
+}
+
+export interface NavHeaderOverride {
+  visible?: boolean;
+  /** Fixed title text, or 'auto' to sync document.title */
+  title?: string;
+  closePolicy?: 'auto' | 'always';
+  leftButtonText?: string;
+  rightButtonText?: string;
+}
+
+export interface NavigatorAckResult { success: boolean; message?: string; }
+
+/** nav.button payload pushed to the new container's H5 ({side}) */
+export interface NavButtonEventData { side: 'left' | 'right'; }
+
+/** nav.result payload pushed to the previous container's H5 ({result}) */
+export interface NavResultEventData<T = unknown> { result: T; }
+
+export interface NavigatorAPI {
+  forward(opts: NavigatorForwardOptions, cb?: CoconutCallback<NavigatorAckResult>): void;
+  back(cb?: CoconutCallback<NavigatorAckResult>): void;
+  backToTop(cb?: CoconutCallback<NavigatorAckResult>): void;
+  close(result?: unknown, cb?: CoconutCallback<NavigatorAckResult>): void;
+  close(cb?: CoconutCallback<NavigatorAckResult>): void;
+}
+
 // Native-pushed event payload. coconut.on callbacks receive event.data
 // (not the envelope); lifecycle events deliver {topic, timestamp}.
 export type EventHandler = (data: unknown) => void;
@@ -209,6 +246,7 @@ export interface Coconut {
   device: DeviceAPI;
   storage: StorageAPI;
   dialog: DialogAPI;
+  navigator: NavigatorAPI;
 
   // Internal (re-exposed for advanced use; not stable API)
   handlers: Record<string, EventHandler>;

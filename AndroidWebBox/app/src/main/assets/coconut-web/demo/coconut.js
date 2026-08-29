@@ -25,7 +25,16 @@
  *   appName / appVersion            （由 native 经 window.__coconutConfig 注入）
  *   userAgent / language / screen / viewport / ...  （浏览器侧信息）
  *
- * @version 3.3.0
+ *   coconut.navigator.forward(opts, cb)      —— 打开新容器（v3.5.0）
+ *     opts = {template?, url*, params?, header?}
+ *     url 相对/绝对均可（发送前按当前页面解析为绝对）；返回容器拉起后 {success:true} ack
+ *   coconut.navigator.back(cb)               —— 与导航栏返回同语义
+ *   coconut.navigator.backToTop(cb)          —— WebView 内容滚回顶部（非 reload）
+ *   coconut.navigator.close(result, cb)      —— 关当前容器；result 会被推给前一容器的
+ *                                                'nav.result' 订阅者（coconut.on）
+ *   新容器页面里 coconut.on('nav.button', ({side}) => ...) 接收自定义按钮点击
+ *
+ * @version 3.5.0
  */
 
 (function (global, factory) {
@@ -49,7 +58,7 @@
      * coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '3.3.0';
+        this.version = '3.5.0';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -655,6 +664,73 @@
         },
         getSize: function (callback) {
             return coconutSDK.call('storage', 'getSize', {}, callback);
+        }
+    };
+
+    /**
+     * 快捷方法 - 容器导航组件（v3.5.0）
+     *
+     * forward(opts, cb)：打开新的原生容器
+     *   opts = {
+     *     template: 'MyPage',            // 可选：native 注册表里的自定义容器；缺省 = 标准容器
+     *     url: '/order/detail',          // 必填：相对（按当前页面解析）或绝对（http(s):// / coconut://）
+     *     params: { id: 123 },           // 可选：扁平 kv → query string
+     *     header: { title: '订单详情',    // 可选：per-open NavConfig 覆盖（逐字段继承全局默认）
+     *               rightButtonText: '分享', visible, leftButtonText, closePolicy }
+     *   }
+     *   失败：守卫拦截 → error.code '200007'；栈超限/模板未注册 → error=null 且
+     *   data.success=false（业务层失败约定）
+     *
+     * 相对 URL 用 new URL(url, location.href) 解析（http 相对当前 origin；
+     * coconut:// 页内 '/foo' → 'coconut://demo/foo'，零特判）。
+     */
+    Coconut.prototype.navigator = {
+        forward: function (opts, callback) {
+            opts = opts || {};
+            var url = opts.url;
+            if (typeof url !== 'string' || url.length === 0) {
+                if (callback) {
+                    callback({ code: '200007', message: 'forward: url is required' }, undefined);
+                }
+                return;
+            }
+            var absoluteUrl;
+            try {
+                absoluteUrl = url.indexOf('coconut://') === 0
+                    ? url
+                    : new URL(url, (typeof location !== 'undefined' && location.href) || undefined).href;
+            } catch (e) {
+                if (callback) {
+                    callback({ code: '200007', message: 'forward: cannot resolve url "' + url + '"' }, undefined);
+                }
+                return;
+            }
+            var params = {};
+            if (opts.template) { params.template = opts.template; }
+            params.url = absoluteUrl;
+            if (opts.params) { params.params = opts.params; }
+            if (opts.header) { params.header = opts.header; }
+            return coconutSDK.call('navigator', 'forward', params, callback);
+        },
+
+        back: function (callback) {
+            return coconutSDK.call('navigator', 'back', {}, callback);
+        },
+
+        backToTop: function (callback) {
+            return coconutSDK.call('navigator', 'backToTop', {}, callback);
+        },
+
+        close: function (result, callback) {
+            if (typeof result === 'function') {
+                // close(cb) 形态
+                return coconutSDK.call('navigator', 'close', {}, result);
+            }
+            var params = {};
+            if (result !== undefined && result !== null) {
+                params.result = result;
+            }
+            return coconutSDK.call('navigator', 'close', params, callback);
         }
     };
 

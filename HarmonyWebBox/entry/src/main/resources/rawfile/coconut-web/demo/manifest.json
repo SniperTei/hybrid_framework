@@ -3,6 +3,6 @@
   "version": "1.0.1",
   "entry": "index.html",
   "files": ["assets/index.js","coconut.d.ts","coconut.js","coconut.min.js","favicon.svg","icons.svg","index.html"],
-  "md5": "0431466195a63c3aa8d1e56a193866c4",
-  "fileHashes": {"assets/index.js":"533a9979950019ea3b449814c1db09c6","coconut.d.ts":"b5f4b9d07f58a8c901b7910f0e508850","coconut.js":"e9ecb198afb52bc447a5aa901414cf30","coconut.min.js":"70cc66a222af8f90f7b120055bca80e8","favicon.svg":"7e840862161341271697daa99a40d76b","icons.svg":"3b4fcfcf393eca4d264dca4a4663bc37","index.html":"fcb89a4cf1dd303d4001387cf16a2f34"}
+  "md5": "aedc5c65ba6558e59bbddf66c2384356",
+  "fileHashes": {"assets/index.js":"c720b34210caa7a1202099d41a6544c6","coconut.d.ts":"3b264de83b04b27e9200bbeadd970fc3","coconut.js":"cc56cf85d489b12386a3271dc0056b38","coconut.min.js":"70cc66a222af8f90f7b120055bca80e8","favicon.svg":"7e840862161341271697daa99a40d76b","icons.svg":"3b4fcfcf393eca4d264dca4a4663bc37","index.html":"fcb89a4cf1dd303d4001387cf16a2f34"}
 }

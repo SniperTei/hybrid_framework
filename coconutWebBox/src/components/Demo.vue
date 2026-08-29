@@ -8,6 +8,10 @@
       <span>{{ platformText }} · SDK {{ sdkVersion }} · 协议 v{{ hybridVersion }}</span>
     </div>
 
+    <div class="btns" style="margin-bottom: 20px">
+      <button class="btn-d" style="flex-basis: 100%" @click="openSettings" :disabled="loading">⚙️ 设置页（真实业务试点）</button>
+    </div>
+
     <div class="panel">
       <h3>coconut.env 字段（v3.2.0）</h3>
       <pre class="muted">{{ envSummary }}</pre>
@@ -696,6 +700,17 @@ function eventOff() {
 
 // ---- Navigator (v3.5.0 容器导航) ----
 const navLogs = ref([])
+
+// 设置页入口：hash 路由同 bundle（#/settings）。url 必须绝对——
+// UrlGuard 拦 scheme-less 相对路径；hash 属 URL 标准组成，守卫不查。
+function openSettings() {
+  const opts = {
+    url: window.location.origin + window.location.pathname + '#/settings',
+    header: { title: '设置' }
+  }
+  setRequest('navigator', 'forward', opts)
+  window.coconut.navigator.forward(opts, (err, data) => setResponse(err, data))
+}
 
 function logNav(payload) {
   const time = new Date().toLocaleTimeString()
