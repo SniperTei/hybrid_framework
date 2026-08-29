@@ -815,12 +815,17 @@ open class CoconutWebActivity : AppCompatActivity(), ComponentHost {
     }
 
     /**
-     * Extract resource path from URL for offline lookup
+     * Extract resource path from URL for offline lookup.
+     * Fragment (#/settings hash route) and query (?cache-bust) are not part
+     * of the asset path — strip them or the lookup misses (e2e caught:
+     * coconut://demo/index.html#/settings 404'd).
      */
     protected open fun extractResourcePath(url: String): String? {
         return when {
             url.startsWith(OFFLINE_HOST_PREFIX) ->
                 url.removePrefix(OFFLINE_HOST_PREFIX)
+                    .substringBefore('#')
+                    .substringBefore('?')
             else -> null
         }
     }

@@ -83,6 +83,11 @@ class HomeViewController: UIViewController {
         sniperApiBtn.addTarget(self, action: #selector(openSniperYoloAPI), for: .touchUpInside)
         view.addSubview(sniperApiBtn)
 
+        // ---- 按钮 3d：设置页（真实业务试点：离线包 hash 路由 #/settings） ----
+        let openSettingsBtn = makeButton(title: "设置页 (#/settings)", primary: false)
+        openSettingsBtn.addTarget(self, action: #selector(openSettingsPage), for: .touchUpInside)
+        view.addSubview(openSettingsBtn)
+
         // ---- 热更新 manifest URL 输入框 ----
         manifestUrlField = UITextField()
         manifestUrlField.text = "http://localhost:8000/manifest.json"
@@ -154,7 +159,12 @@ class HomeViewController: UIViewController {
             sniperApiBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             sniperApiBtn.heightAnchor.constraint(equalToConstant: 56),
 
-            manifestUrlField.topAnchor.constraint(equalTo: sniperApiBtn.bottomAnchor, constant: 24),
+            openSettingsBtn.topAnchor.constraint(equalTo: sniperApiBtn.bottomAnchor, constant: 16),
+            openSettingsBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            openSettingsBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            openSettingsBtn.heightAnchor.constraint(equalToConstant: 56),
+
+            manifestUrlField.topAnchor.constraint(equalTo: openSettingsBtn.bottomAnchor, constant: 24),
             manifestUrlField.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
             manifestUrlField.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             manifestUrlField.heightAnchor.constraint(equalToConstant: 36),
@@ -214,6 +224,11 @@ class HomeViewController: UIViewController {
     /// 打开离线包（coconut:// scheme，对标 Android openOfflinePackage）
     @objc private func openOfflinePackage() {
         presentWebVC(with: "coconut://demo/index.html")
+    }
+
+    /// 设置页（真实业务试点：离线包 hash 路由 #/settings，对标 Android openSettingsPage）
+    @objc private func openSettingsPage() {
+        presentWebVC(with: "coconut://demo/index.html#/settings")
     }
 
     /// 打开模板容器：走 TemplateRegistry 真实解析路径（coconut_templates.json）

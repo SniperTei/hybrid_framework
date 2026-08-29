@@ -191,6 +191,17 @@ struct Index {
                 router.pushUrl({ url: 'pages/SniperYoloAPIPage' });
               })
 
+            // 设置页（真实业务试点：离线包 hash 路由 #/settings，对标 Android/iOS）
+            Button('设置页 (#/settings)')
+              .fontSize(18)
+              .width(200)
+              .height(50)
+              .backgroundColor('#14C9C9')
+              .margin({ top: 16 })
+              .onClick(() => {
+                this.openContainer(this.offlinePackageUrl + '#/settings');
+              })
+
             // 热更新（对标 iOS/Android demo）：检查更新（可用则自动下载+应用）/ 回滚
             TextInput({ text: this.manifestUrl, placeholder: 'manifest URL' })
               .fontSize(14)

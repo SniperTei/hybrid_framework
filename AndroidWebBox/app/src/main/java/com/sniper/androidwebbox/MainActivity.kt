@@ -45,6 +45,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(android.content.Intent(this, SniperYoloAPIActivity::class.java))
         }
 
+        findViewById<MaterialButton>(R.id.btnOpenSettings).setOnClickListener {
+            openSettingsPage()
+        }
+
         findViewById<MaterialButton>(R.id.btnCheckUpdate).setOnClickListener {
             checkHotUpdate()
         }
@@ -84,6 +88,15 @@ class MainActivity : AppCompatActivity() {
         Logger.d("MainActivity", "Opening offline package: $url")
         CoconutWebActivity.start(this, url)
         Toast.makeText(this, "Opening offline package...", Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Open the settings page (real-business pilot): offline package + hash route.
+     */
+    private fun openSettingsPage() {
+        val url = "coconut://demo/index.html#/settings"
+        Logger.d("MainActivity", "Opening settings page: $url")
+        CoconutWebActivity.start(this, url, enableDebug = true)
     }
 
     /**

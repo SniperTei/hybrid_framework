@@ -103,11 +103,17 @@ const lastRequest = ref('')
 const lastResponse = ref('')
 const lastIsError = ref(false)
 
+// config 注入是异步的（Harmony 实测：_loadSecurityConfig 晚于 Vue 首渲染），
+// 读 window.coconut 的 computed 没有响应式依赖、永不重算 —— 走 v3.2.0
+// house pattern：coconut:config-loaded 事件 + configTick 强制失效（Demo.vue 同款）。
+const configTick = ref(0)
+
 // ---- 关于 ----
 const showDevice = ref(false)
 const deviceInfo = ref('')
 const appInfo = ref(null)
 const aboutText = computed(() => {
+  void configTick.value
   const e = window.coconut?.env || {}
   const lines = [
     `应用：${e.appName || '(未知)'} ${e.appVersion || ''}`,
@@ -134,10 +140,12 @@ const updateStatus = ref('')
 const updateIsError = ref(false)
 const checkResult = ref(null)
 const updateSupported = computed(() => {
+  void configTick.value
   const c = window.coconut
   return !!(c && c.supports && c.supports('update', 'check'))
 })
 const updateUnsupportedText = computed(() => {
+  void configTick.value
   if (window.coconut?.env?.isiOS) {
     return '当前平台不支持：iOS 受 App Store 审核约束（2.5.2 可执行代码条款），\nupdate 组件为空实现（方法在，业务层返回不支持）。'
   }
@@ -335,6 +343,8 @@ onMounted(async () => {
   } catch (e) {
     console.error('初始化出错:', e)
   }
+  // config 注入完成后强制重算 config 派生的 computed（capabilities/env）
+  window.addEventListener('coconut:config-loaded', () => { configTick.value++ })
   loadDeviceInfo()
   await loadPrefs()
   await refreshStorage()
