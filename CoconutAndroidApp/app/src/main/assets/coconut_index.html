@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coconut Bridge 测试页</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+      padding: 20px 16px 48px;
+      background: #f5f6f8;
+      color: #1f2329;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .hint { font-size: 13px; color: #8a8f99; margin-bottom: 12px; line-height: 1.5; }
+
+    .platform {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #eef4ff; color: #3370ff; border: 1px solid #cfe0ff;
+      padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .platform.web { background: #fff3e8; color: #ff7d00; border-color: #ffd6a8; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    section { margin-bottom: 20px; }
+    section > h2 {
+      font-size: 13px; color: #8a8f99; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+    }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+    .net-input {
+      width: 100%; height: 40px; margin-bottom: 10px; padding: 0 12px;
+      font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace;
+      border: 1px solid #dcdfe6; border-radius: 8px; background: #fff; color: #1f2329;
+      outline: none;
+    }
+    .net-input:focus { border-color: #3370ff; }
+    button {
+      flex: 1; min-width: calc(50% - 5px); height: 46px;
+      font-size: 15px; border: none; border-radius: 10px;
+      color: #fff; cursor: pointer; transition: opacity .15s;
+    }
+    button:active { opacity: .8; }
+    .btn-a { background: #3370ff; }
+    .btn-b { background: #00b42c; }
+    .btn-r { background: #ff7d00; }
+    .btn-d { background: #722ed1; }
+    .btn-c { background: #f53f3f; }
+    .btn-g { background: #0fc6c2; }
+
+    .panel {
+      background: #fff; border-radius: 10px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .panel h3 { font-size: 13px; color: #8a8f99; margin-bottom: 8px; font-weight: 600; }
+    .panel pre {
+      font-size: 12px; white-space: pre-wrap; word-break: break-all;
+      background: #f7f8fa; padding: 10px; border-radius: 6px; min-height: 24px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; color: #1f2329;
+    }
+    .panel pre.ok    { color: #00b42c; }
+    .panel pre.err   { color: #f53f3f; }
+    .panel pre.muted { color: #8a8f99; }
+  </style>
+</head>
+<body>
+  <h1>🥥 Coconut Bridge 测试</h1>
+  <p class="hint">同一份 HTML 在 iOS / Android / Harmony 三端通用。下方会自动识别当前平台，并通过 coconut SDK 与原生通信。</p>
+
+  <div id="platform" class="platform"><span class="dot"></span><span id="platformName">检测中…</span></div>
+
+  <section>
+    <h2>基础组件（三端通用）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onCall('device', 'getInfo')">设备信息</button>
+      <button class="btn-a" onclick="onCall('device', 'getSystemInfo')">系统信息</button>
+      <button class="btn-a" onclick="onCall('device', 'getAll')">完整信息</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button class="btn-b" onclick="onWrite('A')">写入 A</button>
+      <button class="btn-b" onclick="onWrite('B')">写入 B</button>
+      <button class="btn-r" onclick="onRead()">读取</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>弹窗组件（原生 Dialog）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onDialogAlert()">Alert</button>
+      <button class="btn-b" onclick="onDialogConfirm()">Confirm</button>
+      <button class="btn-r" onclick="onDialogToast()">Toast</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button class="btn-d" onclick="onDialogLoading()">Loading (2s 后自动关闭)</button>
+      <button class="btn-c" onclick="onDialogHideLoading()">隐藏 Loading</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>事件订阅（原生 → H5 推送）</h2>
+    <div class="btns">
+      <button class="btn-d" onclick="onSubscribe()">订阅 test.echo</button>
+      <button class="btn-d" onclick="onEcho()">Echo（500ms 后回推）</button>
+      <button class="btn-c" onclick="onUnsubscribe()">取消订阅</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Network 组件（Harmony 先行，走 native HTTP）</h2>
+    <input id="netUrl" class="net-input" value="http://192.168.3.49:8000/manifest.json">
+    <div class="btns">
+      <button class="btn-a" onclick="onNetGet()">GET</button>
+      <button class="btn-b" onclick="onNetPost()">POST (501 反例)</button>
+      <button class="btn-d" onclick="onNetType()">getNetworkType</button>
+      <button class="btn-g" onclick="onNetSubscribe()">订阅 network.change</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Navigator 组件（容器导航，v3.5.0）</h2>
+    <div class="btns">
+      <button class="btn-a" onclick="onNavForward()">forward 新容器</button>
+      <button class="btn-b" onclick="onNavForwardTemplate()">forward 模板容器</button>
+      <button class="btn-d" onclick="onNavForwardDead()">forward 死链</button>
+      <button class="btn-r" onclick="onNavBack()">back</button>
+      <button class="btn-r" onclick="onNavBackToTop()">backToTop</button>
+      <button class="btn-c" onclick="onNavClose()">close({result})</button>
+      <button class="btn-g" onclick="onNavSubscribeResult()">订阅 nav.result</button>
+      <button class="btn-g" onclick="onNavSubscribeButton()">订阅 nav.button</button>
+    </div>
+  </section>
+
+  <div class="panel">
+    <h3>最近一次请求（H5 → 原生）</h3>
+    <pre id="reqView" class="muted">—</pre>
+  </div>
+  <div class="panel">
+    <h3>原生返回的响应（原生 → H5）</h3>
+    <pre id="respView" class="muted">—</pre>
+  </div>
+  <div class="panel">
+    <h3>事件投递（native → H5，coconut.on 注册的 callback）</h3>
+    <pre id="eventView" class="muted">—</pre>
+  </div>
+
+  <!-- coconut SDK H5 客户端 -->
+  <script src="./coconut.js"></script>
+  <script>
+    /**
+     * 测试页：直接用 coconut.* API，不再有 BridgeTest 中间层。
+     *
+     * coconut.call(component, functionName, params, callback(err, data))  —— error-first
+     *   component    例：'storage' / 'device' / 'event'
+     *   functionName 例：'setItem' / 'getInfo' / 'on'
+     * coconut.on(topic, callback(data))                  —— 事件订阅
+     * coconut.off(topic)                                 —— 取消订阅
+     */
+
+    // ---------- 启动：探测平台 ----------
+    (function renderPlatform() {
+      var map = {
+        harmony: 'HarmonyOS NEXT',
+        android: 'Android',
+        ios: 'iOS',
+        web: 'Web（未检测到 Bridge）'
+      };
+      var el = document.getElementById('platform');
+      var name = document.getElementById('platformName');
+      name.textContent = '当前平台：' + (map[coconut.env.platform] || coconut.env.platform);
+      if (coconut.env.platform === 'web') el.className = 'platform web';
+    })();
+
+    // ---------- 视图辅助 ----------
+    function setRequestView(component, functionName, params) {
+      var v = document.getElementById('reqView');
+      v.textContent = JSON.stringify({
+        component: component,
+        function: functionName,
+        params: params
+      }, null, 2);
+      v.className = '';
+    }
+    function setResponseView(error, data) {
+      var v = document.getElementById('respView');
+      var display = error ? { error: error } : { data: data };
+      v.textContent = JSON.stringify(display, null, 2);
+      v.className = error ? 'err' : 'ok';
+    }
+    function setEventView(obj) {
+      var v = document.getElementById('eventView');
+      v.textContent = JSON.stringify(obj, null, 2);
+      var cls = 'muted';
+      if (obj && obj.stage === 'event received') cls = 'ok';
+      else if (obj && obj.error) cls = 'err';
+      v.className = cls;
+    }
+
+    // ---------- 按钮回调 ----------
+    function onCall(component, functionName, params) {
+      setRequestView(component, functionName, params);
+      coconut.call(component, functionName, params || {}, function (err, data) {
+        setResponseView(err, data);
+        var key = component + '.' + functionName;
+        if (err) {
+          console.warn('[ERR]', key, err.code, err.message);
+        } else {
+          console.log('[OK]', key, data);
+        }
+      });
+    }
+    function onWrite(value) {
+      setRequestView('storage', 'setItem', { key: 'demo', value: value });
+      coconut.call('storage', 'setItem', { key: 'demo', value: value }, function (err, data) {
+        setResponseView(err, data);
+        console.log('写入', value, err ? '失败 ' + err.message : '成功');
+      });
+    }
+    function onRead() {
+      setRequestView('storage', 'getItem', { key: 'demo' });
+      coconut.call('storage', 'getItem', { key: 'demo' }, function (err, data) {
+        setResponseView(err, data);
+        if (!err) { console.log('读到:', data && data.value); }
+      });
+    }
+    function onSubscribe() {
+      setRequestView('event', 'on', { topic: 'test.echo' });
+      // coconut.on 内部会发 event.on 请求；这里直接注册本地 callback
+      coconut.on('test.echo', function (data) {
+        setEventView({ stage: 'event received', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'test.echo' });
+    }
+    function onEcho() {
+      setRequestView('event', 'echo', { hello: 'world' });
+      coconut.call('event', 'echo', { hello: 'world' }, function (err, data) {
+        setResponseView(err, data);
+        setEventView({ stage: 'echo ack', resp: err ? { error: err } : { data: data } });
+      });
+    }
+    function onUnsubscribe() {
+      setRequestView('event', 'off', { topic: 'test.echo' });
+      coconut.off('test.echo');
+      setEventView({ stage: 'off sent', topic: 'test.echo' });
+    }
+    function onDialogAlert() {
+      setRequestView('dialog', 'alert', { title: '提示', message: '来自 H5 的原生 Alert', buttonText: '知道了' });
+      coconut.call('dialog', 'alert', { title: '提示', message: '来自 H5 的原生 Alert', buttonText: '知道了' }, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onDialogConfirm() {
+      var params = { title: '确认', message: '确定要执行此操作吗？', confirmText: '确定', cancelText: '取消' };
+      setRequestView('dialog', 'confirm', params);
+      coconut.call('dialog', 'confirm', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onDialogToast() {
+      var params = { message: '来自 H5 的原生 Toast', duration: 2, position: 'bottom' };
+      setRequestView('dialog', 'toast', params);
+      coconut.call('dialog', 'toast', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onDialogLoading() {
+      setRequestView('dialog', 'showLoading', { message: '加载中...' });
+      coconut.call('dialog', 'showLoading', { message: '加载中...' }, function (err, data) {
+        setResponseView(err, data);
+      });
+      setTimeout(function () {
+        setRequestView('dialog', 'hideLoading', {});
+        coconut.call('dialog', 'hideLoading', {}, function (err, data) {
+          setResponseView(err, data);
+        });
+      }, 2000);
+    }
+    function onDialogHideLoading() {
+      setRequestView('dialog', 'hideLoading', {});
+      coconut.call('dialog', 'hideLoading', {}, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+
+    // ---------- Network（Harmony 先行） ----------
+    function onNetGet() {
+      var params = { url: document.getElementById('netUrl').value, method: 'GET', timeoutMs: 10000 };
+      setRequestView('network', 'request', params);
+      coconut.call('network', 'request', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNetPost() {
+      var params = { url: document.getElementById('netUrl').value, method: 'POST', body: { hello: 'world' }, timeoutMs: 10000 };
+      setRequestView('network', 'request', params);
+      coconut.call('network', 'request', params, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNetType() {
+      setRequestView('network', 'getNetworkType', {});
+      coconut.call('network', 'getNetworkType', {}, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNetSubscribe() {
+      setRequestView('event', 'on', { topic: 'network.change' });
+      coconut.on('network.change', function (data) {
+        setEventView({ stage: 'event received', topic: 'network.change', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'network.change' });
+    }
+
+    // ---------- Navigator（v3.5.0 容器导航） ----------
+    function onNavForward() {
+      var opts = {
+        url: window.location.pathname,
+        params: { from: 'forward', ts: String(Date.now()) },
+        header: { title: '容器 B', rightButtonText: '分享' }
+      };
+      setRequestView('navigator', 'forward', opts);
+      coconut.navigator.forward(opts, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavForwardTemplate() {
+      var opts = {
+        template: 'demo',
+        url: window.location.pathname,
+        params: { from: 'template' },
+        header: { title: '模板容器覆盖' }
+      };
+      setRequestView('navigator', 'forward', opts);
+      coconut.navigator.forward(opts, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavForwardDead() {
+      var opts = { url: 'https://dead.invalid.example.com/' };
+      setRequestView('navigator', 'forward', opts);
+      coconut.navigator.forward(opts, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavBack() {
+      setRequestView('navigator', 'back', {});
+      coconut.navigator.back(function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavBackToTop() {
+      setRequestView('navigator', 'backToTop', {});
+      coconut.navigator.backToTop(function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavClose() {
+      var result = { from: 'index-close', ts: Date.now() };
+      setRequestView('navigator', 'close', { result: result });
+      coconut.navigator.close(result, function (err, data) {
+        setResponseView(err, data);
+      });
+    }
+    function onNavSubscribeResult() {
+      setRequestView('event', 'on', { topic: 'nav.result' });
+      coconut.on('nav.result', function (data) {
+        setEventView({ stage: 'event received', topic: 'nav.result', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'nav.result' });
+    }
+    function onNavSubscribeButton() {
+      setRequestView('event', 'on', { topic: 'nav.button' });
+      coconut.on('nav.button', function (data) {
+        setEventView({ stage: 'event received', topic: 'nav.button', data: data });
+      });
+      setEventView({ stage: 'on sent', topic: 'nav.button' });
+    }
+  </script>
+</body>
+</html>
