@@ -78,6 +78,11 @@ class HomeViewController: UIViewController {
         openTemplateBtn.addTarget(self, action: #selector(openTemplateContainer), for: .touchUpInside)
         view.addSubview(openTemplateBtn)
 
+        // ---- 按钮 3c：Sniper YOLO API 冒烟（native 引擎直调，对标 Android） ----
+        let sniperApiBtn = makeButton(title: "Sniper API 冒烟 (native)", primary: false)
+        sniperApiBtn.addTarget(self, action: #selector(openSniperYoloAPI), for: .touchUpInside)
+        view.addSubview(sniperApiBtn)
+
         // ---- 热更新 manifest URL 输入框 ----
         manifestUrlField = UITextField()
         manifestUrlField.text = "http://localhost:8000/manifest.json"
@@ -144,7 +149,12 @@ class HomeViewController: UIViewController {
             openTemplateBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             openTemplateBtn.heightAnchor.constraint(equalToConstant: 56),
 
-            manifestUrlField.topAnchor.constraint(equalTo: openTemplateBtn.bottomAnchor, constant: 24),
+            sniperApiBtn.topAnchor.constraint(equalTo: openTemplateBtn.bottomAnchor, constant: 16),
+            sniperApiBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            sniperApiBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            sniperApiBtn.heightAnchor.constraint(equalToConstant: 56),
+
+            manifestUrlField.topAnchor.constraint(equalTo: sniperApiBtn.bottomAnchor, constant: 24),
             manifestUrlField.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
             manifestUrlField.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             manifestUrlField.heightAnchor.constraint(equalToConstant: 36),
@@ -218,6 +228,13 @@ class HomeViewController: UIViewController {
         present(vc, animated: true) {
             vc.loadUrl("coconut://demo/index.html")
         }
+    }
+
+    /// Sniper YOLO API 冒烟页（CoconutNetwork 引擎 Swift 直调，对标 Android SniperYoloAPIActivity）
+    @objc private func openSniperYoloAPI() {
+        let vc = SniperYoloAPIViewController()
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
     }
 
     // MARK: - 热更新（对标 Android checkHotUpdate / rollbackHotUpdate）
