@@ -1,0 +1,70 @@
+# CI — 全 Linux（私有仓库免 macOS 10 倍分钟计费；iOS/Harmony 需模拟器/真机的测试仍本地跑）
+#
+#   android-jvm : CoconutSDK 三模块 JVM 单测（227 个，无需设备）
+#   h5          : 三端 H5 资源 drift 检查 + coconutWebBox 构建防挂
+#
+# 本地等价命令：
+#   cd AndroidWebBox && ./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest
+#   bash scripts/sync-h5-assets.sh --check
+#   cd coconutWebBox && npm ci && npm run build
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-jvm:
+    name: Android JVM tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run JVM unit tests
+        working-directory: AndroidWebBox
+        run: ./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest
+
+      - name: Upload test reports (failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: |
+            AndroidWebBox/*/build/reports/tests/**
+            AndroidWebBox/app/build/outputs/logs/**
+          if-no-files-found: ignore
+
+  h5:
+    name: H5 assets + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 三端 H5 文件字节级一致（coconut.js / coconut.d.ts / coconut_index.html）
+      - name: Asset drift check (3 platforms)
+        run: bash scripts/sync-h5-assets.sh --check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: coconutWebBox/package-lock.json
+
+      - name: Build coconutWebBox (Demo.vue)
+        working-directory: coconutWebBox
+        run: |
+          npm ci
+          npm run build
