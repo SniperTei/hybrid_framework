@@ -7,9 +7,10 @@
 #   h5app → coconutH5App（真实业务试点：4 tab 移动端 app）
 # 分发目标（真实业务形态：业务离线包归宿主 app 自己的 assets，SDK 只提供
 # coconut:// 加载框架；demo 模块仅发三端 WebBox 开发容器，h5app 额外发
-# CoconutAndroidApp）：
+# CoconutAndroidApp + CoconutHarmonyApp）：
 #   三端 WebBox coconut-web/<moduleId>/ 子目录（模块间天然隔离）
 #   + CoconutAndroidApp/app/src/main/assets/coconut-web/h5app/（RealApp）
+#   + CoconutHarmonyApp/entry/src/main/resources/rawfile/coconut-web/h5app/（RealApp）
 #
 # 流程（每模块独立执行）：
 #   1. npm run build（vite，base './' + 无 hash 文件名，见各项目 vite.config.js）→ dist/
@@ -47,6 +48,8 @@ REALAPP_ANDROID_BASE="$REPO_ROOT/CoconutAndroidApp/app/src/main/assets/coconut-w
 # bundle 根（文件名冲突 + 丢 coconut-web/<moduleId>/ 路径），不可用。
 IOS_BASE="$REPO_ROOT/iOSWebBox/CoconutSDK/Sources/CoconutSDK/Resources/coconut-web"
 HARMONY_BASE="$REPO_ROOT/HarmonyWebBox/entry/src/main/resources/rawfile/coconut-web"
+# RealApp（真实业务宿主）：h5app 模块随宿主 app 自己的 rawfile 分发
+REALAPP_HARMONY_BASE="$REPO_ROOT/CoconutHarmonyApp/entry/src/main/resources/rawfile/coconut-web"
 
 ALL_MODULES="demo h5app"
 
@@ -185,10 +188,10 @@ EOF
     log "📝 manifest.json: $module_id v$version, $(find "$pkg_dir" -type f ! -name manifest.json | wc -l | tr -d ' ') files"
   )
 
-  # 4. 分发 / diff 三端（h5app 额外发 CoconutAndroidApp RealApp）
+  # 4. 分发 / diff 三端（h5app 额外发 CoconutAndroidApp / CoconutHarmonyApp RealApp）
   local targets="android:$ANDROID_BASE ios:$IOS_BASE harmony:$HARMONY_BASE"
   if [[ "$module_id" == "h5app" ]]; then
-    targets="$targets realapp-android:$REALAPP_ANDROID_BASE"
+    targets="$targets realapp-android:$REALAPP_ANDROID_BASE realapp-harmony:$REALAPP_HARMONY_BASE"
   fi
   for spec in $targets; do
     platform="${spec%%:*}"

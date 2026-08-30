@@ -1,17 +1,20 @@
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { display } from '@kit.ArkUI';
-import { BaseComponent, JsonObject } from '@coconut/sdk';
+import { BaseComponent, ComponentContext, JsonObject } from '@coconut/sdk';
 
 /**
- * 消费者自定义组件示例：设备信息（对齐 API_CONTRACT.md §4.1 的 device 字段集）。
- * methods 数组必须与 handle() 的 switch 分支一致 —— coconut.supports() 据此
- * 向 H5 透出能力。
+ * Device Component
+ *
+ * Provides device information using HarmonyOS APIs.
+ * getInfo / getSystemInfo / getAppInfo return the standard cross-platform
+ * field set (manufacturer, brand, model, osName, osVersion, platform,
+ * screenWidth, screenHeight, sdkVersion, etc).
  */
 export class DeviceComponent extends BaseComponent {
   name: string = 'device';
   version: string = '1.0.0';
-  description: string = 'Minimal device info component (consumer app sample)';
-  methods: string[] = ['getInfo', 'getSystemInfo', 'getAppInfo'];
+  description: string = 'Device and system information component';
+  methods: string[] = ['getInfo', 'getSystemInfo', 'getAppInfo', 'getAll'];
 
   async handle(functionName: string, paramsJson: string): Promise<string> {
     switch (functionName) {
@@ -21,6 +24,8 @@ export class DeviceComponent extends BaseComponent {
         return this.getSystemInfo();
       case 'getAppInfo':
         return this.getAppInfo();
+      case 'getAll':
+        return this.getAllInfo();
       default:
         return this.functionNotSupportedError(functionName);
     }
@@ -34,6 +39,7 @@ export class DeviceComponent extends BaseComponent {
     builder.put('osName', 'HarmonyOS');
     builder.put('osVersion', deviceInfo.osFullName);
     builder.put('platform', 'harmony');
+    // Screen dimensions from display manager
     try {
       const d = display.getDefaultDisplaySync();
       builder.putNumber('screenWidth', d.width);
@@ -57,11 +63,37 @@ export class DeviceComponent extends BaseComponent {
 
   private getAppInfo(): string {
     const builder = new JsonObject();
-    builder.put('appName', 'CoconutHarmonyApp');
-    builder.put('packageName', 'com.sniper.coconutharmonyapp');
-    builder.put('version', '1.0.0');
+    builder.put('appName', 'CoconutSDK');
+    builder.put('packageName', 'com.sniper.coconut');
+    builder.put('version', '2.0.0');
     builder.put('buildNumber', '1');
-    builder.putBool('debug', true);
+    builder.putBool('debug', false);
     return this.success(builder);
+  }
+
+  private getAllInfo(): string {
+    const device = new JsonObject();
+    device.put('manufacturer', deviceInfo.manufacture);
+    device.put('brand', deviceInfo.brand);
+    device.put('model', deviceInfo.productModel);
+    device.put('osName', 'HarmonyOS');
+    device.put('osVersion', deviceInfo.osFullName);
+    device.put('platform', 'harmony');
+
+    const system = new JsonObject();
+    system.put('osName', 'HarmonyOS');
+    system.put('osVersion', deviceInfo.osFullName);
+    system.putNumber('sdkVersion', deviceInfo.sdkApiVersion);
+    system.put('model', deviceInfo.productModel);
+
+    const app = new JsonObject();
+    app.put('appName', 'CoconutSDK');
+    app.put('version', '2.0.0');
+
+    const root = new JsonObject();
+    root.putObject('device', device);
+    root.putObject('system', system);
+    root.putObject('app', app);
+    return this.success(root);
   }
 }
