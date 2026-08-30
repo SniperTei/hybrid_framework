@@ -64,13 +64,14 @@ AndroidWebBox/
 │           ├── NavResultBus.kt                  # close({result}) 单槽回传（v3.5.0）
 │           └── WebViewSecurityConfig.kt         # HTTPS / file access 安全配置
 │
-└── app/                                         # 宿主 App（持有 6 个组件）
+└── app/                                         # 宿主 App（持有 7 个组件）
     └── src/main/java/com/sniper/androidwebbox/
         ├── WebBoxApplication.kt                 # 注册组件入口 + 模板 eager 校验
         ├── DemoTemplateActivity.kt              # 模板容器示范（继承 CoconutWebActivity，注册名 "demo"）
-        └── components/                          # 6 个组件（各一子包）+ 业务组件
+        └── components/                          # 7 个组件（各一子包）+ 业务组件
             ├── device/ ├── storage/ ├── event/ ├── dialog/ ├── network/
-            └── navigator/                       # NavigatorComponent：forward / back / backToTop / close
+            ├── navigator/                       # NavigatorComponent：forward / back / backToTop / close
+            └── update/                          # UpdateComponent：check / apply / rollback / version（复用热更新引擎）
 ```
 
 > **组件不在 SDK 内**。框架不含任何业务组件，所有组件都在宿主 App `app/src/.../components/` 下，App 决定启用哪些。

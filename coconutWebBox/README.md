@@ -169,6 +169,8 @@ npm run dev
 
 `Demo.vue` 测试六个组件（与三端 `coconut_index.html` 对齐；未在某端注册的组件显示 skip，H5 侧先 `coconut.supports(component, fn)` 探测）：
 
+> 另有 **`Settings.vue` 设置页**（真实业务试点，hash 路由 `#/settings`，三端 demo app 首页「设置页」按钮直达）：关于（env + device 信息）/ 检查更新（update 组件 check → dialog.confirm → apply → rollback）/ 存储管理 / 偏好开关（storage 持久化）/ 保存并关闭（navigator.close 回传 changed 列表）。
+
 ### device — 获取设备信息
 - `coconut.device.getInfo(cb)` → `{manufacturer, brand, model, osName, osVersion, platform, screenWidth, screenHeight}`
 

@@ -29,21 +29,23 @@ hybrid_framework/
 ├── iOSWebBox/             # iOS 宿主 App + CoconutSDK SPM 包
 │   ├── CoconutSDK/        # SPM 包（框架）
 │   ├── CoconutNetwork/    # 独立 HTTP 引擎 SPM 包（纯 Foundation，零依赖，可单独使用）
-│   └── iOSWebBox/         # 宿主 App（持有 6 个组件：device / storage / event / dialog / network / navigator）
+│   └── iOSWebBox/         # 宿主 App（持有 7 个组件：device / storage / event / dialog / network / navigator / update†）
 ├── AndroidWebBox/         # Android 宿主 App + CoconutSDK Gradle 模块
 │   ├── coconut-core/      # 核心库（Bridge / Component / Security / Nav）
 │   ├── coconut-sdk/       # SDK 入口 + WebView 封装
 │   ├── coconut-network/   # 独立 HTTP 引擎（纯 Kotlin JVM 库，零 Android 依赖，可单独使用）
-│   └── app/               # 宿主 App（持有 6 个组件：device / storage / event / dialog / network / navigator）
+│   └── app/               # 宿主 App（持有 7 个组件：device / storage / event / dialog / network / navigator / update）
 ├── HarmonyWebBox/         # HarmonyOS 宿主 App + CoconutSDK HAR
 │   ├── CoconutSDK/        # HAR 库（框架）
 │   ├── CoconutNetwork/    # 独立 HTTP 引擎 HAR（@coconut/network，零依赖，可单独使用）
-│   └── entry/             # HAP 宿主 App（持有 6 个组件：device / storage / event / dialog / network / navigator）
+│   └── entry/             # HAP 宿主 App（持有 7 个组件：device / storage / event / dialog / network / navigator / update）
 ├── ARCHITECTURE.md        # 三端架构对照（详细模块图 / Bridge / 安全管线）
 └── API_CONTRACT.md        # 三端 API 契约（组件方法签名、错误码、安全机制）
 ```
 
 **模块拆分原则（三端一致）**：CoconutSDK 只放框架（Bridge / ComponentManager / 安全管线），**不含任何具体组件**。组件归 App 装配。每个集成 CoconutSDK 的工程自带"通用参考组件"（device / network / storage / system / ...）+ 业务组件，通过显式注册决定启用哪些。
+
+> † update 在 iOS 为**空实现**（App Store Review 2.5.2 禁止下载可执行代码）：methods 照常声明（`coconut.supports() = true`），调用返回业务层失败 —— 首个「同契约不同实现」案例，详见 `API_CONTRACT.md` §4.7。Android/Harmony 真实现（check / apply / rollback / version，复用 v3.4.0 热更新引擎）。
 
 ---
 
@@ -85,7 +87,7 @@ open iOSWebBox.xcodeproj
 
 CoconutSDK 是内嵌的 SPM 包（`iOSWebBox/CoconutSDK/`），依赖 CoconutNetwork 引擎包，无需额外配置。组件在 `iOSWebBox/iOSWebBox/Components/` 下，注册在 `SceneDelegate.swift`。
 
-离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 CoconutNetwork 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `CoconutNetwork` v1.1.0（纯 Foundation 零依赖，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + URLSessionAdapter + mock + SSRF 守卫，可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`CoconutWebViewController`（open，可继承做模板容器）+ 自绘导航栏（NavConfig 三级合并）+ 白屏错误弹窗 + `NavigatorComponent`（forward / back / backToTop / close 带结果回传），H5 `coconut.navigator.*`。
+离线包：`presentWebVC(with: "coconut://demo/index.html")` —— `CoconutSchemeHandler`（WKURLSchemeHandler）本地服务，无需网络。热更新：`CoconutUpdateManager.shared.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 CoconutNetwork 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `CoconutNetwork` v1.1.0（纯 Foundation 零依赖，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + URLSessionAdapter + mock + SSRF 守卫，可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`CoconutWebViewController`（open，可继承做模板容器）+ 自绘导航栏（NavConfig 三级合并）+ 白屏错误弹窗 + `NavigatorComponent`（forward / back / backToTop / close 带结果回传），H5 `coconut.navigator.*`。Update（v1.1.0 试点）：`UpdateComponent` 空实现（App Store 2.5.2，业务层 success:false），H5 `coconut.call('update', 'check'|'apply'|'rollback'|'version', …)`；首页「设置页」按钮直达离线包 hash 路由 `#/settings`（真实业务试点页）。
 
 ### 3. Android（Android Studio + Gradle）
 
@@ -98,7 +100,7 @@ cd AndroidWebBox
 
 集成到自己的 Android 项目见 [`AndroidWebBox/COCONUT_SDK_INTEGRATION.md`](./AndroidWebBox/COCONUT_SDK_INTEGRATION.md)。
 
-离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 `coconut-network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network` v1.1.0（纯 Kotlin JVM 库，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`CoconutWebActivity`（可继承做模板容器）+ Toolbar 导航栏（NavConfig 三级合并）+ 白屏错误弹窗 + `NavigatorComponent`（forward / back / backToTop / close 带结果回传），H5 `coconut.navigator.*`。
+离线包：`CoconutWebActivity.start(context, "coconut://demo/index.html")` —— 内置 assets + 沙箱覆盖本地服务，无需网络。热更新：`OfflineResourceManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，fixture 见 `scripts/serve-hot-update.sh`；下载走 `coconut-network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `coconut-network` v1.1.0（纯 Kotlin JVM 库，**native-first**：一发式 API `client.get/post/put/delete` + bytes 模式，OkHttp 式分层 + 双 adapter HttpURLConnection/OkHttp + mock + SSRF 守卫，零 Android 依赖可单独复用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`CoconutWebActivity`（可继承做模板容器）+ Toolbar 导航栏（NavConfig 三级合并）+ 白屏错误弹窗 + `NavigatorComponent`（forward / back / backToTop / close 带结果回传），H5 `coconut.navigator.*`。Update（v1.1.0 试点）：`UpdateComponent` 真实现（check / apply / rollback / version，复用热更新引擎，manifest 不透传 H5），H5 `coconut.call('update', …)`；首页「设置页」按钮直达离线包 hash 路由 `#/settings`（真实业务试点页）。
 
 ### 4. HarmonyOS NEXT（DevEco Studio）
 
@@ -111,7 +113,7 @@ hvigorw --mode module -p module=entry@default -p product=default assembleHap
 
 或用 DevEco Studio 打开 `HarmonyWebBox/` 直接 Run。组件在 `entry/src/main/ets/components/`，注册在 `pages/Index.ets`。
 
-离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 用 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后 127.0.0.1；下载走 `@coconut/network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network` v1.1.0（`CoconutNetwork/`，**native-first**：一发式 API + bytes 模式，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`WebContainer` 标准路由页（组合 `CoconutWebPage` + `CoconutWebDelegate` 行为钩子）+ 自绘导航栏 + 白屏错误弹窗 + `NavigatorComponent`，H5 `coconut.navigator.*`。
+离线包：`CoconutWebPage({ url: 'coconut://demo/index.html' })` —— rawfile + 沙箱覆盖本地服务，无需网络 / dev server。热更新：`CoconutUpdateManager.checkUpdate/performUpdate/rollback`（demo 按钮入口，manifest URL 用 Mac 局域网 IP，或 `hdc rport tcp:8000 tcp:8000` 后 127.0.0.1；下载走 `@coconut/network` 引擎，自动获得重试 / SSRF 守卫 / 统一超时）。Network：`NetworkComponent` 桥接独立 HTTP 引擎 `@coconut/network` v1.1.0（`CoconutNetwork/`，**native-first**：一发式 API + bytes 模式，OkHttp 式分层 + 可插拔 adapter + mock + SSRF 守卫，零依赖可单独给 native 项目用），H5 `coconut.call('network', 'request'|'getNetworkType', …)`。容器导航（v3.5.0）：`WebContainer` 标准路由页（组合 `CoconutWebPage` + `CoconutWebDelegate` 行为钩子）+ 自绘导航栏 + 白屏错误弹窗 + `NavigatorComponent`，H5 `coconut.navigator.*`。Update（v1.1.0 试点）：`UpdateComponent` 真实现（同 Android，manifest 不透传 H5），H5 `coconut.call('update', …)`；首页「设置页」按钮直达离线包 hash 路由 `#/settings`（真实业务试点页）。
 
 ---
 
