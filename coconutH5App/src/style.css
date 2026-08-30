@@ -1,0 +1,181 @@
+/* coconutH5App 全局样式 + 手机/pad 断点（断点只在此文件出现一次） */
+
+:root {
+  --c-bg: #f5f6f8;
+  --c-card: #ffffff;
+  --c-text: #1f2329;
+  --c-muted: #8a8f99;
+  --c-primary: #3370ff;
+  --c-border: #e5e6eb;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  /* 安全区：手机底部 tab bar 避让 home indicator（viewport-fit=cover） */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app { height: 100%; }
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+
+/* ===== Tab Shell 布局：手机竖轴（上内容下 tab）/ pad 横轴（左栏右内容） ===== */
+.tab-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== Tab Bar：手机底部横排 → pad 左侧 200px 纵排 ===== */
+.tab-bar {
+  flex: none;
+  display: flex;
+  flex-direction: row;
+  background: var(--c-card);
+  border-top: 1px solid var(--c-border);
+  padding-bottom: var(--safe-bottom);
+}
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 6px;
+  font-size: 11px;
+  color: var(--c-muted);
+}
+.tab-item.active { color: var(--c-primary); font-weight: 600; }
+.tab-item svg { width: 24px; height: 24px; }
+
+/* pad 断点：≥768px 侧边导航（用 min-width，不用 orientation——折叠屏/分屏下
+   orientation 不可靠，视口宽度才是布局真相） */
+@media (min-width: 768px) {
+  .tab-shell { flex-direction: row; }
+  .tab-bar {
+    flex-direction: column;
+    width: 200px;
+    border-top: none;
+    border-right: 1px solid var(--c-border);
+    padding: 16px 12px;
+    padding-bottom: 16px;
+  }
+  .tab-item {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .tab-item.active { background: #eef4ff; }
+  .tab-item svg { width: 22px; height: 22px; }
+  /* 内容区 pad 上限 + 居中（pad 宽屏下避免拉伸失形） */
+  .tab-content-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 32px 48px;
+  }
+}
+
+/* 手机内容区内边距（pad 覆写见上） */
+.tab-content-inner { padding: 16px 16px 32px; }
+
+/* ===== 共享视觉：页面标题 / 卡片 / 按钮（与 coconutWebBox 同语言） ===== */
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.page-hint { font-size: 13px; color: var(--c-muted); line-height: 1.5; margin-bottom: 16px; }
+
+.card {
+  background: var(--c-card);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card h3 {
+  font-size: 13px;
+  color: var(--c-muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.card pre {
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #f7f8fa;
+  padding: 10px;
+  border-radius: 6px;
+  min-height: 24px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  margin: 0;
+}
+.card pre.ok    { color: #00b42c; }
+.card pre.err   { color: #f53f3f; }
+.card pre.muted { color: var(--c-muted); }
+
+.btn {
+  flex: 1;
+  min-width: calc(50% - 5px);
+  height: 46px;
+  font-size: 15px;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  transition: opacity 0.15s;
+  font-weight: 500;
+}
+.btn:active:not(:disabled) { opacity: 0.8; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-a { background: var(--c-primary); }
+.btn-b { background: #00b42c; }
+.btn-r { background: #ff7d00; }
+.btn-d { background: #722ed1; }
+.btn-c { background: #f53f3f; }
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: "SF Mono", Menlo, monospace;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: var(--c-card);
+  color: var(--c-text);
+  outline: none;
+}
+.input:focus { border-color: var(--c-primary); }
+
+/* 平台徽标（与 coconutWebBox Settings.vue 同款） */
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef4ff;
+  color: var(--c-primary);
+  border: 1px solid #cfe0ff;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.platform-chip.web { background: #fff3e8; color: #ff7d00; border-color: #ffd6a8; }
+.platform-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
