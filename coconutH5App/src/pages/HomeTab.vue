@@ -46,10 +46,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { pcall } from '../lib/pcall'
 import { useConfigTick } from '../lib/configTick'
-import { onEvent } from '../lib/events'
+import { onEvent, resubscribeNative } from '../lib/events'
 
 const configTick = useConfigTick()
 const loading = ref(false)
@@ -130,6 +130,17 @@ onMounted(() => {
   loadDeviceInfo()
   // 实时刷新：network.change 原生推送（events.js fan-out，与其他页面共存）
   onEvent('network.change', () => refreshNetwork())
+
+  // Harmony 注入竞态自愈：ArkWeb 的 config（含 bridge token）晚于 mount 到位，
+  // 首轮调用 300004。config-loaded（coconut.js v3.5.1 轮询补发）到达后重试。
+  // Android/iOS 注入早于 mount，此 watch 不触发。
+  watch(configTick, (n) => {
+    if (n > 0) {
+      refreshNetwork()
+      loadDeviceInfo()
+      resubscribeNative()
+    }
+  })
 })
 </script>
 

@@ -34,7 +34,7 @@
  *                                                'nav.result' 订阅者（coconut.on）
  *   新容器页面里 coconut.on('nav.button', ({side}) => ...) 接收自定义按钮点击
  *
- * @version 3.5.0
+ * @version 3.5.1
  */
 
 (function (global, factory) {
@@ -58,7 +58,7 @@
      * coconut SDK 主类
      */
     var Coconut = function () {
-        this.version = '3.5.0';
+        this.version = '3.5.1';
         this.debug = false;
         this.defaultTimeout = 30000;
         this.isInitialized = false;
@@ -221,6 +221,7 @@
         }
         this.isInitialized = true;
         this._loadSecurityConfig();
+        this._pollSecurityConfig();
         this._setupLifecycle();
         return this;
     };
@@ -273,6 +274,35 @@
         } else {
             this._securityConfig = null;
         }
+    };
+
+    /**
+     * Harmony 配置注入竞态兜底（v3.5.1）
+     *
+     * ArkWeb 的 __coconutConfig 在 onPageEnd 才注入，晚于 H5 首渲染与
+     * mount 时的 bridge 调用 —— token 未到位，首轮调用全部 300004，
+     * 且 coconut:config-loaded 只在下次调用时才补发，页面会卡在降级态
+     * 直到用户手动触发一次调用。init 时若配置未到位，轮询等待注入，
+     * 到位后经 _loadSecurityConfig 补发 config-loaded，页面自愈。
+     *
+     * Android（同步注入）/ iOS（页面加载前注入）首轮即命中直接退出；
+     * 纯浏览器无注入，10s 后放弃。幂等：配置已到位时零行为。
+     */
+    Coconut.prototype._pollSecurityConfig = function () {
+        if (this._securityConfig || this._configPollStarted) return;
+        this._configPollStarted = true;
+        var self = this;
+        var tries = 0;
+        var timer = setInterval(function () {
+            tries++;
+            if (self._securityConfig ||
+                (typeof window !== 'undefined' && window.__coconutConfig)) {
+                clearInterval(timer);
+                self._loadSecurityConfig();
+            } else if (tries >= 40) { // ~10s @ 250ms
+                clearInterval(timer);
+            }
+        }, 250);
     };
 
     Coconut.prototype._applySecurity = function (request) {

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed（2026-08-30，Harmony RealApp e2e 抓出）
+
+- **`coconut.js` v3.5.1 — Harmony 配置注入竞态自愈**：ArkWeb 的 `__coconutConfig`（含 bridge token）在 `onPageEnd` 注入，晚于 H5 首渲染与 mount 时的 bridge 调用 → 首轮调用全部 `300004`，且 `coconut:config-loaded` 只在下一次调用时经 `_applySecurity` 补发，页面卡在降级态直到用户手动触发。修法：`init()` 时配置未到位则 250ms 轮询（~10s 上限），到位后 `_loadSecurityConfig()` 补发 `config-loaded`。Android（同步注入）/ iOS（加载前注入）首轮命中零开销；纯浏览器 10s 放弃。配套 h5app：`HomeTab` 监听 configTick 重试 mount 调用（refreshNetwork / loadDeviceInfo），`lib/events.js` 新增 `resubscribeNative()`（`c.on` 300004 后 config 到位重订，重复注册覆盖语义无害）。
+
 容器导航（v3.5.0，**三端齐活**）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
 
 ### Added（iOS 落地，2026-08-28）
