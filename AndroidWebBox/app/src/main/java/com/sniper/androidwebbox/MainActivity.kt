@@ -49,6 +49,10 @@ class MainActivity : AppCompatActivity() {
             openSettingsPage()
         }
 
+        findViewById<MaterialButton>(R.id.btnOpenH5App).setOnClickListener {
+            openH5App()
+        }
+
         findViewById<MaterialButton>(R.id.btnCheckUpdate).setOnClickListener {
             checkHotUpdate()
         }
@@ -96,6 +100,16 @@ class MainActivity : AppCompatActivity() {
     private fun openSettingsPage() {
         val url = "coconut://demo/index.html#/settings"
         Logger.d("MainActivity", "Opening settings page: $url")
+        CoconutWebActivity.start(this, url, enableDebug = true)
+    }
+
+    /**
+     * Open the H5 App (real-business pilot Phase 4): standalone offline-package
+     * module `h5app` — 4-tab mobile app (home / discover / AI / mine).
+     */
+    private fun openH5App() {
+        val url = "coconut://h5app/index.html"
+        Logger.d("MainActivity", "Opening H5 App: $url")
         CoconutWebActivity.start(this, url, enableDebug = true)
     }
 

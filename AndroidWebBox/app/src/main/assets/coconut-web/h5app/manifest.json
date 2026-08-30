@@ -1,0 +1,8 @@
+{
+  "moduleId": "h5app",
+  "version": "0.1.0",
+  "entry": "index.html",
+  "files": ["assets/index.js","coconut.d.ts","coconut.js","index.html"],
+  "md5": "49931cbe5e12072ab63f0962cc2b8462",
+  "fileHashes": {"assets/index.js":"9e6db511619e660a87bbe089e6cfe504","coconut.d.ts":"3b264de83b04b27e9200bbeadd970fc3","coconut.js":"cc56cf85d489b12386a3271dc0056b38","index.html":"2d76a8808e1d17a097f8625f7fe83ad1"}
+}

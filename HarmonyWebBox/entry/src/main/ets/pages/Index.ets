@@ -202,6 +202,17 @@ struct Index {
                 this.openContainer(this.offlinePackageUrl + '#/settings');
               })
 
+            // H5 App（真实业务试点 Phase 4：独立离线包模块 h5app，4 tab，对标 Android/iOS）
+            Button('H5 App (4 tab)')
+              .fontSize(18)
+              .width(200)
+              .height(50)
+              .backgroundColor('#3370FF')
+              .margin({ top: 16 })
+              .onClick(() => {
+                this.openContainer('coconut://h5app/index.html');
+              })
+
             // 热更新（对标 iOS/Android demo）：检查更新（可用则自动下载+应用）/ 回滚
             TextInput({ text: this.manifestUrl, placeholder: 'manifest URL' })
               .fontSize(14)

@@ -88,6 +88,11 @@ class HomeViewController: UIViewController {
         openSettingsBtn.addTarget(self, action: #selector(openSettingsPage), for: .touchUpInside)
         view.addSubview(openSettingsBtn)
 
+        // ---- 按钮 3e：H5 App（真实业务试点 Phase 4：独立离线包模块 h5app，4 tab） ----
+        let openH5AppBtn = makeButton(title: "H5 App (4 tab)", primary: false)
+        openH5AppBtn.addTarget(self, action: #selector(openH5App), for: .touchUpInside)
+        view.addSubview(openH5AppBtn)
+
         // ---- 热更新 manifest URL 输入框 ----
         manifestUrlField = UITextField()
         manifestUrlField.text = "http://localhost:8000/manifest.json"
@@ -164,7 +169,12 @@ class HomeViewController: UIViewController {
             openSettingsBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             openSettingsBtn.heightAnchor.constraint(equalToConstant: 56),
 
-            manifestUrlField.topAnchor.constraint(equalTo: openSettingsBtn.bottomAnchor, constant: 24),
+            openH5AppBtn.topAnchor.constraint(equalTo: openSettingsBtn.bottomAnchor, constant: 16),
+            openH5AppBtn.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
+            openH5AppBtn.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
+            openH5AppBtn.heightAnchor.constraint(equalToConstant: 56),
+
+            manifestUrlField.topAnchor.constraint(equalTo: openH5AppBtn.bottomAnchor, constant: 24),
             manifestUrlField.leadingAnchor.constraint(equalTo: openWebViewBtn.leadingAnchor),
             manifestUrlField.trailingAnchor.constraint(equalTo: openWebViewBtn.trailingAnchor),
             manifestUrlField.heightAnchor.constraint(equalToConstant: 36),
@@ -229,6 +239,11 @@ class HomeViewController: UIViewController {
     /// 设置页（真实业务试点：离线包 hash 路由 #/settings，对标 Android openSettingsPage）
     @objc private func openSettingsPage() {
         presentWebVC(with: "coconut://demo/index.html#/settings")
+    }
+
+    /// H5 App（真实业务试点 Phase 4：独立离线包模块 h5app，4 tab，对标 Android openH5App）
+    @objc private func openH5App() {
+        presentWebVC(with: "coconut://h5app/index.html")
     }
 
     /// 打开模板容器：走 TemplateRegistry 真实解析路径（coconut_templates.json）

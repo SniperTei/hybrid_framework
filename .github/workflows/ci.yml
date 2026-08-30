@@ -1,12 +1,13 @@
 # CI — 全 Linux（私有仓库免 macOS 10 倍分钟计费；iOS/Harmony 需模拟器/真机的测试仍本地跑）
 #
 #   android-jvm : CoconutSDK 三模块 JVM 单测（227 个，无需设备）
-#   h5          : 三端 H5 资源 drift 检查 + coconutWebBox 构建防挂
+#   h5          : 三端 H5 资源 drift 检查 + coconutWebBox/coconutH5App 构建防挂
 #
 # 本地等价命令：
 #   cd AndroidWebBox && ./gradlew :coconut-core:testDebugUnitTest :coconut-network:test :app:testDebugUnitTest
 #   bash scripts/sync-h5-assets.sh --check
 #   cd coconutWebBox && npm ci && npm run build
+#   cd coconutH5App && npm ci && npm run build
 
 name: CI
 
@@ -61,10 +62,23 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: coconutWebBox/package-lock.json
+          cache-dependency-path: |
+            coconutWebBox/package-lock.json
+            coconutH5App/package-lock.json
 
       - name: Build coconutWebBox (Demo.vue)
         working-directory: coconutWebBox
         run: |
           npm ci
           npm run build
+
+      - name: Build coconutH5App (4-tab H5 app)
+        working-directory: coconutH5App
+        run: |
+          npm ci
+          npm run build
+
+      # 离线包三端分发一致性（全模块构建 + diff native 资源目录；
+      # h5app 模块含 coconut.js 双拷贝 drift 硬门禁）
+      - name: Offline package sync check (all modules, 3 platforms)
+        run: bash scripts/build-offline-package.sh --check --quiet
