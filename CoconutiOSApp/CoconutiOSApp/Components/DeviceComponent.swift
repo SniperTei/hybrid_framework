@@ -1,35 +1,26 @@
-//
-//  DeviceComponent.swift
-//  CoconutiOSApp
-//
-//  消费者自定义组件示例：设备信息（对齐 API_CONTRACT.md §4.1 的 device 字段集）。
-//  methods 数组必须与 handle() 的 switch 分支一致 —— coconut.supports() 据此
-//  向 H5 透出能力。
-//
-
 import Foundation
 import UIKit
 import CoconutSDK
 
-class DeviceComponent: BaseComponent {
+public class DeviceComponent: BaseComponent {
+    override public init() { super.init() }
 
-    override init() { super.init() }
+    override public var name: String { "device" }
+    override public var version: String { "1.0.0" }
+    override public var pluginDescription: String { "Device and system information component" }
+    override public var methods: [String] { ["getInfo", "getSystemInfo", "getAppInfo", "getAll"] }
 
-    override var name: String { "device" }
-    override var version: String { "1.0.0" }
-    override var pluginDescription: String { "Minimal device info component (consumer app sample)" }
-    override var methods: [String] { ["getInfo", "getSystemInfo", "getAppInfo"] }
-
-    override func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
+    override public func handle(function: String, params: [String: Any]?) async throws -> [String: Any] {
         switch function {
-        case "getInfo": return getInfo()
+        case "getInfo": return getDeviceInfo()
         case "getSystemInfo": return getSystemInfo()
         case "getAppInfo": return getAppInfo()
+        case "getAll": return getAllInfo()
         default: try functionNotSupportedError(function)
         }
     }
 
-    private func getInfo() -> [String: Any] {
+    private func getDeviceInfo() -> [String: Any] {
         let device = UIDevice.current
         let screen = UIScreen.main
         return success([
@@ -57,20 +48,36 @@ class DeviceComponent: BaseComponent {
     }
 
     private func getAppInfo() -> [String: Any] {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         let bundleId = Bundle.main.bundleIdentifier ?? "unknown"
-        #if DEBUG
-        let debug = true
-        #else
-        let debug = false
-        #endif
         return success([
-            "appName": "CoconutiOSApp",
+            "appName": "CoconutSDK",
             "packageName": bundleId,
             "version": version,
             "buildNumber": build,
-            "debug": debug
+            "debug": ConfigHelper.isDebugMode
         ])
+    }
+
+    private func getAllInfo() -> [String: Any] {
+        let device = getDeviceInfo()
+        let system = getSystemInfo()
+        let app = getAppInfo()
+        return success([
+            "device": device,
+            "system": system,
+            "app": app
+        ])
+    }
+}
+
+private enum ConfigHelper {
+    static var isDebugMode: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
     }
 }

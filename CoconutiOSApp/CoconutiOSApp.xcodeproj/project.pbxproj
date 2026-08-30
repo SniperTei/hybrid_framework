@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AA0000032F78B1D300ABE060 /* CoconutSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000022F78B1D300ABE060 /* CoconutSDK */; };
+		AA0001092F78B1D300ABE060 /* CoconutNetwork in Frameworks */ = {isa = PBXBuildFile; productRef = AA0001082F78B1D300ABE060 /* CoconutNetwork */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +71,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0000032F78B1D300ABE060 /* CoconutSDK in Frameworks */,
+				AA0001092F78B1D300ABE060 /* CoconutNetwork in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +133,7 @@
 			name = CoconutiOSApp;
 			packageProductDependencies = (
 				AA0000022F78B1D300ABE060 /* CoconutSDK */,
+				AA0001082F78B1D300ABE060 /* CoconutNetwork */,
 			);
 			productName = CoconutiOSApp;
 			productReference = 7D960B2330428370003A7C12 /* CoconutiOSApp.app */;
@@ -216,6 +219,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AA0000012F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutSDK" */,
+				AA0001072F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutNetwork" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7D960B2430428370003A7C12 /* Products */;
@@ -598,6 +602,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../iOSWebBox/CoconutSDK;
 		};
+		AA0001072F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutNetwork" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../iOSWebBox/CoconutNetwork;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -605,6 +613,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0000012F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutSDK" */;
 			productName = CoconutSDK;
+		};
+		AA0001082F78B1D300ABE060 /* CoconutNetwork */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001072F78B1D300ABE060 /* XCLocalSwiftPackageReference "CoconutNetwork" */;
+			productName = CoconutNetwork;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

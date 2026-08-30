@@ -47,11 +47,30 @@ final class CoconutiOSAppUITests: XCTestCase {
             XCTFail("device.getInfo 响应未出现")
         }
 
-        // 4. 未声明方法（getAll 不在消费者组件 methods 数组）→ 200002 错误信封
+        // 4. 完整信息（getAll）：迁入完整参考组件后已声明并处理 → 成功信封
+        //    （旧最小消费者组件不声明 getAll → 200002；组件集已升级，断言随之翻转）
         app.buttons["完整信息"].firstMatch.tap()
-        let err = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "200002")
+        let all = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "packageName")
         ).firstMatch
-        XCTAssertTrue(err.waitForExistence(timeout: 10), "getAll 应返回 200002 错误信封")
+        XCTAssertTrue(all.waitForExistence(timeout: 10), "getAll 响应未出现")
+    }
+
+    /// H5 App 入口：coconut://h5app/index.html 离线包（随 CoconutSDK SPM
+    /// Resources 分发）经 SDK 本地服务加载，4 tab 壳渲染即算通。
+    @MainActor
+    func testH5AppEntry() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let h5AppButton = app.buttons["H5 App (4 tab)"]
+        XCTAssertTrue(h5AppButton.waitForExistence(timeout: 10), "H5 App 按钮未出现")
+        h5AppButton.tap()
+
+        // tab 栏 4 项（<a> 内 span 文本 → staticTexts）；等首页内容就绪
+        for title in ["首页", "发现", "AI", "我的"] {
+            let tab = app.staticTexts[title].firstMatch
+            XCTAssertTrue(tab.waitForExistence(timeout: 15), "tab「\(title)」未出现（h5app 离线包未加载？）")
+        }
     }
 }

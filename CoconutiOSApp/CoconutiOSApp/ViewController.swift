@@ -15,22 +15,36 @@ class ViewController: UIViewController {
 
         view.backgroundColor = .systemBackground
 
-        let button = UIButton(type: .system)
-        button.setTitle("打开 Coconut 容器", for: .normal)
-        button.titleLabel?.font = .boldSystemFont(ofSize: 17)
-        button.backgroundColor = UIColor.systemBlue
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(openContainer), for: .touchUpInside)
-        view.addSubview(button)
+        let containerButton = UIButton(type: .system)
+        containerButton.setTitle("打开 Coconut 容器", for: .normal)
+
+        // H5 App（真实业务试点 Phase 4）：离线包模块 h5app 随 CoconutSDK
+        // SPM Resources 到位（coconut-web/h5app/），coconut:// 走 SDK 本地服务
+        let h5AppButton = UIButton(type: .system)
+        h5AppButton.setTitle("H5 App (4 tab)", for: .normal)
+
+        for button in [containerButton, h5AppButton] {
+            button.titleLabel?.font = .boldSystemFont(ofSize: 17)
+            button.backgroundColor = UIColor.systemBlue
+            button.setTitleColor(.white, for: .normal)
+            button.layer.cornerRadius = 10
+        }
+        containerButton.addTarget(self, action: #selector(openContainer), for: .touchUpInside)
+        h5AppButton.addTarget(self, action: #selector(openH5App), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [containerButton, h5AppButton])
+        stack.axis = .vertical
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            button.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            button.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            button.heightAnchor.constraint(equalToConstant: 50),
-            button.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            view.trailingAnchor.constraint(greaterThanOrEqualTo: button.trailingAnchor, constant: 24),
+            stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            containerButton.heightAnchor.constraint(equalToConstant: 50),
+            h5AppButton.heightAnchor.constraint(equalToConstant: 50),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            view.trailingAnchor.constraint(greaterThanOrEqualTo: stack.trailingAnchor, constant: 24),
         ])
     }
 
@@ -45,6 +59,16 @@ class ViewController: UIViewController {
         webVC.modalPresentationStyle = .fullScreen
         present(webVC, animated: true) {
             webVC.loadUrl(html.absoluteString)
+        }
+    }
+
+    /// H5 App（真实业务试点）：coconut:// 离线包模块 h5app
+    @objc private func openH5App() {
+        let webVC = CoconutWebViewController()
+        webVC.enableDebug = true
+        webVC.modalPresentationStyle = .fullScreen
+        present(webVC, animated: true) {
+            webVC.loadUrl("coconut://h5app/index.html")
         }
     }
 }

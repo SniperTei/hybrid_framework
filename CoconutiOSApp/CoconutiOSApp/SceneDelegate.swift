@@ -21,9 +21,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // 初始化 SDK + 显式注册组件（消费者按 API_CONTRACT 自行扩展；
         // 组件不随 SDK 发布是设计使然）。注册先于 H5 加载完成即可。
+        // 参考组件集从 iOSWebBox 拷入（update 不拷 → H5 设置页正确显示未注册），
+        // 对齐 Android RealApp（CoconutAndroidApp）的六组件注册。
         Task { @MainActor in
             await CoconutSDK.initialize()
-            await CoconutSDK.registerComponents([DeviceComponent()])
+            await CoconutSDK.registerComponents([
+                DeviceComponent(),
+                StorageComponent(),
+                EventComponent(),
+                DialogComponent(),
+                NetworkComponent(),
+                NavigatorComponent(),
+            ])
         }
     }
 
