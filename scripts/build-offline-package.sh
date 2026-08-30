@@ -76,6 +76,22 @@ MODULES="${MODULES:-$ALL_MODULES}"
 log()   { [[ "$QUIET" -eq 0 ]] && echo "$@" || true; }
 errlog() { echo "$@" >&2; }
 
+# 跨平台文件 MD5（macOS md5 -q / Linux md5sum；CI 是 ubuntu runner）
+file_md5() {
+  if command -v md5 >/dev/null 2>&1; then
+    md5 -q "$1"
+  else
+    md5sum "$1" | cut -d' ' -f1
+  fi
+}
+stdin_md5() {
+  if command -v md5 >/dev/null 2>&1; then
+    md5 -q
+  else
+    md5sum | cut -d' ' -f1
+  fi
+}
+
 module_dir() {
   case "$1" in
     demo)  echo "$REPO_ROOT/coconutWebBox" ;;
@@ -156,7 +172,10 @@ build_and_distribute() {
   # module script 规范上永远走 CORS 模式请求，而离线 scheme（resource:// 等）
   # origin 为 null → 必被网络层拒绝。剥成 classic script 走 no-cors 本地加载。
   # 必须在 manifest 哈希之前。
-  sed -i '' -e 's/ crossorigin//g' -e 's/ type="module"//g' "$pkg_dir/index.html"
+  # sed -i.bak（后缀附着式）是 BSD/GNU sed 都接受的唯一 in-place 写法；
+  # 立即删 .bak，落在 manifest 哈希之前不会入包
+  sed -i.bak -e 's/ crossorigin//g' -e 's/ type="module"//g' "$pkg_dir/index.html"
+  rm -f "$pkg_dir/index.html.bak"
   if grep -qE 'crossorigin|type="module"' "$pkg_dir/index.html"; then
     errlog "✗ Failed to strip module/crossorigin attrs from $pkg_dir/index.html"
     exit 2
@@ -167,14 +186,14 @@ build_and_distribute() {
     local manifest_files_json="" file_hashes_json="" combined=""
     while IFS= read -r f; do
       local h
-      h="$(md5 -q "$f")"
+      h="$(file_md5 "$f")"
       manifest_files_json+="${manifest_files_json:+,}\"$f\""
       file_hashes_json+="${file_hashes_json:+,}\"$f\":\"$h\""
       combined+="$h"
     done < <(find . -type f | sed 's|^\./||' | sort)
 
     local pkg_md5
-    pkg_md5="$(printf '%s' "$combined" | md5 -q)"
+    pkg_md5="$(printf '%s' "$combined" | stdin_md5)"
     cat > manifest.json <<EOF
 {
   "moduleId": "$module_id",
