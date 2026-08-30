@@ -23,5 +23,11 @@ class MainActivity : AppCompatActivity() {
             // H5 三件套（coconut_index.html / coconut.js / coconut.d.ts）随 app 打包
             CoconutWebActivity.start(this, "file:///android_asset/coconut_index.html", enableDebug = true)
         }
+
+        findViewById<Button>(R.id.btn_open_h5app).setOnClickListener {
+            // H5 App（真实业务试点 Phase 4）：离线包模块 h5app 由宿主 assets 自带
+            // （scripts/build-offline-package.sh 分发），coconut:// 走 SDK 本地服务
+            CoconutWebActivity.start(this, "coconut://h5app/index.html", enableDebug = true)
+        }
     }
 }

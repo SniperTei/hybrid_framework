@@ -12,9 +12,23 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="打开 Coconut 容器"
+        app:layout_constraintBottom_toTopOf="@id/btn_open_h5app"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed" />
+
+    <!-- H5 App（真实业务试点 Phase 4）：宿主自带离线包模块 h5app -->
+    <Button
+        android:id="@+id/btn_open_h5app"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="H5 App (4 tab)"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/btn_open_container" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
