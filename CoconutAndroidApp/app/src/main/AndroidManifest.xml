@@ -4,9 +4,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- demo 验证 app：放行明文 HTTP（对齐 AndroidWebBox）。
+         真实业务 app 应使用 networkSecurityConfig 按域名配例外。 -->
     <application
         android:name=".CoconutAppApplication"
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
