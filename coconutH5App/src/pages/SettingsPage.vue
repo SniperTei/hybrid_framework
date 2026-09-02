@@ -84,7 +84,7 @@
 // 从 coconutWebBox Settings.vue 移植（真实业务试点 Phase 1 首版页面）：
 // storage key 加 h5app. 前缀与 demo 模块隔离；样式改用全局 card/btns 体系
 import { ref, computed, onMounted } from 'vue'
-import { pcall } from '../lib/pcall'
+import { pcall, pcallBoot } from '../lib/pcall'
 import { useConfigTick } from '../lib/configTick'
 
 const loading = ref(false)
@@ -214,9 +214,9 @@ const storageKeysText = computed(() =>
 
 async function refreshStorage() {
   loading.value = true
-  const r = await pcall('storage', 'getAllKeys', {})
+  const r = await pcallBoot('storage', 'getAllKeys', {})
   if (!r.err && r.data) storageKeys.value = r.data.keys || []
-  const s = await pcall('storage', 'getSize', {})
+  const s = await pcallBoot('storage', 'getSize', {})
   if (!s.err && s.data) storageCount.value = s.data.count ?? storageKeys.value.length
   loading.value = false
 }
@@ -251,7 +251,7 @@ const changedKeys = computed(() => prefs.value.filter(p => p.value !== p.initial
 
 async function loadPrefs() {
   for (const p of prefs.value) {
-    const r = await pcall('storage', 'getItem', { key: p.key })
+    const r = await pcallBoot('storage', 'getItem', { key: p.key })
     if (!r.err && r.data && r.data.value !== null && r.data.value !== undefined) {
       // 布尔以字符串落盘（storage value 语义为 string），'false' / '0' 视为关
       const v = String(r.data.value)
@@ -285,7 +285,7 @@ async function loadAppInfo() {
 }
 
 async function loadDeviceInfo() {
-  const r = await pcall('device', 'getInfo', {})
+  const r = await pcallBoot('device', 'getInfo', {})
   if (!r.err && r.data) deviceInfo.value = JSON.stringify(r.data, null, 2)
 }
 

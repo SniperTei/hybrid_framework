@@ -65,7 +65,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import ApiBaseField from '../components/ApiBaseField.vue'
-import { pcall } from '../lib/pcall'
+import { pcall, pcallBoot } from '../lib/pcall'
 import { onEvent, fmtEventTime } from '../lib/events'
 import {
   SNIPER_BASE_KEY, DEFAULT_SNIPER_BASE, sniperPlaceholder,
@@ -148,8 +148,8 @@ async function clearEvents() {
 }
 
 onMounted(async () => {
-  // 已读水位从 storage 恢复
-  const r = await pcall('storage', 'getItem', { key: READ_TS_KEY })
+  // 已读水位从 storage 恢复（mount 即调，用 pcallBoot 抗 config 注入竞态）
+  const r = await pcallBoot('storage', 'getItem', { key: READ_TS_KEY })
   if (!r.err && r.data && r.data.value) lastReadTs.value = Number(r.data.value) || 0
 
   // 四类事件订阅（events.js fan-out；nav.result 接住详情/设置页 close 回传）

@@ -5,7 +5,7 @@
 //   GET  {base}/foods/?count=N   (Bearer)  → data: foods 数组
 //   GET  {base}/foods/{id}       (Bearer)  → data: 单条（404 → 业务失败 envelope）
 // envelope（bridge network.request 返回）：{success, httpStatus, code, msg, data, costTime}
-import { pcall } from './pcall'
+import { pcall, pcallBoot } from './pcall'
 
 export const SNIPER_BASE_KEY = 'h5app.api_base'
 // 各端默认地址语义（真实 base 用配置覆盖）：
@@ -26,7 +26,7 @@ export function sniperPlaceholder() {
 export async function resolveSniperBase() {
   const q = new URLSearchParams(location.search).get('apiBase')
   if (q) return q
-  const r = await pcall('storage', 'getItem', { key: SNIPER_BASE_KEY })
+  let r = await pcallBoot('storage', 'getItem', { key: SNIPER_BASE_KEY })
   if (!r.err && r.data && r.data.value) return r.data.value
   return DEFAULT_SNIPER_BASE
 }
@@ -80,7 +80,8 @@ export async function getFoods(base, count = 20) {
     if (!l.ok) return l
     r = await rawRequest(base, 'GET', '/foods/', { params: { count: String(count) }, auth: true })
   }
-  if (r.ok) return { ok: true, data: Array.isArray(r.data) ? r.data : (r.data?.items || []) }
+  // 真实契约：data.foods（见响应 envelope；兼容 bare array / items 老假设）
+  if (r.ok) return { ok: true, data: Array.isArray(r.data) ? r.data : (r.data?.foods || r.data?.items || []) }
   return r
 }
 

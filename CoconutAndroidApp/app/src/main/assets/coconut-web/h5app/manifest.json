@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "entry": "index.html",
   "files": ["assets/index.js","coconut.d.ts","coconut.js","index.html"],
-  "md5": "72cdd48b387a44e6dc172a3adf09353f",
-  "fileHashes": {"assets/index.js":"4bfad44128a187f24752eebb00fc328f","coconut.d.ts":"3b264de83b04b27e9200bbeadd970fc3","coconut.js":"c838b8040f4ab86312ce86d96e6627dd","index.html":"2d76a8808e1d17a097f8625f7fe83ad1"}
+  "md5": "14c4891f1425cfcc4a9f2fc4a4bc60f9",
+  "fileHashes": {"assets/index.js":"a109157599100721c4b1f7e3a2f4fe14","coconut.d.ts":"3b264de83b04b27e9200bbeadd970fc3","coconut.js":"c838b8040f4ab86312ce86d96e6627dd","index.html":"2d76a8808e1d17a097f8625f7fe83ad1"}
 }

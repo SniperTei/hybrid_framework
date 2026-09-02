@@ -67,6 +67,8 @@ button { font-family: inherit; cursor: pointer; }
 @media (min-width: 768px) {
   .tab-shell { flex-direction: row; }
   .tab-bar {
+    /* DOM 里 TabBar 在 content 之后（手机竖排=底部）；row 下用 order 挪到左侧 */
+    order: -1;
     flex-direction: column;
     width: 200px;
     border-top: none;
