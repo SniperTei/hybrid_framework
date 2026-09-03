@@ -4,9 +4,14 @@
 
 ## [Unreleased]
 
-### Fixed（2026-08-30，Harmony RealApp e2e 抓出）
+## [3.5.1] - 2026-09-03
 
-- **`coconut.js` v3.5.1 — Harmony 配置注入竞态自愈**：ArkWeb 的 `__coconutConfig`（含 bridge token）在 `onPageEnd` 注入，晚于 H5 首渲染与 mount 时的 bridge 调用 → 首轮调用全部 `300004`，且 `coconut:config-loaded` 只在下一次调用时经 `_applySecurity` 补发，页面卡在降级态直到用户手动触发。修法：`init()` 时配置未到位则 250ms 轮询（~10s 上限），到位后 `_loadSecurityConfig()` 补发 `config-loaded`。Android（同步注入）/ iOS（加载前注入）首轮命中零开销；纯浏览器 10s 放弃。配套 h5app：`HomeTab` 监听 configTick 重试 mount 调用（refreshNetwork / loadDeviceInfo），`lib/events.js` 新增 `resubscribeNative()`（`c.on` 300004 后 config 到位重订，重复注册覆盖语义无害）。
+### Fixed
+
+- **`coconut.js` v3.5.1 — Harmony 配置注入竞态自愈**（2026-08-30，Harmony RealApp e2e 抓出）：ArkWeb 的 `__coconutConfig`（含 bridge token）在 `onPageEnd` 注入，晚于 H5 首渲染与 mount 时的 bridge 调用 → 首轮调用全部 `300004`，且 `coconut:config-loaded` 只在下一次调用时经 `_applySecurity` 补发，页面卡在降级态直到用户手动触发。修法：`init()` 时配置未到位则 250ms 轮询（~10s 上限），到位后 `_loadSecurityConfig()` 补发 `config-loaded`。Android（同步注入）/ iOS（加载前注入）首轮命中零开销；纯浏览器 10s 放弃。配套 h5app：`HomeTab` 监听 configTick 重试 mount 调用（refreshNetwork / loadDeviceInfo），`lib/events.js` 新增 `resubscribeNative()`（`c.on` 300004 后 config 到位重订，重复注册覆盖语义无害）。
+- **Android `CoconutWebActivity.extractResourcePath` 不剥 fragment/query**：`coconut://` + hash 路由（`#/settings`、`#/detail?id=`）的离线资源路径带着 `#…?…` 查文件必失败 → 拦截放弃 → 主帧 `ERR_NAME_NOT_RESOLVED`（iOS `url.path` / Harmony `[?#]` 正则剥离天然免疫）。修法：`substringBefore('#').substringBefore('?')`。设置页试点 e2e 抓出（`9c07b66`）；CoconutAndroidApp 手验（2026-09-02）复现并暴露「mavenLocal 3.5.0 AAR 落后源码」——SDK 源码修复后须重新 `publishToMavenLocal` 或等发版，本版即补。
+
+## [3.5.0] - 2026-08-28
 
 容器导航（v3.5.0，**三端齐活**）：H5 开新容器 / 返回 / 带结果关闭 + 导航栏配置 + 白屏错误弹窗。`coconut.js` v3.5.0 `coconut.navigator` 命名空间（三端同步下发，未落地平台 `supports('navigator')` gating）。契约详见 `API_CONTRACT.md` §4.6。
 

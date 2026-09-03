@@ -40,7 +40,7 @@ android {
 
 dependencies {
     // Coconut SDK（mavenLocal 消费者验证：先在 AndroidWebBox 跑 ./gradlew publishToMavenLocal）
-    implementation("com.sniper.coconut:coconut-sdk:3.5.0")
+    implementation("com.sniper.coconut:coconut-sdk:3.5.1")
     // 独立网络引擎（NetworkComponent 直用；mavenLocal 先发布 coconut-network）
     implementation("com.sniper.coconut:coconut-network:1.1.0")
 

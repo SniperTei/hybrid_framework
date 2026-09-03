@@ -2,7 +2,7 @@
 
 Coconut SDK 的 H5/Web 测试项目（Vue 3 + Vite），用于开发期联调 H5 ↔ 原生 Bridge。
 
-> **当前协议版本：v3.5.0**（`component` + `function` 拆分、streaming、`__coconutConfig`、`coconut.dialog` / `coconut.navigator` 命名空间）。
+> **当前协议版本：v3.5.1**（`component` + `function` 拆分、streaming、`__coconutConfig`、`coconut.dialog` / `coconut.navigator` 命名空间）。
 > 详细 API 参考见仓库根 [`API_CONTRACT.md`](../API_CONTRACT.md)。
 
 ---
@@ -78,7 +78,7 @@ coconutWebBox/
 
 ### 版本要求
 
-- coconut.js 当前版本 **3.5.0**（见文件头部 `@version` 注释）
+- coconut.js 当前版本 **3.5.1**（见文件头部 `@version` 注释）
 - Bridge 协议主版本 = `coconut.env.hybridVersion` = `"3"`
 - 协议要求：native 端 CoconutSDK **≥ 3.0.0**（三端任一）
 - 不匹配的故障模式：H5 发 `component:function` 拆参数请求到旧 native（v2.x 仍读 `method` 字段）→ 返回 `code:'200001' UNKNOWN_COMPONENT`

@@ -39,7 +39,7 @@ export class CoconutConfig {
   enableErrorDialog: boolean = true;
 
   // SDK version
-  sdkVersion: string = '3.5.0';
+  sdkVersion: string = '3.5.1';
 
   get effectiveH5Domain(): string {
     return this.h5Domain || EnvironmentConfig.getH5Domain(this.environment);
