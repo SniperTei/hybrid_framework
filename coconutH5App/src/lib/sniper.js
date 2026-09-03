@@ -8,11 +8,12 @@
 import { pcall, pcallBoot } from './pcall'
 
 export const SNIPER_BASE_KEY = 'h5app.api_base'
-// 各端默认地址语义（真实 base 用配置覆盖）：
+// 默认指向真实 Sniper 服务（demo 仓库，地址与 iOS SniperYoloE2ETests 一致）。
+// 本地起服务时用输入框覆盖；各端 localhost 语义：
 //   iOS sim : localhost 即 Mac
 //   Android : 10.0.2.2 是宿主 loopback（或 adb reverse）
 //   Harmony : 127.0.0.1 需先 hdc rport tcp:<port> tcp:<port>
-export const DEFAULT_SNIPER_BASE = 'http://127.0.0.1:8041'
+export const DEFAULT_SNIPER_BASE = 'http://115.191.30.167:8041/api/v1'
 
 export function sniperPlaceholder() {
   const env = window.coconut?.environment
@@ -35,8 +36,8 @@ export async function saveSniperBase(v) {
   await pcall('storage', 'setItem', { key: SNIPER_BASE_KEY, value: v })
 }
 
-// ---- 模块级登录态（token 内存态；forward 出去的详情页是新 WebView 实例，
-//      不共享本模块状态，需自行 login）----
+// ---- 模块级登录态（token 内存态；SPA 内切页共享本模块状态，
+//      冷启动直开详情页时 getFood 自行 login）----
 let token = null
 export function resetToken() { token = null }
 

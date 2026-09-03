@@ -33,7 +33,7 @@
       <div class="btns" style="margin-top: 10px">
         <button class="btn btn-b" @click="loadList" :disabled="listState === 'loading'">刷新列表</button>
       </div>
-      <p class="sec-hint">点行 navigator.forward 打开详情（新容器）；详情关闭时 close 回传 → 下方事件流出现 nav.result。</p>
+      <p class="sec-hint">点行 SPA 内切详情页（hash 路由，不开新容器，共享登录态）；详情「返回并回传」→ 下方事件流出现 detail.result。</p>
     </div>
 
     <!-- ========== 区块 2：事件订阅流 ========== -->
@@ -66,6 +66,7 @@
 import { ref, computed, onMounted } from 'vue'
 import ApiBaseField from '../components/ApiBaseField.vue'
 import { pcall, pcallBoot } from '../lib/pcall'
+import { takeDetailResult } from '../lib/detailResult'
 import { onEvent, fmtEventTime } from '../lib/events'
 import {
   SNIPER_BASE_KEY, DEFAULT_SNIPER_BASE, sniperPlaceholder,
@@ -101,10 +102,9 @@ function starOf(f) {
   return Math.max(0, Math.min(5, isNaN(s) ? 0 : s))
 }
 
-// forward 开新容器：URL 必须绝对（UrlGuard 拦 scheme-less 相对路径）
+// SPA 内切详情页（不开新容器）：hash 切换，App.vue 路由渲染 DetailPage
 function openDetail(f) {
-  const url = location.origin + location.pathname + '#/detail?id=' + encodeURIComponent(f.id)
-  window.coconut.navigator.forward({ url, header: { title: '详情' } }, () => {})
+  location.hash = '#/detail?id=' + encodeURIComponent(f.id)
 }
 
 // ---- 事件流 ----
@@ -151,6 +151,10 @@ onMounted(async () => {
   // 已读水位从 storage 恢复（mount 即调，用 pcallBoot 抗 config 注入竞态）
   const r = await pcallBoot('storage', 'getItem', { key: READ_TS_KEY })
   if (!r.err && r.data && r.data.value) lastReadTs.value = Number(r.data.value) || 0
+
+  // 详情页 SPA 返回带回的结果（pending 槽，取走即清）
+  const dr = takeDetailResult()
+  if (dr) appendEvent('detail.result', dr)
 
   // 四类事件订阅（events.js fan-out；nav.result 接住详情/设置页 close 回传）
   onEvent('test.echo', d => appendEvent('test.echo', d))

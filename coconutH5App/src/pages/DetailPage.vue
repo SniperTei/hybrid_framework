@@ -1,7 +1,7 @@
 <template>
   <div class="detail-wrap">
     <h1 class="page-title">详情</h1>
-    <p class="page-hint">GET /foods/{{ foodId }}（bridge 网络引擎 · 独立容器自行登录）</p>
+    <p class="page-hint">GET /foods/{{ foodId }}（bridge 网络引擎 · SPA 内切页共享登录态）</p>
 
     <div v-if="state === 'loading'" class="card"><pre class="muted">加载中…</pre></div>
 
@@ -29,11 +29,11 @@
     </template>
 
     <div class="btns" style="margin-top: 16px">
-      <button class="btn btn-a" @click="back">返回（navigator.back）</button>
-      <button class="btn btn-d" @click="closeWithResult">关闭并回传</button>
+      <button class="btn btn-a" @click="back">返回</button>
+      <button class="btn btn-d" @click="backWithResult">返回并回传</button>
     </div>
     <p class="page-hint" style="margin-top: 10px">
-      「关闭并回传」= navigator.close({{ closePayloadPreview }}) → 上一容器事件流的 nav.result。
+      「返回并回传」= hash 回切发现页 + 结果槽 {{ closePayloadPreview }} → 事件流 detail.result。
     </p>
   </div>
 </template>
@@ -43,8 +43,10 @@ import { ref, computed, onMounted } from 'vue'
 import {
   resolveSniperBase, getFood,
 } from '../lib/sniper'
+import { setDetailResult } from '../lib/detailResult'
 
-// forward 打开的新容器：独立 WebView 实例，模块状态不共享 → 自行 login
+// SPA 内切页（同容器 hash 路由）：与发现页共享 sniper.js 模块级登录态，
+// 从发现页进来通常已持 token；直开 / 冷启动时 getFood 自行 login
 const foodId = (() => {
   const h = window.location.hash
   const q = h.split('?')[1] || ''
@@ -76,12 +78,14 @@ async function load() {
   }
 }
 
+// SPA 内切页：hash 回退（进过 history，物理返回键同路径）
 function back() {
-  window.coconut.navigator.back(() => {})
+  history.back()
 }
 
-function closeWithResult() {
-  window.coconut.navigator.close({ visitedId: foodId, from: 'detail', ts: Date.now() }, () => {})
+function backWithResult() {
+  setDetailResult({ visitedId: foodId, from: 'detail', ts: Date.now() })
+  history.back()
 }
 
 onMounted(async () => {
