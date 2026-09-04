@@ -46,6 +46,17 @@
           }
         ],
       }
+    ],
+    // h5app 发现页走 bridge network 引擎访问远端 Sniper 服务，
+    // 缺 INTERNET 时 http 栈报 Permission denied（本地 rawfile 页不需要，此前未暴露）
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        // getNetworkType / on('network.change') 需要；缺失时网络状态恒 Unknown
+        "name": "ohos.permission.GET_NETWORK_INFO"
+      }
     ]
   }
 }
